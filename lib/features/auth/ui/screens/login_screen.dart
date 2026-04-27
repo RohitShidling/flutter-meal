@@ -5,6 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:meal_app/features/auth/providers/auth_provider.dart';
 import 'package:meal_app/features/auth/ui/screens/otp_screen.dart';
 import 'package:meal_app/core/theme/app_theme.dart';
+import 'package:meal_app/core/utils/error_handler.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -46,14 +47,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
       } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(provider.errorMessage),
-            backgroundColor: AppTheme.accentColor,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        );
+        ErrorHandler.showError(context, provider.errorMessage);
       }
     }
   }
@@ -62,17 +56,17 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final isLoading = context.watch<AuthProvider>().state == AuthState.loading;
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.dark,
-      child: Scaffold(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Scaffold(
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              AppTheme.primaryColor.withOpacity(0.05),
-              Colors.white,
+              AppTheme.primaryColor.withOpacity(isDark ? 0.2 : 0.05),
+              Theme.of(context).scaffoldBackgroundColor,
             ],
           ),
         ),
@@ -89,7 +83,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   
                   // App Branding
                   Text(
-                    'The Meal',
+                    'Buuttii Pro',
                     style: Theme.of(context).textTheme.displayLarge?.copyWith(
                       color: AppTheme.primaryColor,
                       fontSize: 40,
@@ -144,7 +138,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
-                                color: AppTheme.textPrimary,
+                                color: Theme.of(context).textTheme.bodyLarge?.color,
                               ),
                             ),
                             SizedBox(width: 8),
@@ -192,7 +186,6 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
           ),
-        ),
         ),
       ),
     );
