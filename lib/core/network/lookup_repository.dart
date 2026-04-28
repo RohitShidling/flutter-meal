@@ -67,4 +67,15 @@ class LookupRepository {
       return [];
     }
   }
+  Future<List<Map<String, dynamic>>> getSubscriptions() async {
+    try {
+      final response = await _dioClient.dio.get(ApiEndpoints.subscriptions);
+      if (response.data['success'] == true) {
+        return List<Map<String, dynamic>>.from(response.data['data']);
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
 }

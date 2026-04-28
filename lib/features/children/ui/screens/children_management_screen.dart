@@ -33,7 +33,7 @@ class _ChildrenManagementScreenState extends State<ChildrenManagementScreen> {
     final children = childrenProvider.children;
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundLight,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Manage Children'),
         leading: IconButton(
@@ -41,41 +41,46 @@ class _ChildrenManagementScreenState extends State<ChildrenManagementScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: childrenProvider.isLoading 
-        ? const Center(child: CircularProgressIndicator())
-        : ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              if (children.isEmpty)
-                _buildEmptyState()
-              else
-                ...children.map((child) => _buildChildCard(context, child)),
-              
-              if (children.length < 3)
-                const SizedBox(height: 20),
-              if (children.length < 3)
-                ElevatedButton.icon(
-                  onPressed: () => _showChildForm(context),
-                  icon: const Icon(CupertinoIcons.add),
-                  label: const Text('Add Child'),
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 60),
-                  ),
-                ),
-              if (children.length >= 3)
-                Padding(
-                  padding: const EdgeInsets.only(top: 20),
-                  child: Text(
-                    'Maximum 3 children allowed.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Theme.of(context).textTheme.bodyMedium?.color,
-                      fontStyle: FontStyle.italic,
+      body: RefreshIndicator(
+        onRefresh: () => childrenProvider.fetchChildren(),
+        child: childrenProvider.isLoading && children.isEmpty
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(20),
+              children: [
+                if (children.isEmpty)
+                  _buildEmptyState()
+                else
+                  ...children.map((child) => _buildChildCard(context, child)),
+                
+                if (children.length < 3)
+                  const SizedBox(height: 20),
+                if (children.length < 3)
+                  ElevatedButton.icon(
+                    onPressed: () => _showChildForm(context),
+                    icon: const Icon(CupertinoIcons.add),
+                    label: const Text('Add Child'),
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 60),
                     ),
                   ),
-                ),
-            ],
-          ),
+                if (children.length >= 3)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 20),
+                    child: Text(
+                      'Maximum 3 children allowed.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Theme.of(context).textTheme.bodyMedium?.color,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 80),
+              ],
+            ),
+      ),
     );
   }
 
@@ -104,51 +109,126 @@ class _ChildrenManagementScreenState extends State<ChildrenManagementScreen> {
   }
 
   Widget _buildChildCard(BuildContext context, ChildModel child) {
-    return AppleCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                child.name,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.surfaceDark : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: isDark 
+                    ? [Colors.indigo.withOpacity(0.2), Colors.transparent]
+                    : [Colors.indigo.withOpacity(0.05), Colors.transparent],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
               ),
-              Row(
+              child: Row(
                 children: [
-                  IconButton(
-                    icon: const Icon(CupertinoIcons.pencil, color: AppTheme.primaryColor),
-                    onPressed: () => _showChildForm(context, child: child),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(CupertinoIcons.person_fill, color: AppTheme.primaryColor),
                   ),
-                  IconButton(
-                    icon: const Icon(CupertinoIcons.trash, color: AppTheme.accentColor),
-                    onPressed: () => _confirmDelete(context, child),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          child.name,
+                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                        ),
+                        Text(
+                          'Roll No: ${child.rollNumber}',
+                          style: TextStyle(
+                            color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+                  _buildIconButton(CupertinoIcons.pencil, Colors.blue, () => _showChildForm(context, child: child)),
+                  const SizedBox(width: 8),
+                  _buildIconButton(CupertinoIcons.trash, Colors.red, () => _confirmDelete(context, child)),
                 ],
               ),
-            ],
-          ),
-          const Divider(),
-          _buildInfoRow(CupertinoIcons.building_2_fill, child.schoolName ?? 'School ID: ${child.schoolId}'),
-          _buildInfoRow(CupertinoIcons.book_fill, child.standardName ?? 'Standard ID: ${child.standardId}'),
-          _buildInfoRow(CupertinoIcons.clock_fill, 'Meal Time: ${TimeUtils.formatToDisplay(child.mealTime)}'),
-        ],
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+              child: Column(
+                children: [
+                  const Divider(height: 1),
+                  const SizedBox(height: 16),
+                  _buildInfoRow(CupertinoIcons.building_2_fill, child.schoolName ?? 'School ID: ${child.schoolId}', isDark),
+                  const SizedBox(height: 10),
+                  _buildInfoRow(CupertinoIcons.book_fill, child.standardName ?? 'Standard ID: ${child.standardId}', isDark),
+                  const SizedBox(height: 10),
+                  _buildInfoRow(CupertinoIcons.clock_fill, 'Meal Delivery: ${TimeUtils.formatToDisplay(child.mealTime)}', isDark),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String text) {
-    final color = Theme.of(context).textTheme.bodyMedium?.color;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 8),
-          Text(text, style: TextStyle(color: color)),
-        ],
+  Widget _buildIconButton(IconData icon, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, color: color, size: 20),
       ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String text, bool isDark) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 14,
+              color: isDark ? AppTheme.textPrimaryDark.withOpacity(0.8) : AppTheme.textPrimaryLight.withOpacity(0.8),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -212,19 +292,30 @@ class _ChildFormState extends State<_ChildForm> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<LookupProvider>().fetchInitialData();
-    });
     
     _nameController = TextEditingController(text: widget.child?.name);
     _rollController = TextEditingController(text: widget.child?.rollNumber);
-    _timeController = TextEditingController(text: widget.child?.mealTime ?? '12:30:00');
+    _timeController = TextEditingController(text: widget.child?.mealTime ?? '13:30');
+
+    // If editing, we need to fetch lookup data to pre-fill the selections
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final lookup = context.read<LookupProvider>();
+      if (widget.child != null) {
+        await lookup.fetchInitialData();
+        setState(() {
+          _selectedSchool = lookup.schools.where((s) => s.id == widget.child!.schoolId).firstOrNull;
+          _selectedStandard = lookup.standards.where((s) => s.id == widget.child!.standardId).firstOrNull;
+          _selectedMealSize = lookup.mealSizes.where((s) => s.id == widget.child!.mealSizeId).firstOrNull;
+        });
+      }
+    });
   }
 
   Future<void> _selectTime(BuildContext context) async {
+    FocusScope.of(context).unfocus(); // Prevent focus jumping
     final TimeOfDay? picked = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.now(),
+      initialTime: const TimeOfDay(hour: 13, minute: 30),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -299,8 +390,12 @@ class _ChildFormState extends State<_ChildForm> {
                 items: lookup.schools,
                 itemLabel: (s) => s.name,
                 value: _selectedSchool,
+                isLoading: lookup.isLoading,
+                onInteraction: () {
+                  FocusScope.of(context).unfocus();
+                  lookup.fetchInitialData();
+                },
                 onChanged: (v) => setState(() => _selectedSchool = v),
-                onSearch: (q) => lookup.searchSchools(q),
               ),
               const SizedBox(height: 16),
               SearchableDropdown<StandardModel>(
@@ -308,6 +403,11 @@ class _ChildFormState extends State<_ChildForm> {
                 items: lookup.standards,
                 itemLabel: (s) => s.displayName,
                 value: _selectedStandard,
+                isLoading: lookup.isLoading,
+                onInteraction: () {
+                  FocusScope.of(context).unfocus();
+                  lookup.fetchInitialData();
+                },
                 onChanged: (v) => setState(() => _selectedStandard = v),
               ),
               const SizedBox(height: 16),
@@ -316,6 +416,11 @@ class _ChildFormState extends State<_ChildForm> {
                 items: lookup.mealSizes,
                 itemLabel: (s) => s.displayName,
                 value: _selectedMealSize,
+                isLoading: lookup.isLoading,
+                onInteraction: () {
+                  FocusScope.of(context).unfocus();
+                  lookup.fetchInitialData();
+                },
                 onChanged: (v) => setState(() => _selectedMealSize = v),
               ),
               const SizedBox(height: 16),

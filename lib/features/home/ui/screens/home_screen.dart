@@ -35,28 +35,33 @@ class _HomeScreenState extends State<HomeScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-        ),
-        child: SafeArea(
-          child: CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              _buildAppBar(context),
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                sliver: SliverList(
-                  delegate: SliverChildListDelegate([
-                    _buildWelcomeSection(authProvider, isDark),
-                    const SizedBox(height: 30),
-                    _buildFeatureCards(context),
-                    const SizedBox(height: 30),
-                    _buildQuickStatus(context),
-                  ]),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await context.read<ChildrenProvider>().fetchChildren();
+        },
+        child: Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+          ),
+          child: SafeArea(
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                _buildAppBar(context),
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate([
+                      _buildWelcomeSection(authProvider, isDark),
+                      const SizedBox(height: 30),
+                      _buildFeatureCards(context),
+                      const SizedBox(height: 30),
+                      _buildQuickStatus(context),
+                    ]),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

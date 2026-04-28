@@ -15,7 +15,10 @@ class SubscriptionProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  Future<void> fetchSubscriptions() async {
+  Future<void> fetchSubscriptions({bool force = false}) async {
+    if (!force && _subscriptions.isNotEmpty) return;
+    if (_isLoading) return;
+
     _isLoading = true;
     _error = null;
     notifyListeners();

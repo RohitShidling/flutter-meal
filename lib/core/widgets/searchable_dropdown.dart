@@ -10,6 +10,7 @@ class SearchableDropdown<T> extends StatefulWidget {
   final String hint;
   final bool isLoading;
   final Function(String)? onSearch;
+  final VoidCallback? onInteraction;
 
   const SearchableDropdown({
     super.key,
@@ -21,6 +22,7 @@ class SearchableDropdown<T> extends StatefulWidget {
     this.hint = 'Select an option',
     this.isLoading = false,
     this.onSearch,
+    this.onInteraction,
   });
 
   @override
@@ -45,7 +47,10 @@ class _SearchableDropdownState<T> extends State<SearchableDropdown<T>> {
         ),
         const SizedBox(height: 8),
         InkWell(
-          onTap: widget.isLoading ? null : () => _showSearchDialog(context),
+          onTap: widget.isLoading ? null : () {
+            if (widget.onInteraction != null) widget.onInteraction!();
+            _showSearchDialog(context);
+          },
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             decoration: BoxDecoration(
@@ -131,9 +136,6 @@ class _SearchDialogState<T> extends State<_SearchDialog<T>> {
   }
 
   void _filterItems(String query) {
-    if (widget.onSearch != null) {
-      widget.onSearch!(query);
-    }
     setState(() {
       filteredItems = widget.items
           .where((item) =>
@@ -168,7 +170,7 @@ class _SearchDialogState<T> extends State<_SearchDialog<T>> {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: TextField(
               controller: _searchController,
-              autofocus: true,
+              autofocus: false,
               onChanged: _filterItems,
               decoration: InputDecoration(
                 hintText: 'Search...',

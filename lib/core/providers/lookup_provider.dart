@@ -11,6 +11,7 @@ class LookupProvider with ChangeNotifier {
   List<StandardModel> _standards = [];
   List<MealSizeModel> _mealSizes = [];
   List<CorporateLocationModel> _corporateLocations = [];
+  List<Map<String, dynamic>> _subscriptions = [];
 
   bool _isLoading = false;
 
@@ -18,9 +19,13 @@ class LookupProvider with ChangeNotifier {
   List<StandardModel> get standards => _standards;
   List<MealSizeModel> get mealSizes => _mealSizes;
   List<CorporateLocationModel> get corporateLocations => _corporateLocations;
+  List<Map<String, dynamic>> get subscriptions => _subscriptions;
   bool get isLoading => _isLoading;
 
-  Future<void> fetchInitialData() async {
+  Future<void> fetchInitialData({bool force = false}) async {
+    if (!force && _schools.isNotEmpty && _standards.isNotEmpty) return;
+    if (_isLoading) return;
+    
     _isLoading = true;
     notifyListeners();
 
@@ -30,12 +35,14 @@ class LookupProvider with ChangeNotifier {
         _repository.getStandards(),
         _repository.getMealSizes(),
         _repository.getCorporateLocations(),
+        _repository.getSubscriptions(),
       ]);
 
       _schools = results[0] as List<SchoolModel>;
       _standards = results[1] as List<StandardModel>;
       _mealSizes = results[2] as List<MealSizeModel>;
       _corporateLocations = results[3] as List<CorporateLocationModel>;
+      _subscriptions = results[4] as List<Map<String, dynamic>>;
     } catch (e) {
       // Handle error
     } finally {

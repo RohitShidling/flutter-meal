@@ -9,6 +9,7 @@ import 'package:meal_app/core/widgets/searchable_dropdown.dart';
 import 'package:meal_app/core/models/lookup_models.dart';
 import 'package:meal_app/core/utils/error_handler.dart';
 import 'package:meal_app/core/utils/time_utils.dart';
+import 'package:meal_app/features/children/providers/children_provider.dart';
 
 class ProfessionalProfileScreen extends StatefulWidget {
   const ProfessionalProfileScreen({super.key});
@@ -32,7 +33,6 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ProfileProvider>().fetchProfiles();
-      context.read<LookupProvider>().fetchInitialData();
     });
 
     final profile = context.read<ProfileProvider>().professionalProfile;
@@ -40,13 +40,14 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
     _companyController = TextEditingController(text: profile?.companyName);
     _cityController = TextEditingController(text: profile?.city);
     _stateController = TextEditingController(text: profile?.state);
-    _timeController = TextEditingController(text: profile?.lunchTime ?? '13:00:00');
+    _timeController = TextEditingController(text: profile?.lunchTime ?? '13:30');
   }
 
   Future<void> _selectTime(BuildContext context) async {
+    FocusScope.of(context).unfocus();
     final TimeOfDay? picked = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.now(),
+      initialTime: const TimeOfDay(hour: 13, minute: 30),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -117,6 +118,11 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                     items: lookup.corporateLocations,
                     itemLabel: (l) => l.name,
                     value: _selectedLocation,
+                    isLoading: lookup.isLoading,
+                    onInteraction: () {
+                      FocusScope.of(context).unfocus();
+                      lookup.fetchInitialData();
+                    },
                     onChanged: (v) {
                       setState(() {
                         _selectedLocation = v;
@@ -164,6 +170,14 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                   const SizedBox(height: 40),
                   ElevatedButton(
                     onPressed: () async {
+                      final childrenProvider = context.read<ChildrenProvider>();
+                      final profileProvider = context.read<ProfileProvider>();
+                      
+                      if (childrenProvider.children.isNotEmpty || profileProvider.teacherProfile != null) {
+                        ErrorHandler.showError(context, 'Professional account is not allowed for users with existing Children or Teacher profiles.');
+                        return;
+                      }
+
                       if (_formKey.currentState!.validate() && _selectedLocation != null) {
                         final profile = ProfessionalProfileModel(
                           name: _nameController.text,

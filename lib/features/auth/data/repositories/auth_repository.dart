@@ -40,8 +40,8 @@ class AuthRepository {
         final accessToken = data['accessToken'];
         final refreshToken = data['refreshToken'];
         
-        // Securely store the tokens
         await _secureStorage.saveTokens(accessToken, refreshToken);
+        await _secureStorage.savePhoneNumber(phoneNumber);
         return true;
       }
       return false;
@@ -63,6 +63,10 @@ class AuthRepository {
   Future<bool> isAuthenticated() async {
     final token = await _secureStorage.getAccessToken();
     return token != null;
+  }
+
+  Future<String?> getPhoneNumber() async {
+    return await _secureStorage.getPhoneNumber();
   }
 
   String _handleError(DioException error) {

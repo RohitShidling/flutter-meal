@@ -21,10 +21,10 @@ class TimeUtils {
     }
   }
 
-  /// Converts TimeOfDay to backend format (HH:mm:00)
+  /// Converts TimeOfDay to backend format (HH:mm)
   static String toBackendFormat(TimeOfDay time) {
     final hour = time.hour.toString().padLeft(2, '0');
     final minute = time.minute.toString().padLeft(2, '0');
-    return '$hour:$minute:00';
+    return '$hour:$minute';
   }
 }

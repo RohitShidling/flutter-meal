@@ -20,7 +20,10 @@ class ProfileProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  Future<void> fetchProfiles() async {
+  Future<void> fetchProfiles({bool force = false}) async {
+    if (!force && _teacherProfile != null && _professionalProfile != null) return;
+    if (_isLoading) return;
+    
     _isLoading = true;
     _error = null;
     notifyListeners();
