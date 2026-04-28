@@ -25,6 +25,10 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ProfileProvider>().fetchProfiles();
+    });
+    
     final profile = context.read<ProfileProvider>().teacherProfile;
     _nameController = TextEditingController(text: profile?.name);
     _schoolController = TextEditingController(text: profile?.schoolCollegeName);

@@ -8,6 +8,7 @@ import 'package:meal_app/core/providers/lookup_provider.dart';
 import 'package:meal_app/core/widgets/searchable_dropdown.dart';
 import 'package:meal_app/core/models/lookup_models.dart';
 import 'package:meal_app/core/utils/error_handler.dart';
+import 'package:meal_app/core/utils/time_utils.dart';
 
 class ProfessionalProfileScreen extends StatefulWidget {
   const ProfessionalProfileScreen({super.key});
@@ -29,6 +30,11 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ProfileProvider>().fetchProfiles();
+      context.read<LookupProvider>().fetchInitialData();
+    });
+
     final profile = context.read<ProfileProvider>().professionalProfile;
     _nameController = TextEditingController(text: profile?.name);
     _companyController = TextEditingController(text: profile?.companyName);
@@ -54,10 +60,8 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
       },
     );
     if (picked != null) {
-      final hour = picked.hour.toString().padLeft(2, '0');
-      final minute = picked.minute.toString().padLeft(2, '0');
       setState(() {
-        _timeController.text = '$hour:$minute:00';
+        _timeController.text = TimeUtils.toBackendFormat(picked);
       });
     }
   }
@@ -146,14 +150,14 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                     onTap: () => _selectTime(context),
                     child: IgnorePointer(
                       child: TextFormField(
-                        controller: _timeController,
+                        controller: TextEditingController(text: TimeUtils.formatToDisplay(_timeController.text)),
                         decoration: const InputDecoration(
                           labelText: 'Lunch Time',
                           hintText: 'Select lunch delivery time',
                           prefixIcon: Icon(CupertinoIcons.clock_fill),
                           suffixIcon: Icon(CupertinoIcons.chevron_down, size: 16),
                         ),
-                        validator: (v) => v!.isEmpty ? 'Required' : null,
+                        validator: (v) => _timeController.text.isEmpty ? 'Required' : null,
                       ),
                     ),
                   ),

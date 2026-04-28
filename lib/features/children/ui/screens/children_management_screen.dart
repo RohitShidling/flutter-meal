@@ -9,6 +9,7 @@ import 'package:meal_app/core/providers/lookup_provider.dart';
 import 'package:meal_app/core/widgets/searchable_dropdown.dart';
 import 'package:meal_app/core/models/lookup_models.dart';
 import 'package:meal_app/core/utils/error_handler.dart';
+import 'package:meal_app/core/utils/time_utils.dart';
 
 class ChildrenManagementScreen extends StatefulWidget {
   const ChildrenManagementScreen({super.key});
@@ -18,6 +19,14 @@ class ChildrenManagementScreen extends StatefulWidget {
 }
 
 class _ChildrenManagementScreenState extends State<ChildrenManagementScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ChildrenProvider>().fetchChildren();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final childrenProvider = context.watch<ChildrenProvider>();
@@ -123,7 +132,7 @@ class _ChildrenManagementScreenState extends State<ChildrenManagementScreen> {
           const Divider(),
           _buildInfoRow(CupertinoIcons.building_2_fill, child.schoolName ?? 'School ID: ${child.schoolId}'),
           _buildInfoRow(CupertinoIcons.book_fill, child.standardName ?? 'Standard ID: ${child.standardId}'),
-          _buildInfoRow(CupertinoIcons.clock_fill, 'Meal Time: ${child.mealTime}'),
+          _buildInfoRow(CupertinoIcons.clock_fill, 'Meal Time: ${TimeUtils.formatToDisplay(child.mealTime)}'),
         ],
       ),
     );
@@ -165,9 +174,14 @@ class _ChildrenManagementScreenState extends State<ChildrenManagementScreen> {
           ),
           CupertinoDialogAction(
             isDestructiveAction: true,
-            onPressed: () {
-              context.read<ChildrenProvider>().deleteChild(child.id!);
-              Navigator.pop(context);
+            onPressed: () async {
+              Navigator.pop(context); // Close dialog first
+              final success = await context.read<ChildrenProvider>().deleteChild(child.id!);
+              if (success) {
+                if (mounted) ErrorHandler.showSuccess(context, 'Child deleted successfully');
+              } else {
+                if (mounted) ErrorHandler.showError(context, 'Failed to delete child');
+              }
             },
             child: const Text('Delete'),
           ),
@@ -198,6 +212,10 @@ class _ChildFormState extends State<_ChildForm> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<LookupProvider>().fetchInitialData();
+    });
+    
     _nameController = TextEditingController(text: widget.child?.name);
     _rollController = TextEditingController(text: widget.child?.rollNumber);
     _timeController = TextEditingController(text: widget.child?.mealTime ?? '12:30:00');
@@ -220,10 +238,8 @@ class _ChildFormState extends State<_ChildForm> {
       },
     );
     if (picked != null) {
-      final hour = picked.hour.toString().padLeft(2, '0');
-      final minute = picked.minute.toString().padLeft(2, '0');
       setState(() {
-        _timeController.text = '$hour:$minute:00';
+        _timeController.text = TimeUtils.toBackendFormat(picked);
       });
     }
   }
@@ -307,14 +323,14 @@ class _ChildFormState extends State<_ChildForm> {
                 onTap: () => _selectTime(context),
                 child: IgnorePointer(
                   child: TextFormField(
-                    controller: _timeController,
-                    decoration: InputDecoration(
+                    controller: TextEditingController(text: TimeUtils.formatToDisplay(_timeController.text)),
+                    decoration: const InputDecoration(
                       labelText: 'Meal Time', 
                       hintText: 'Select delivery time',
-                      prefixIcon: const Icon(CupertinoIcons.clock),
-                      suffixIcon: const Icon(CupertinoIcons.chevron_down, size: 16),
+                      prefixIcon: Icon(CupertinoIcons.clock),
+                      suffixIcon: Icon(CupertinoIcons.chevron_down, size: 16),
                     ),
-                    validator: (v) => v!.isEmpty ? 'Required' : null,
+                    validator: (v) => _timeController.text.isEmpty ? 'Required' : null,
                   ),
                 ),
               ),
