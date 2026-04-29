@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:meal_app/features/auth/providers/auth_provider.dart';
 import 'package:meal_app/core/theme/app_theme.dart';
+import 'package:meal_app/core/utils/error_handler.dart';
 
 class OtpScreen extends StatefulWidget {
   const OtpScreen({super.key});
@@ -32,14 +33,7 @@ class _OtpScreenState extends State<OtpScreen> {
       if (success && mounted) {
         Navigator.of(context).popUntil((route) => route.isFirst);
       } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(provider.errorMessage),
-            backgroundColor: AppTheme.accentColor,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        );
+        ErrorHandler.showError(context, provider.errorMessage);
       }
     }
   }
@@ -48,27 +42,26 @@ class _OtpScreenState extends State<OtpScreen> {
   Widget build(BuildContext context) {
     final provider = context.watch<AuthProvider>();
     final isLoading = provider.state == AuthState.loading;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.dark,
-      child: Scaffold(
-        appBar: AppBar(
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppTheme.textPrimary),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-          backgroundColor: Colors.transparent,
-          elevation: 0,
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_ios_new_rounded, color: Theme.of(context).iconTheme.color),
+          onPressed: () => Navigator.of(context).pop(),
         ),
-        extendBodyBehindAppBar: true,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      extendBodyBehindAppBar: true,
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              AppTheme.primaryColor.withOpacity(0.05),
-              Colors.white,
+              AppTheme.primaryColor.withOpacity(isDark ? 0.2 : 0.05),
+              Theme.of(context).scaffoldBackgroundColor,
             ],
           ),
         ),
@@ -83,16 +76,12 @@ class _OtpScreenState extends State<OtpScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const SizedBox(height: 20),
-                    // Removed icon
-                    
                     Text(
                       'Verify OTP',
                       style: Theme.of(context).textTheme.displayLarge,
                       textAlign: TextAlign.center,
                     ).animate().fadeIn(duration: 500.ms).slideY(begin: 0.2, end: 0),
-                    
                     const SizedBox(height: 12),
-                    
                     RichText(
                       textAlign: TextAlign.center,
                       text: TextSpan(
@@ -101,14 +90,14 @@ class _OtpScreenState extends State<OtpScreen> {
                           const TextSpan(text: 'We sent a 6-digit code to\n'),
                           TextSpan(
                             text: provider.phoneNumber,
-                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).textTheme.bodyLarge?.color),
                           ),
                         ],
                       ),
                     ).animate().fadeIn(delay: 200.ms, duration: 500.ms).slideY(begin: 0.2, end: 0),
-                    
                     const SizedBox(height: 32),
-                    
                     TextFormField(
                       controller: _otpController,
                       keyboardType: TextInputType.number,
@@ -140,9 +129,7 @@ class _OtpScreenState extends State<OtpScreen> {
                         return null;
                       },
                     ).animate().fadeIn(delay: 400.ms, duration: 500.ms).slideX(begin: 0.1, end: 0),
-                    
                     const SizedBox(height: 32),
-                    
                     ElevatedButton(
                       onPressed: isLoading ? null : _submit,
                       child: isLoading
@@ -162,8 +149,8 @@ class _OtpScreenState extends State<OtpScreen> {
             ),
           ),
         ),
-        ),
       ),
     );
   }
 }
+

@@ -24,6 +24,7 @@ class AuthProvider with ChangeNotifier {
 
     final isAuthenticated = await _authRepository.isAuthenticated();
     if (isAuthenticated) {
+      _phoneNumber = await _authRepository.getPhoneNumber() ?? '';
       _state = AuthState.authenticated;
     } else {
       _state = AuthState.unauthenticated;

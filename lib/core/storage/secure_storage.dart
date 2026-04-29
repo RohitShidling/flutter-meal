@@ -8,9 +8,20 @@ class SecureStorage {
   static const String _accessTokenKey = 'access_token';
   static const String _refreshTokenKey = 'refresh_token';
 
+  static const String _themeKey = 'theme_mode';
+  static const String _phoneKey = 'phone_number';
+
   Future<void> saveTokens(String accessToken, String refreshToken) async {
     await _storage.write(key: _accessTokenKey, value: accessToken);
     await _storage.write(key: _refreshTokenKey, value: refreshToken);
+  }
+
+  Future<void> savePhoneNumber(String phone) async {
+    await _storage.write(key: _phoneKey, value: phone);
+  }
+
+  Future<String?> getPhoneNumber() async {
+    return await _storage.read(key: _phoneKey);
   }
 
   Future<String?> getAccessToken() async {
@@ -24,5 +35,15 @@ class SecureStorage {
   Future<void> clearTokens() async {
     await _storage.delete(key: _accessTokenKey);
     await _storage.delete(key: _refreshTokenKey);
+    await _storage.delete(key: _phoneKey);
+  }
+
+  Future<void> saveTheme(String theme) async {
+    await _storage.write(key: _themeKey, value: theme);
+  }
+
+  Future<String?> getTheme() async {
+    return await _storage.read(key: _themeKey);
   }
 }
+

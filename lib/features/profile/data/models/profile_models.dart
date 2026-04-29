@@ -1,0 +1,88 @@
+class TeacherProfileModel {
+  final String? id;
+  final String name;
+  final String schoolCollegeName;
+  final String city;
+  final String state;
+  final String location;
+  final String status;
+
+  TeacherProfileModel({
+    this.id,
+    required this.name,
+    required this.schoolCollegeName,
+    required this.city,
+    required this.state,
+    required this.location,
+    this.status = 'active',
+  });
+
+  factory TeacherProfileModel.fromJson(Map<String, dynamic> json) {
+    return TeacherProfileModel(
+      id: json['id'],
+      name: json['name'],
+      schoolCollegeName: json['school_college_name'],
+      city: json['city'],
+      state: json['state'],
+      location: json['location'],
+      status: json['status'] ?? 'active',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'school_college_name': schoolCollegeName,
+      'city': city,
+      'state': state,
+      'location': location,
+      'status': status,
+    };
+  }
+}
+
+class ProfessionalProfileModel {
+  final String? id;
+  final String name;
+  final String companyName;
+  final String corporateLocationId;
+  final String city;
+  final String state;
+  final String lunchTime;
+  final String? corporateLocationName;
+
+  ProfessionalProfileModel({
+    this.id,
+    required this.name,
+    required this.companyName,
+    required this.corporateLocationId,
+    required this.city,
+    required this.state,
+    required this.lunchTime,
+    this.corporateLocationName,
+  });
+
+  factory ProfessionalProfileModel.fromJson(Map<String, dynamic> json) {
+    return ProfessionalProfileModel(
+      id: json['id'],
+      name: json['name'],
+      companyName: json['company_name'],
+      corporateLocationId: json['corporate_location_id'],
+      city: json['city'],
+      state: json['state'],
+      lunchTime: json['lunch_time'],
+      corporateLocationName: json['corporate_location_name'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'company_name': companyName,
+      'corporate_location_id': corporateLocationId,
+      'city': city,
+      'state': state,
+      'lunch_time': lunchTime,
+    };
+  }
+}

@@ -1,5 +1,6 @@
 package com.example.meal_app
 
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 
-class MainActivity : FlutterActivity()
+// Required by PhonePe Payment SDK — must extend FlutterFragmentActivity, not FlutterActivity
+class MainActivity : FlutterFragmentActivity()

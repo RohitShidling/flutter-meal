@@ -1,0 +1,58 @@
+import 'package:dio/dio.dart';
+import 'package:meal_app/core/network/api_endpoints.dart';
+import 'package:meal_app/core/network/dio_client.dart';
+import 'package:meal_app/features/children/data/models/child_model.dart';
+
+class ChildrenRepository {
+  final DioClient _dioClient;
+
+  ChildrenRepository(this._dioClient);
+
+  Future<List<ChildModel>> getChildren() async {
+    try {
+      final response = await _dioClient.dio.get(ApiEndpoints.children);
+      if (response.data['success'] == true) {
+        final List children = response.data['data']['children'];
+        return children.map((c) => ChildModel.fromJson(c)).toList();
+      }
+      return [];
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<bool> registerChildren(List<ChildModel> children) async {
+    try {
+      final response = await _dioClient.dio.post(
+        ApiEndpoints.children,
+        data: {
+          'children': children.map((c) => c.toJson()).toList(),
+        },
+      );
+      return response.data['success'] == true;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<bool> updateChild(String id, ChildModel child) async {
+    try {
+      final response = await _dioClient.dio.put(
+        ApiEndpoints.child(id),
+        data: child.toJson(),
+      );
+      return response.data['success'] == true;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<bool> deleteChild(String id) async {
+    try {
+      final response = await _dioClient.dio.delete(ApiEndpoints.child(id));
+      return response.data['success'] == true;
+    } catch (e) {
+      rethrow;
+    }
+  }
+}
