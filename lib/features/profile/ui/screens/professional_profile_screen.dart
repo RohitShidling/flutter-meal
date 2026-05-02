@@ -338,7 +338,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                 ErrorHandler.showSuccess(context, 'Professional profile deleted successfully');
                 Navigator.pop(context);
               } else if (mounted) {
-                ErrorHandler.showError(context, 'Failed to delete professional profile');
+                ErrorHandler.showError(context, 'Failed to delete Already Subscribed');
               }
             },
             child: const Text('Delete'),

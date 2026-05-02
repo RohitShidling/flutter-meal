@@ -260,7 +260,7 @@ class _ChildrenManagementScreenState extends State<ChildrenManagementScreen> {
               if (success) {
                 if (mounted) ErrorHandler.showSuccess(context, 'Child deleted successfully');
               } else {
-                if (mounted) ErrorHandler.showError(context, 'Failed to delete child');
+                if (mounted) ErrorHandler.showError(context, 'Failed to delete Already Subscribed');
               }
             },
             child: const Text('Delete'),

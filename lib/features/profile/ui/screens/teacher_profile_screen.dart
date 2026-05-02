@@ -297,7 +297,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
                 ErrorHandler.showSuccess(context, 'Teacher profile deleted successfully');
                 Navigator.pop(context);
               } else if (mounted) {
-                ErrorHandler.showError(context, 'Failed to delete teacher profile');
+                ErrorHandler.showError(context, 'Failed to delete Already Subscribed');
               }
             },
             child: const Text('Delete'),
