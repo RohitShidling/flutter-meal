@@ -113,9 +113,8 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
                                       borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
                                       child: Image.network(
                                         imageUrl,
-                                        height: 140,
                                         width: double.infinity,
-                                        fit: BoxFit.cover,
+                                        fit: BoxFit.contain,
                                         errorBuilder: (_, __, ___) => Container(
                                           height: 80,
                                           color: AppTheme.primaryColor.withOpacity(0.05),

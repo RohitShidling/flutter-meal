@@ -32,23 +32,10 @@ import 'package:meal_app/core/providers/cart_provider.dart';
 import 'package:meal_app/core/network/meal_repository.dart';
 import 'package:meal_app/core/providers/meal_provider.dart';
 
-const _splashAssetPath = 'lib/core/image/buuttii_splash.png';
-
-/// Decode splash PNG before first frame so [Image.asset] paints immediately on the splash screen.
-Future<void> _warmSplashImage() async {
-  try {
-    final data = await rootBundle.load(_splashAssetPath);
-    final codec = await ui.instantiateImageCodec(data.buffer.asUint8List());
-    final frame = await codec.getNextFrame();
-    frame.image.dispose();
-    codec.dispose();
-  } catch (_) {}
-}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: ".env");
-  await _warmSplashImage();
   runApp(const MyApp());
 }
 
@@ -114,30 +101,8 @@ class AuthWrapper extends StatelessWidget {
 
     switch (authState) {
       case AuthState.initial:
-        return Theme(
-          data: AppTheme.lightTheme,
-          child: Scaffold(
-            backgroundColor: AppTheme.lightTheme.scaffoldBackgroundColor,
-            body: SafeArea(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    child: Center(
-                      child: Image.asset(
-                        _splashAssetPath,
-                        fit: BoxFit.contain,
-                        alignment: Alignment.center,
-                        width: constraints.maxWidth,
-                        height: constraints.maxHeight,
-                        filterQuality: FilterQuality.high,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
+        return Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         );
       case AuthState.authenticated:
         return const HomeScreen();

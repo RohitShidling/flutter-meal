@@ -22,6 +22,7 @@ import 'package:meal_app/core/providers/meal_provider.dart';
 import 'package:meal_app/core/providers/cart_provider.dart';
 import 'package:meal_app/features/subscription/ui/screens/meal_skip_screen.dart';
 import 'package:meal_app/features/subscription/ui/screens/cart_screen.dart';
+import 'package:meal_app/core/providers/subscription_provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -313,9 +314,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
                 child: Image.network(
                   imageUrl,
-                  height: 180,
                   width: double.infinity,
-                  fit: BoxFit.cover,
+                  fit: BoxFit.contain,
                   errorBuilder: (_, __, ___) => Container(
                     height: 180,
                     width: double.infinity,
@@ -712,8 +712,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildQuickStatus(BuildContext context) {
-    final mealProvider = context.watch<MealProvider>();
-    final isSubscribed = mealProvider.isSubscribed;
+    final isSubscribed = context.watch<MenuProvider>().isSubscribed;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

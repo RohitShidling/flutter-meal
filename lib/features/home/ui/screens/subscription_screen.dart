@@ -331,12 +331,12 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     _showPlanPickerSheet(context, plans, entityType, entityId, name);
   }
 
-  /// Add to cart via backend API — user picks start date (same as Buy Now).
+  /// Add to cart via backend API — defaults to next day.
   Future<void> _addToCartViaAPI(SubscriptionModel plan, String entityType, String entityId) async {
-    final startDate = await _pickStartDate(context);
-    if (startDate == null || !mounted) return;
-
     final cartProvider = context.read<CartProvider>();
+    final first = _firstSelectableStartDate();
+    final startDate = '${first.year}-${first.month.toString().padLeft(2, '0')}-${first.day.toString().padLeft(2, '0')}';
+
     final success = await cartProvider.addItem(
       subscriptionId: plan.id,
       entityType: entityType,
