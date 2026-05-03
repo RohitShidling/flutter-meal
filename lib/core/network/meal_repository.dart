@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:meal_app/core/network/dio_client.dart';
 import 'package:meal_app/core/network/api_endpoints.dart';
 
@@ -63,9 +64,13 @@ class MealRepository {
       if (response.data['success'] == true) {
         return response.data;
       }
-      throw response.data['message']?.toString() ?? 'Failed to skip meal';
-    } catch (e) {
-      rethrow;
+      throw Exception(response.data['message']?.toString() ?? 'Failed to skip meal');
+    } on DioException catch (e) {
+      final msg = e.response?.data?['message']?.toString()
+          ?? e.response?.data?['error']?.toString()
+          ?? e.message
+          ?? 'Failed to skip meal';
+      throw Exception(msg);
     }
   }
 
@@ -85,8 +90,12 @@ class MealRepository {
     try {
       final response = await _dioClient.dio.delete(ApiEndpoints.cancelSkip(skipId));
       return response.data['success'] == true;
-    } catch (e) {
-      rethrow;
+    } on DioException catch (e) {
+      final msg = e.response?.data?['message']?.toString()
+          ?? e.response?.data?['error']?.toString()
+          ?? e.message
+          ?? 'Failed to cancel skip';
+      throw Exception(msg);
     }
   }
 

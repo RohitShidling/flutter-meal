@@ -307,6 +307,9 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
   void _showSkipDialog(BuildContext context) {
     final childrenProvider = context.read<ChildrenProvider>();
     final profileProvider = context.read<ProfileProvider>();
+    final mealProvider = context.read<MealProvider>();
+    // Save messenger BEFORE sheet opens so it works after sheet is popped
+    final messenger = ScaffoldMessenger.of(context);
 
     // Build entity list
     final List<Map<String, String>> entities = [];
@@ -327,24 +330,41 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
 
     String? selectedEntity;
     DateTimeRange? selectedRange;
+    String? sheetError;
+
+    // Helper: get subscription end_date for the selected entity from mealStatus
+    DateTime? _getEntityExpiry(String entityKey) {
+      final parts = entityKey.split('_');
+      if (parts.length < 2) return null;
+      final type = parts[0];
+      final id = parts.sublist(1).join('_');
+      final match = mealProvider.mealStatus.firstWhere(
+        (s) => s['entity_type'] == type && s['entity_id']?.toString() == id,
+        orElse: () => null,
+      );
+      if (match == null) return null;
+      final endStr = match['end_date']?.toString();
+      return endStr != null ? DateTime.tryParse(endStr) : null;
+    }
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) {
-        return StatefulBuilder(builder: (context, setSheetState) {
-          final isDark = Theme.of(context).brightness == Brightness.dark;
+        return StatefulBuilder(builder: (sheetCtx, setSheetState) {
+          final isDark = Theme.of(sheetCtx).brightness == Brightness.dark;
           return Container(
-            padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 36),
+            padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(sheetCtx).viewInsets.bottom + 36),
             decoration: BoxDecoration(
-              color: Theme.of(context).scaffoldBackgroundColor,
+              color: Theme.of(sheetCtx).scaffoldBackgroundColor,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                 Text(
                   'Schedule a Meal Skip',
                   style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: isDark ? Colors.white : AppTheme.textPrimaryLight),
@@ -372,7 +392,11 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
                         color: isSelected ? Colors.white : (isDark ? Colors.white : AppTheme.textPrimaryLight),
                         fontWeight: FontWeight.w600,
                       ),
-                      onSelected: (_) => setSheetState(() => selectedEntity = key),
+                      onSelected: (_) => setSheetState(() {
+                        selectedEntity = key;
+                        selectedRange = null; // reset date when entity changes
+                        sheetError = null;
+                      }),
                     );
                   }).toList(),
                 ),
@@ -384,19 +408,35 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
                 InkWell(
                   onTap: () async {
                     final tomorrow = DateTime.now().add(const Duration(days: 1));
+                    // Cap lastDate to subscription expiry for the selected entity
+                    final expiry = selectedEntity != null ? _getEntityExpiry(selectedEntity!) : null;
+                    final lastDate = expiry != null
+                        ? (expiry.isBefore(tomorrow.add(const Duration(days: 90))) ? expiry : tomorrow.add(const Duration(days: 90)))
+                        : tomorrow.add(const Duration(days: 90));
+
+                    if (expiry != null && expiry.isBefore(tomorrow)) {
+                      setSheetState(() => sheetError = 'Your subscription for this profile has expired.');
+                      return;
+                    }
+
                     final range = await showDateRangePicker(
-                      context: context,
+                      context: sheetCtx,
                       firstDate: tomorrow,
-                      lastDate: tomorrow.add(const Duration(days: 90)),
-                      helpText: 'Select skip range (min 3 days)',
+                      lastDate: lastDate,
+                      helpText: expiry != null
+                          ? 'Select skip range (max: ${DateFormat('dd MMM yyyy').format(expiry)})'
+                          : 'Select skip range (min 3 days)',
                     );
                     if (range != null) {
                       final days = range.end.difference(range.start).inDays + 1;
                       if (days < 3) {
-                        if (context.mounted) ErrorHandler.showError(context, 'Minimum 3 consecutive days required');
+                        setSheetState(() => sheetError = 'Minimum 3 consecutive days required');
                         return;
                       }
-                      setSheetState(() => selectedRange = range);
+                      setSheetState(() {
+                        selectedRange = range;
+                        sheetError = null;
+                      });
                     }
                   },
                   child: Container(
@@ -413,7 +453,7 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
                         Text(
                           selectedRange != null
                               ? '${DateFormat('dd MMM').format(selectedRange!.start)} - ${DateFormat('dd MMM yyyy').format(selectedRange!.end)}'
-                              : 'Tap to select date range',
+                              : (selectedEntity == null ? 'Select a profile first' : 'Tap to select date range'),
                           style: TextStyle(
                             color: selectedRange != null ? (isDark ? Colors.white : AppTheme.textPrimaryLight) : Colors.grey,
                             fontWeight: FontWeight.w600,
@@ -430,6 +470,25 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
                     style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.w700, fontSize: 13),
                   ),
                 ],
+                // In-sheet error message
+                if (sheetError != null) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.red.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(CupertinoIcons.exclamationmark_circle, color: Colors.red, size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(sheetError!, style: const TextStyle(color: Colors.red, fontSize: 13, fontWeight: FontWeight.w600))),
+                      ],
+                    ),
+                  ),
+                ],
 
                 const SizedBox(height: 28),
                 SizedBox(
@@ -442,21 +501,24 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
                             final entityId = parts.sublist(1).join('_');
                             final fmt = DateFormat('yyyy-MM-dd');
 
-                            Navigator.pop(sheetContext);
-
-                            final mealProvider = context.read<MealProvider>();
+                            // Make API call FIRST — pop only on success
                             final success = await mealProvider.skipMeal(
                               entityType: entityType,
                               entityId: entityId,
                               startDate: fmt.format(selectedRange!.start),
                               endDate: fmt.format(selectedRange!.end),
                             );
-                            if (mounted) {
-                              if (success) {
-                                ErrorHandler.showSuccess(context, 'Meal skip scheduled successfully!');
-                              } else {
-                                ErrorHandler.showError(context, mealProvider.error);
-                              }
+
+                            if (success) {
+                              if (sheetCtx.mounted) Navigator.pop(sheetCtx);
+                              messenger.showSnackBar(SnackBar(
+                                content: const Text('Meal skip scheduled successfully!'),
+                                backgroundColor: Colors.green,
+                                behavior: SnackBarBehavior.floating,
+                              ));
+                            } else {
+                              // Keep sheet open — show error inside it
+                              setSheetState(() => sheetError = mealProvider.error ?? 'Failed to schedule skip');
                             }
                           }
                         : null,
@@ -464,7 +526,8 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
                     child: const Text('Schedule Skip', style: TextStyle(fontWeight: FontWeight.w800)),
                   ),
                 ),
-              ],
+               ],
+              ),
             ),
           );
         });
