@@ -399,7 +399,7 @@ class _HomeScreenState extends State<HomeScreen> {
           imageUrl,
           height: height,
           width: double.infinity,
-          fit: BoxFit.cover,
+          fit: BoxFit.contain,
           errorBuilder: (_, __, ___) => _buildMealPlaceholder(height),
         ),
       );
@@ -709,7 +709,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildQuickStatus(BuildContext context) {
     final mealProvider = context.watch<MealProvider>();
-    final isSubscribed = mealProvider.isSubscribed;
+    final isActive = mealProvider.subscriptionStatusData?['has_active_subscription'] == true;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -743,9 +743,9 @@ class _HomeScreenState extends State<HomeScreen> {
               child: _buildStatusMiniCard(
                 context,
                 'Status',
-                isSubscribed ? 'Active' : 'Inactive',
-                isSubscribed ? CupertinoIcons.checkmark_seal_fill : CupertinoIcons.xmark_seal_fill,
-                isSubscribed ? Colors.green : Colors.red,
+                isActive ? 'Active' : 'Inactive',
+                isActive ? CupertinoIcons.checkmark_seal_fill : CupertinoIcons.xmark_seal_fill,
+                isActive ? Colors.green : Colors.red,
               ),
             ),
           ],

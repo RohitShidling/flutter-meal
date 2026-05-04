@@ -333,8 +333,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
   /// Add to cart via backend API — user picks start date (same as Buy Now).
   Future<void> _addToCartViaAPI(SubscriptionModel plan, String entityType, String entityId) async {
-    final startDate = await _pickStartDate(context);
-    if (startDate == null || !mounted) return;
+    // Default to tomorrow — user can change start date from the cart screen
+    final tomorrow = DateTime.now().add(const Duration(days: 1));
+    final startDate = '${tomorrow.year}-${tomorrow.month.toString().padLeft(2, '0')}-${tomorrow.day.toString().padLeft(2, '0')}';
 
     final cartProvider = context.read<CartProvider>();
     final success = await cartProvider.addItem(
@@ -346,7 +347,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
     if (mounted) {
       if (success) {
-        ErrorHandler.showSuccess(context, '${plan.planName} added to cart');
+        ErrorHandler.showSuccess(context, '${plan.planName} added to cart — tap Cart to change start date');
       } else {
         ErrorHandler.showError(context, cartProvider.error ?? 'Failed to add to cart');
       }

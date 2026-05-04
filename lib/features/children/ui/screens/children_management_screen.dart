@@ -160,7 +160,11 @@ class _ChildrenManagementScreenState extends State<ChildrenManagementScreen> {
                       children: [
                         Text(
                           child.name,
-                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                          style: TextStyle(
+                            fontSize: 20, 
+                            fontWeight: FontWeight.w900,
+                            color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                          ),
                         ),
                         Text(
                           'Roll No: ${child.rollNumber}',

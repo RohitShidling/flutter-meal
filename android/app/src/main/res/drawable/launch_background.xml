@@ -3,9 +3,4 @@
     <item>
         <color android:color="#F8FAFC"/>
     </item>
-    <item>
-        <bitmap
-            android:gravity="center"
-            android:src="@drawable/buuttii_logo"/>
-    </item>
 </layer-list>
