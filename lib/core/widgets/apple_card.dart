@@ -24,7 +24,7 @@ class AppleCard extends StatelessWidget {
     return Container(
       margin: margin ?? const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
-        color: color ?? Colors.white,
+        color: color ?? (Theme.of(context).brightness == Brightness.dark ? AppTheme.surfaceDark : Colors.white),
         borderRadius: BorderRadius.circular(borderRadius),
         boxShadow: [
           BoxShadow(
