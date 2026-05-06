@@ -9,6 +9,7 @@ import 'package:meal_app/core/utils/validators.dart';
 import 'package:meal_app/core/providers/lookup_provider.dart';
 import 'package:meal_app/core/widgets/searchable_dropdown.dart';
 import 'package:meal_app/core/models/lookup_models.dart';
+import 'package:meal_app/core/utils/time_utils.dart';
 
 class TeacherProfileScreen extends StatefulWidget {
   const TeacherProfileScreen({super.key});
@@ -23,10 +24,12 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
   late TextEditingController _schoolController;
   late TextEditingController _cityController;
   late TextEditingController _stateController;
+  late TextEditingController _timeController;
   
   SchoolModel? _selectedSchool;
   StateModel? _selectedState;
   CityModel? _selectedCity;
+  MealSizeModel? _selectedMealSize;
   
   String _status = 'active';
   bool _isInitializing = true;
@@ -42,6 +45,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
     _schoolController = TextEditingController();
     _cityController = TextEditingController();
     _stateController = TextEditingController();
+    _timeController = TextEditingController(text: '13:30');
     
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final provider = context.read<ProfileProvider>();
@@ -72,6 +76,8 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
             _cityController.text = profile.city;
             _stateController.text = profile.state;
             _status = profile.status;
+            _timeController.text = profile.mealTime ?? '13:30';
+            _selectedMealSize = lookupProvider.mealSizes.where((m) => m.id == profile.mealSizeId).firstOrNull;
             _isInitializing = false;
           });
         }
@@ -87,7 +93,32 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
     _schoolController.dispose();
     _cityController.dispose();
     _stateController.dispose();
+    _timeController.dispose();
     super.dispose();
+  }
+
+  Future<void> _selectTime(BuildContext context) async {
+    FocusScope.of(context).unfocus();
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: const TimeOfDay(hour: 13, minute: 30),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: AppTheme.primaryColor,
+              brightness: Theme.of(context).brightness,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      setState(() {
+        _timeController.text = TimeUtils.toBackendFormat(picked);
+      });
+    }
   }
 
   Future<void> _submitForm() async {
@@ -102,6 +133,11 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
       return; // errors are shown inline by validators
     }
 
+    if (_selectedMealSize == null) {
+      ErrorHandler.showError(context, 'Please select a meal size');
+      return;
+    }
+
     setState(() => _isSaving = true);
 
     final profile = TeacherProfileModel(
@@ -111,6 +147,8 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
       state: _stateController.text,
       location: '',
       status: _status,
+      mealSizeId: _selectedMealSize!.id,
+      mealTime: _timeController.text,
     );
     
     final success = await profileProvider.saveTeacherProfile(profile);
@@ -270,6 +308,47 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
                     },
                   ),
 
+                  const SizedBox(height: 20),
+
+                  // 5. Meal Size
+                  SearchableDropdown<MealSizeModel>(
+                    label: 'Meal Size',
+                    items: lookupProvider.mealSizes,
+                    itemLabel: (m) => m.displayName,
+                    value: _selectedMealSize,
+                    isLoading: lookupProvider.isLoading,
+                    listenable: lookupProvider,
+                    itemsGetter: () => lookupProvider.mealSizes,
+                    loadingGetter: () => lookupProvider.isLoading,
+                    validator: (v) => Validators.requiredField(v, 'Meal Size'),
+                    onInteraction: () {
+                      FocusScope.of(context).unfocus();
+                      lookupProvider.fetchInitialData();
+                    },
+                    onChanged: (v) {
+                      setState(() => _selectedMealSize = v);
+                    },
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // 6. Meal Time
+                  InkWell(
+                    onTap: () => _selectTime(context),
+                    child: IgnorePointer(
+                      child: TextFormField(
+                        controller: TextEditingController(text: TimeUtils.formatToDisplay(_timeController.text)),
+                        decoration: const InputDecoration(
+                          labelText: 'Meal Time',
+                          hintText: 'Select meal delivery time',
+                          prefixIcon: Icon(CupertinoIcons.clock_fill),
+                          suffixIcon: Icon(CupertinoIcons.chevron_down, size: 16),
+                        ),
+                        validator: (v) => Validators.time(_timeController.text, fieldName: 'Meal time'),
+                      ),
+                    ),
+                  ),
+
                   const SizedBox(height: 40),
                   ElevatedButton(
                     onPressed: _isSaving ? null : _submitForm,
@@ -318,11 +397,12 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
             onPressed: () async {
               Navigator.pop(context);
               final success = await context.read<ProfileProvider>().deleteTeacherProfile();
-              if (success && mounted) {
-                ErrorHandler.showSuccess(context, 'Teacher profile deleted successfully');
-                Navigator.pop(context);
-              } else if (mounted) {
-                ErrorHandler.showError(context, 'Failed to delete — profile may have active subscriptions');
+              if (!mounted) return;
+              if (success) {
+                ErrorHandler.showSuccess(this.context, 'Teacher profile deleted successfully');
+                Navigator.pop(this.context);
+              } else {
+                ErrorHandler.showError(this.context, 'Failed to delete — profile may have active subscriptions');
               }
             },
             child: const Text('Delete'),

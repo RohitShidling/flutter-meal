@@ -7,6 +7,8 @@ class SubscriptionModel {
   final bool saturdayOptionEnabled;
   final String billingCycle;
   final int durationDays;
+  final int? durationDaysWithSaturday;
+  final int? durationDaysWithoutSaturday;
   final int trialDays;
   final List<String> features;
   final int displayOrder;
@@ -22,6 +24,8 @@ class SubscriptionModel {
     required this.saturdayOptionEnabled,
     required this.billingCycle,
     required this.durationDays,
+    this.durationDaysWithSaturday,
+    this.durationDaysWithoutSaturday,
     required this.trialDays,
     required this.features,
     required this.displayOrder,
@@ -39,6 +43,12 @@ class SubscriptionModel {
       saturdayOptionEnabled: json['saturday_option_enabled'] == null ? true : json['saturday_option_enabled'] == true,
       billingCycle: json['billing_cycle'],
       durationDays: int.tryParse('${json['duration_days'] ?? 0}') ?? 0,
+      durationDaysWithSaturday: json['duration_days_with_saturday'] == null
+          ? null
+          : int.tryParse('${json['duration_days_with_saturday']}'),
+      durationDaysWithoutSaturday: json['duration_days_without_saturday'] == null
+          ? null
+          : int.tryParse('${json['duration_days_without_saturday']}'),
       trialDays: int.tryParse('${json['trial_days'] ?? 0}') ?? 0,
       features: ((json['features'] as List?) ?? const [])
           .map((item) => item.toString())

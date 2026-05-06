@@ -25,6 +25,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
   late TextEditingController _timeController;
   
   CorporateLocationModel? _selectedCorporateLocation;
+  MealSizeModel? _selectedMealSize;
   StateModel? _selectedState;
   CityModel? _selectedCity;
   
@@ -62,6 +63,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
               .firstOrNull;
           
           _selectedState = lookup.states.where((s) => s.name == profile.state).firstOrNull;
+          _selectedMealSize = lookup.mealSizes.where((m) => m.id == profile.mealSizeId).firstOrNull;
           
           // Trigger dependent fetch for cities
           if (_selectedState != null) {
@@ -127,6 +129,10 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
       ErrorHandler.showError(context, 'Please select a company');
       return;
     }
+    if (_selectedMealSize == null) {
+      ErrorHandler.showError(context, 'Please select a meal size');
+      return;
+    }
 
     // Let the API handle profile conflict checks (400/403)
     // No hard-coded client-side blocking
@@ -141,6 +147,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
       city: _selectedCity?.name ?? _selectedCorporateLocation!.city,
       state: _selectedState?.name ?? _selectedCorporateLocation!.state,
       lunchTime: _timeController.text,
+      mealSizeId: _selectedMealSize!.id,
     );
     
     final success = await profileProvider.saveProfessionalProfile(profile);
@@ -290,7 +297,27 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                     },
                   ),
                   const SizedBox(height: 20),
-                  // 5. Lunch Time
+                  // 5. Meal Size
+                  SearchableDropdown<MealSizeModel>(
+                    label: 'Meal Size',
+                    items: lookup.mealSizes,
+                    itemLabel: (m) => m.displayName,
+                    value: _selectedMealSize,
+                    isLoading: lookup.isLoading,
+                    listenable: lookup,
+                    itemsGetter: () => lookup.mealSizes,
+                    loadingGetter: () => lookup.isLoading,
+                    validator: (v) => Validators.requiredField(v, 'Meal Size'),
+                    onInteraction: () {
+                      FocusScope.of(context).unfocus();
+                      lookup.fetchInitialData();
+                    },
+                    onChanged: (v) {
+                      setState(() => _selectedMealSize = v);
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  // 6. Lunch Time
                   InkWell(
                     onTap: () => _selectTime(context),
                     child: IgnorePointer(
@@ -354,11 +381,12 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
             onPressed: () async {
               Navigator.pop(context);
               final success = await context.read<ProfileProvider>().deleteProfessionalProfile();
-              if (success && mounted) {
-                ErrorHandler.showSuccess(context, 'Professional profile deleted successfully');
-                Navigator.pop(context);
-              } else if (mounted) {
-                ErrorHandler.showError(context, 'Failed to delete — profile may have active subscriptions');
+              if (!mounted) return;
+              if (success) {
+                ErrorHandler.showSuccess(this.context, 'Professional profile deleted successfully');
+                Navigator.pop(this.context);
+              } else {
+                ErrorHandler.showError(this.context, 'Failed to delete — profile may have active subscriptions');
               }
             },
             child: const Text('Delete'),

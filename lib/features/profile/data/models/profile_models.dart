@@ -6,6 +6,8 @@ class TeacherProfileModel {
   final String state;
   final String location;
   final String status;
+  final int? mealSizeId;
+  final String? mealTime;
 
   TeacherProfileModel({
     this.id,
@@ -15,6 +17,8 @@ class TeacherProfileModel {
     required this.state,
     required this.location,
     this.status = 'active',
+    this.mealSizeId,
+    this.mealTime,
   });
 
   factory TeacherProfileModel.fromJson(Map<String, dynamic> json) {
@@ -26,6 +30,8 @@ class TeacherProfileModel {
       state: json['state'],
       location: json['location'],
       status: json['status'] ?? 'active',
+      mealSizeId: json['meal_size_id'],
+      mealTime: json['meal_time'],
     );
   }
 
@@ -37,6 +43,8 @@ class TeacherProfileModel {
       'state': state,
       'location': location,
       'status': status,
+      'meal_size_id': mealSizeId,
+      'meal_time': mealTime,
     };
   }
 }
@@ -50,6 +58,7 @@ class ProfessionalProfileModel {
   final String state;
   final String lunchTime;
   final String? corporateLocationName;
+  final int? mealSizeId;
 
   ProfessionalProfileModel({
     this.id,
@@ -60,6 +69,7 @@ class ProfessionalProfileModel {
     required this.state,
     required this.lunchTime,
     this.corporateLocationName,
+    this.mealSizeId,
   });
 
   factory ProfessionalProfileModel.fromJson(Map<String, dynamic> json) {
@@ -72,6 +82,7 @@ class ProfessionalProfileModel {
       state: json['state'],
       lunchTime: json['lunch_time'],
       corporateLocationName: json['corporate_location_name'],
+      mealSizeId: json['meal_size_id'],
     );
   }
 
@@ -83,6 +94,7 @@ class ProfessionalProfileModel {
       'city': city,
       'state': state,
       'lunch_time': lunchTime,
+      'meal_size_id': mealSizeId,
     };
   }
 }

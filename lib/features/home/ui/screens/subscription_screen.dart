@@ -27,6 +27,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   String? _selectedEntityType;
   String? _selectedEntityId;
   String? _selectedEntityName;
+  int? _selectedMealSizeId;
 
   @override
   void initState() {
@@ -164,6 +165,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             icon: CupertinoIcons.book_fill,
             color: Colors.green,
             isDark: isDark,
+            mealSizeId: profileProvider.teacherProfile!.mealSizeId,
             isInCart: cartProvider.hasEntity(profileProvider.teacherProfile!.id!),
           ),
         if (profileProvider.professionalProfile != null)
@@ -176,6 +178,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             icon: CupertinoIcons.briefcase_fill,
             color: Colors.orange,
             isDark: isDark,
+            mealSizeId: profileProvider.professionalProfile!.mealSizeId,
             isInCart: cartProvider.hasEntity(profileProvider.professionalProfile!.id!),
           ),
 
@@ -259,6 +262,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                         _selectedEntityType = entityType;
                         _selectedEntityId = entityId;
                         _selectedEntityName = name;
+                        _selectedMealSizeId = mealSizeId;
                         _step = 1;
                       });
                     },
@@ -302,7 +306,12 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   /// Quick add to cart via server API.
   void _quickAddToCart(String entityType, String entityId, String name, int? mealSizeId) {
     final subscriptionProvider = context.read<SubscriptionProvider>();
-    final plans = subscriptionProvider.subscriptions;
+    final plans = subscriptionProvider.subscriptions.where((plan) {
+      if (mealSizeId != null && plan.mealSizeId != null) {
+        return plan.mealSizeId == mealSizeId;
+      }
+      return true;
+    }).toList();
 
     if (plans.isEmpty) {
       ErrorHandler.showError(context, 'No plans available for this profile.');
@@ -313,6 +322,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       _selectedEntityType = entityType;
       _selectedEntityId = entityId;
       _selectedEntityName = name;
+      _selectedMealSizeId = mealSizeId;
     });
 
     if (plans.length == 1) {
@@ -415,7 +425,12 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
   Widget _buildPlanSelectionView() {
     final subscriptionProvider = context.watch<SubscriptionProvider>();
-    final availablePlans = subscriptionProvider.subscriptions;
+    final availablePlans = subscriptionProvider.subscriptions.where((plan) {
+      if (_selectedMealSizeId != null && plan.mealSizeId != null) {
+        return plan.mealSizeId == _selectedMealSizeId;
+      }
+      return true;
+    }).toList();
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
