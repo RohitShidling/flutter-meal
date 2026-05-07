@@ -656,47 +656,58 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   IconData _getIconForEntry(HomepageEntry entry) {
-    final nameLower = entry.name.toLowerCase();
-    final entityLower = entry.entityName?.toLowerCase() ?? '';
-    
-    bool isMatch(String keyword) => nameLower.contains(keyword) || entityLower.contains(keyword);
-
-    if (isMatch('child') || isMatch('student') || isMatch('pupil') || isMatch('learner')) return CupertinoIcons.person_3_fill;
-    if (isMatch('teacher') || isMatch('instructor')) return CupertinoIcons.book_fill;
-    if (isMatch('professional') || isMatch('office') || isMatch('corporate')) return CupertinoIcons.briefcase_fill;
-    if (isMatch('bulk') || isMatch('group')) return CupertinoIcons.cube_box_fill;
-    
-    return CupertinoIcons.square_grid_2x2_fill;
+    switch (entry.entityId) {
+      case 'ENT-1':
+        return CupertinoIcons.person_3_fill;
+      case 'ENT-2':
+        return CupertinoIcons.book_fill;
+      case 'ENT-3':
+        return CupertinoIcons.briefcase_fill;
+      default:
+        return CupertinoIcons.square_grid_2x2_fill;
+    }
   }
 
   Color _getColorForEntry(HomepageEntry entry) {
-    final nameLower = entry.name.toLowerCase();
-    final entityLower = entry.entityName?.toLowerCase() ?? '';
-    
-    bool isMatch(String keyword) => nameLower.contains(keyword) || entityLower.contains(keyword);
-
-    if (isMatch('child') || isMatch('student') || isMatch('pupil') || isMatch('learner')) return Colors.blue;
-    if (isMatch('teacher') || isMatch('instructor')) return Colors.green;
-    if (isMatch('professional') || isMatch('office') || isMatch('corporate')) return Colors.orange;
-    if (isMatch('bulk') || isMatch('group')) return Colors.purple;
-    
-    return AppTheme.primaryColor;
+    switch (entry.entityId) {
+      case 'ENT-1':
+        return Colors.blue;
+      case 'ENT-2':
+        return Colors.green;
+      case 'ENT-3':
+        return Colors.orange;
+      default:
+        return AppTheme.primaryColor;
+    }
   }
 
+  /// Stable, entity-id–based routing (no more fuzzy name matching).
+  /// Backend returns `entity_id` like `ENT-1` (child), `ENT-2` (teacher),
+  /// `ENT-3` (professional). Anything else is treated as not-yet-supported.
   void _handleCardTap(BuildContext context, HomepageEntry entry) {
-    final nameLower = entry.name.toLowerCase();
-    final entityLower = entry.entityName?.toLowerCase() ?? '';
-    
-    bool isMatch(String keyword) => nameLower.contains(keyword) || entityLower.contains(keyword);
-
-    if (entry.entityId == 'ENT-1' || isMatch('child') || isMatch('student') || isMatch('pupil') || isMatch('learner')) {
-      Navigator.push(context, CupertinoPageRoute(builder: (context) => const ChildrenManagementScreen()));
-    } else if (entry.entityId == 'ENT-2' || isMatch('teacher') || isMatch('instructor')) {
-      Navigator.push(context, CupertinoPageRoute(builder: (context) => const TeacherProfileScreen()));
-    } else if (entry.entityId == 'ENT-3' || isMatch('professional') || isMatch('office') || isMatch('corporate')) {
-      Navigator.push(context, CupertinoPageRoute(builder: (context) => const ProfessionalProfileScreen()));
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Coming soon!')));
+    switch (entry.entityId) {
+      case 'ENT-1':
+        Navigator.push(
+          context,
+          CupertinoPageRoute(builder: (_) => const ChildrenManagementScreen()),
+        );
+        return;
+      case 'ENT-2':
+        Navigator.push(
+          context,
+          CupertinoPageRoute(builder: (_) => const TeacherProfileScreen()),
+        );
+        return;
+      case 'ENT-3':
+        Navigator.push(
+          context,
+          CupertinoPageRoute(builder: (_) => const ProfessionalProfileScreen()),
+        );
+        return;
+      default:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('This feature is coming soon.')),
+        );
     }
   }
 
@@ -747,127 +758,183 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildQuickStatus(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final mealProvider = context.watch<MealProvider>();
     final isActive = mealProvider.subscriptionStatusData?['has_active_subscription'] == true;
+    final childrenCount = context.watch<ChildrenProvider>().children.length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Builder(builder: (context) {
-          final isDark = Theme.of(context).brightness == Brightness.dark;
-          return Text(
-            'Your Activity',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-              color: isDark ? Colors.white : AppTheme.textPrimaryLight,
-            ),
-          );
-        }),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: _buildStatusMiniCard(
-                context,
-                'Children', 
-                context.watch<ChildrenProvider>().children.length.toString(), 
-                CupertinoIcons.person_3_fill, 
-                Colors.blue,
-                onTap: () => Navigator.push(context, CupertinoPageRoute(builder: (_) => ChildrenManagementScreen())),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _buildStatusMiniCard(
-                context,
-                'Status',
-                isActive ? 'Active' : 'Inactive',
-                isActive ? CupertinoIcons.checkmark_seal_fill : CupertinoIcons.xmark_seal_fill,
-                isActive ? Colors.green : Colors.red,
-                onTap: () {
-                  if (isActive) {
-                    Navigator.push(
-                      context,
-                      CupertinoPageRoute(builder: (_) => const SubscriptionManagementScreen()),
-                    );
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: const Text('You don\'t have an active plan. Subscribe and get meals!'),
-                        backgroundColor: AppTheme.primaryColor,
-                        action: SnackBarAction(
-                          label: 'SUBSCRIBE',
-                          textColor: Colors.white,
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              CupertinoPageRoute(builder: (_) => const SubscriptionScreen()),
-                            );
-                          },
-                        ),
-                      ),
-                    );
-                  }
-                },
-              ),
-            ),
-          ],
+        Text(
+          'Your Activity',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w900,
+            color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+          ),
         ),
+        const SizedBox(height: 12),
+        // Compact, production-grade activity row — children count + plan status pill.
+        _buildActivitySummary(context, isDark, childrenCount: childrenCount, isActive: isActive),
       ],
     ).animate().fadeIn(delay: 400.ms);
   }
 
-  Widget _buildStatusMiniCard(BuildContext context, String label, String value, IconData icon, Color color, {VoidCallback? onTap}) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
-      child: Container(
-      padding: const EdgeInsets.all(20),
+  /// Compact single-card activity summary: children + plan status side by side.
+  /// Tapping the plan-status side navigates to subscription management when
+  /// active, or opens upgrade flow when inactive — never blocks the user.
+  Widget _buildActivitySummary(
+    BuildContext context,
+    bool isDark, {
+    required int childrenCount,
+    required bool isActive,
+  }) {
+    return Container(
       decoration: BoxDecoration(
         color: isDark ? AppTheme.surfaceDark : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey.withOpacity(0.1)),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: isDark ? Colors.white10 : Colors.grey.withOpacity(0.1)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.02),
             blurRadius: 10,
-            offset: const Offset(0, 5),
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              shape: BoxShape.circle,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Left: Children
+            Expanded(
+              child: InkWell(
+                onTap: () => Navigator.push(
+                  context,
+                  CupertinoPageRoute(builder: (_) => const ChildrenManagementScreen()),
+                ),
+                borderRadius: const BorderRadius.horizontal(left: Radius.circular(18)),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(CupertinoIcons.person_3_fill, color: Colors.blue, size: 18),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              '$childrenCount',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                                color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                              ),
+                            ),
+                            Text(
+                              'Children',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
-            child: Icon(icon, color: color, size: 18),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
+            // Vertical divider
+            Container(width: 1, color: isDark ? Colors.white10 : Colors.grey.withOpacity(0.12)),
+            // Right: Plan status pill — compact + tappable
+            Expanded(
+              child: _buildPlanStatusPill(context, isDark, isActive: isActive),
             ),
-          ),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
+
+  Widget _buildPlanStatusPill(BuildContext context, bool isDark, {required bool isActive}) {
+    final color = isActive ? Colors.green : Colors.red;
+    final icon = isActive ? CupertinoIcons.checkmark_seal_fill : CupertinoIcons.exclamationmark_circle_fill;
+    final title = 'My Subscription';
+    final subtitle = isActive ? 'Active Plan' : 'No Active Plan';
+
+    return InkWell(
+      onTap: () {
+        if (isActive) {
+          Navigator.push(
+            context,
+            CupertinoPageRoute(builder: (_) => const SubscriptionManagementScreen()),
+          );
+        } else {
+          Navigator.push(
+            context,
+            CupertinoPageRoute(builder: (_) => const SubscriptionScreen()),
+          );
+        }
+      },
+      borderRadius: const BorderRadius.horizontal(right: Radius.circular(18)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 14, 12),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 18),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            Icon(CupertinoIcons.chevron_right, size: 14, color: isDark ? Colors.white38 : Colors.grey),
+          ],
+        ),
+      ),
+    );
+  }
 }

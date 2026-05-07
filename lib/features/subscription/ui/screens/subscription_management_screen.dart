@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:meal_app/core/theme/app_theme.dart';
 import 'package:meal_app/core/providers/payment_provider.dart';
 import 'package:meal_app/core/widgets/apple_card.dart';
+import 'package:meal_app/core/utils/time_utils.dart';
 
 class SubscriptionManagementScreen extends StatefulWidget {
   const SubscriptionManagementScreen({super.key});
@@ -115,7 +116,7 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
       itemCount: provider.activeSubscriptions.length,
       itemBuilder: (context, index) {
         final sub = provider.activeSubscriptions[index];
@@ -125,10 +126,18 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
         final entityName = _safeString(sub['entity_name'], 'Profile');
         final entityType = _safeString(sub['entity_type'], '');
         final amountPaid = _safeString(sub['amount_paid'], '');
-        final daysRemaining = sub['days_remaining'];
+        final remainingMeals = sub['remaining_meals'];
         final status = _safeString(sub['status'] ?? sub['subscription_status'], 'ACTIVE');
         final includeSaturday = sub['include_saturday'] == null ? true : sub['include_saturday'] == true;
-        
+        final mealSizeName = _safeString(sub['meal_size_name'], '');
+        final mealTimingRaw = _safeString(sub['meal_timing'], '');
+        final mealTiming = mealTimingRaw.isEmpty ? '' : TimeUtils.formatToDisplay(mealTimingRaw);
+        final startDateStr = _safeString(sub['start_date'], '');
+        DateTime? startDate;
+        if (startDateStr.isNotEmpty) {
+          startDate = DateTime.tryParse(startDateStr);
+        }
+
         final expiryStr = _safeString(sub['end_date'] ?? sub['expiry_date'], '');
         DateTime? expiry;
         if (expiryStr.isNotEmpty) {
@@ -136,7 +145,7 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
         }
         
         return AppleCard(
-          margin: const EdgeInsets.only(bottom: 16),
+          margin: const EdgeInsets.only(bottom: 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -175,35 +184,20 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 10),
+              // Meta details — compact column of label/value pairs
+              if (startDate != null)
+                _buildMetaRow('Start Date', DateFormat('dd MMM yyyy').format(startDate), isDark),
               if (expiry != null)
-                Text(
-                  'Expires on: ${DateFormat('dd MMM yyyy').format(expiry)}',
-                  style: TextStyle(
-                    color: isDark ? Colors.white54 : AppTheme.textSecondaryLight,
-                    fontSize: 13,
-                  ),
-                ),
-              if (amountPaid.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Text(
-                  'Amount: ₹$amountPaid',
-                  style: TextStyle(
-                    color: isDark ? Colors.white70 : AppTheme.textSecondaryLight,
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 4),
-              Text(
-                includeSaturday ? 'Variant: With Saturday' : 'Variant: Without Saturday',
-                style: TextStyle(
-                  color: isDark ? Colors.white54 : AppTheme.textSecondaryLight,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const Divider(height: 32),
+                _buildMetaRow('Expires On', DateFormat('dd MMM yyyy').format(expiry), isDark),
+              if (amountPaid.isNotEmpty)
+                _buildMetaRow('Amount Paid', '₹$amountPaid', isDark),
+              _buildMetaRow('Variant', includeSaturday ? 'With Saturday' : 'Without Saturday', isDark),
+              if (mealSizeName.isNotEmpty)
+                _buildMetaRow('Meal Size', mealSizeName, isDark),
+              if (mealTiming.isNotEmpty)
+                _buildMetaRow('Meal Delivery Time', mealTiming, isDark),
+              const Divider(height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -216,11 +210,11 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
                   ),
                   Row(
                     children: [
-                      if (daysRemaining != null)
+                      if (remainingMeals != null)
                         Padding(
                           padding: const EdgeInsets.only(right: 12),
                           child: Text(
-                            '$daysRemaining days left',
+                            '${remainingMeals.toString()} meals left',
                             style: TextStyle(
                               color: isDark ? Colors.white54 : AppTheme.textSecondaryLight,
                               fontSize: 12,
@@ -279,7 +273,7 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
       itemCount: provider.paymentHistory.length,
       itemBuilder: (context, index) {
         final payment = provider.paymentHistory[index];
@@ -293,6 +287,8 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
           'PENDING',
         ).toUpperCase();
         final includeSaturday = payment['include_saturday'] == null ? true : payment['include_saturday'] == true;
+        final mealSizeName = _safeString(payment['meal_size_name'], '');
+        final mealTimingRaw = _safeString(payment['meal_timing'], '');
         final isSuccess = pStatus == 'COMPLETED' || pStatus == 'SUCCESS';
 
         final dateStr = _safeString(payment['created_at'] ?? payment['payment_date'], '');
@@ -329,6 +325,8 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
                         fontSize: 15,
                         color: isDark ? Colors.white : AppTheme.textPrimaryLight,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     if (entityName.isNotEmpty)
                       Text(
@@ -337,9 +335,18 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
                           color: isDark ? Colors.white54 : AppTheme.textSecondaryLight,
                           fontSize: 12,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     Text(
-                      includeSaturday ? 'With Saturday' : 'Without Saturday',
+                      [
+                        includeSaturday ? 'With Saturday' : 'Without Saturday',
+                        if (mealSizeName.isNotEmpty) mealSizeName,
+                        if (mealTimingRaw.isNotEmpty) TimeUtils.formatToDisplay(mealTimingRaw),
+                      ].join(' • '),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: true,
                       style: TextStyle(
                         color: isDark ? Colors.white38 : AppTheme.textSecondaryLight,
                         fontSize: 11,
@@ -388,6 +395,40 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
           ),
         );
       },
+    );
+  }
+
+  /// Compact label/value row used inside the active-plan card.
+  Widget _buildMetaRow(String label, String value, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 130,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: isDark ? Colors.white54 : AppTheme.textSecondaryLight,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

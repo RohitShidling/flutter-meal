@@ -324,12 +324,12 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                       child: TextFormField(
                         controller: TextEditingController(text: TimeUtils.formatToDisplay(_timeController.text)),
                         decoration: const InputDecoration(
-                          labelText: 'Lunch Time',
-                          hintText: 'Select lunch delivery time',
+                          labelText: 'Meal Delivery Time',
+                          hintText: 'Select meal delivery time',
                           prefixIcon: Icon(CupertinoIcons.clock_fill),
                           suffixIcon: Icon(CupertinoIcons.chevron_down, size: 16),
                         ),
-                        validator: (v) => Validators.time(_timeController.text, fieldName: 'Lunch time'),
+                        validator: (v) => Validators.time(_timeController.text, fieldName: 'Meal delivery time'),
                       ),
                     ),
                   ),

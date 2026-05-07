@@ -1,12 +1,15 @@
 import 'package:dio/dio.dart';
 import 'package:meal_app/core/network/api_endpoints.dart';
+import 'package:meal_app/core/providers/session_provider.dart';
 import 'package:meal_app/core/storage/secure_storage.dart';
 
 class DioClient {
   late Dio _dio;
   final SecureStorage _secureStorage;
+  final SessionProvider? _sessionProvider;
 
-  DioClient(this._secureStorage) {
+  DioClient(this._secureStorage, {SessionProvider? sessionProvider})
+      : _sessionProvider = sessionProvider {
     _dio = Dio(BaseOptions(
       baseUrl: ApiEndpoints.baseUrl,
       connectTimeout: const Duration(seconds: 10),
@@ -36,6 +39,13 @@ class DioClient {
       },
       onError: (DioException e, handler) async {
         if (e.response?.statusCode == 401) {
+          // Don't try to refresh on the refresh endpoint itself — would loop forever.
+          final isRefreshCall = e.requestOptions.path.contains(ApiEndpoints.refresh);
+          if (isRefreshCall) {
+            await _expireSession('Refresh token rejected by server.');
+            return handler.next(e);
+          }
+
           // Token might be expired, try to refresh
           final newAccessToken = await _refreshToken();
           if (newAccessToken != null) {
@@ -49,8 +59,10 @@ class DioClient {
               return handler.next(e);
             }
           } else {
-            // Refresh failed, clear tokens and let the UI handle the logout
+            // Refresh failed — clear tokens AND signal session expired so the
+            // UI can force-route the user to the login screen.
             await _secureStorage.clearTokens();
+            await _expireSession('Your session has expired. Please log in again.');
           }
         }
         return handler.next(e);
@@ -97,6 +109,17 @@ class DioClient {
       return null;
     }
     return null;
+  }
+
+  /// Best-effort: clear tokens and notify the session provider once.
+  /// All errors are swallowed so the original API error reaches the caller.
+  Future<void> _expireSession(String reason) async {
+    try {
+      await _secureStorage.clearTokens();
+    } catch (_) {/* ignore */}
+    try {
+      _sessionProvider?.expire(reason: reason);
+    } catch (_) {/* ignore */}
   }
 
   Dio get dio => _dio;

@@ -28,6 +28,7 @@ import 'package:meal_app/core/network/cart_repository.dart';
 import 'package:meal_app/core/providers/cart_provider.dart';
 import 'package:meal_app/core/network/meal_repository.dart';
 import 'package:meal_app/core/providers/meal_provider.dart';
+import 'package:meal_app/core/providers/session_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,7 +43,10 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     // Dependency Injection
     final secureStorage = SecureStorage();
-    final dioClient = DioClient(secureStorage);
+    // The session provider is a long-lived singleton shared between the
+    // network layer (to push expire events) and the UI (to react to them).
+    final sessionProvider = SessionProvider();
+    final dioClient = DioClient(secureStorage, sessionProvider: sessionProvider);
     final authRepository = AuthRepository(dioClient, secureStorage);
     final lookupRepository = LookupRepository(dioClient);
     final childrenRepository = ChildrenRepository(dioClient);
@@ -54,6 +58,7 @@ class MyApp extends StatelessWidget {
 
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider.value(value: sessionProvider),
         ChangeNotifierProvider(create: (_) => AuthProvider(authRepository)),
         ChangeNotifierProvider(create: (_) => LookupProvider(lookupRepository)),
         ChangeNotifierProvider(create: (_) => ChildrenProvider(childrenRepository)),
@@ -82,14 +87,69 @@ class MainApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: context.watch<ThemeProvider>().themeMode,
+      // navigatorKey lets us show messages from the network layer if needed.
       home: const AuthWrapper(),
     );
   }
 }
 
 
-class AuthWrapper extends StatelessWidget {
+class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
+
+  @override
+  State<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends State<AuthWrapper> {
+  bool _logoutInFlight = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Listen for session-expired events from the network layer.
+    final session = context.read<SessionProvider>();
+    session.addListener(_handleSessionChange);
+  }
+
+  @override
+  void dispose() {
+    context.read<SessionProvider>().removeListener(_handleSessionChange);
+    super.dispose();
+  }
+
+  /// When the network layer reports an expired session, force-logout and
+  /// surface a clear message. This guarantees the user is always returned
+  /// to the login screen with stale tokens cleared.
+  Future<void> _handleSessionChange() async {
+    if (!mounted) return;
+    final session = context.read<SessionProvider>();
+    if (!session.isExpired || _logoutInFlight) return;
+    _logoutInFlight = true;
+    final reason = session.reason ?? 'Session expired. Please log in again.';
+    try {
+      await context.read<AuthProvider>().logout();
+    } catch (_) {/* ignore */}
+    if (!mounted) {
+      _logoutInFlight = false;
+      return;
+    }
+    session.acknowledge();
+    _logoutInFlight = false;
+    // Show a non-blocking notice on the next frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      messenger?.clearSnackBars();
+      messenger?.showSnackBar(
+        SnackBar(
+          content: Text(reason),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

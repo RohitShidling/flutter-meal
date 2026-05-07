@@ -5,6 +5,9 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:meal_app/core/theme/app_theme.dart';
 import 'package:meal_app/core/providers/cart_provider.dart';
 import 'package:meal_app/core/widgets/apple_card.dart';
+import 'package:meal_app/core/utils/meal_date.dart';
+import 'package:meal_app/core/utils/time_utils.dart';
+import 'package:meal_app/core/network/api_endpoints.dart';
 import 'package:meal_app/features/subscription/ui/screens/payment_status_screen.dart';
 
 class CartScreen extends StatefulWidget {
@@ -150,6 +153,10 @@ class _CartScreenState extends State<CartScreen> {
             const Divider(height: 24),
             _buildDetailRow('Plan', item.planName, isDark),
             _buildDetailRow('Variant', item.includeSaturday ? 'With Saturday' : 'Without Saturday', isDark),
+            if ((item.mealSizeName ?? '').isNotEmpty)
+              _buildDetailRow('Meal Size', item.mealSizeName!, isDark),
+            if ((item.mealTiming ?? '').isNotEmpty)
+              _buildDetailRow('Meal Delivery Time', TimeUtils.formatToDisplay(item.mealTiming), isDark),
             _buildStartDateRow(context, item, isDark, cartProvider),
             const SizedBox(height: 8),
             // Delete button
@@ -174,24 +181,37 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Widget _buildStartDateRow(BuildContext context, CartItem item, bool isDark, CartProvider cartProvider) {
-    final value = item.startDate != null ? _formatDate(item.startDate!) : '—';
+    final value = MealDate.formatDisplay(item.startDate);
+    final isFlagged = !MealDate.isValidFutureStartDate(item.startDate);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Start Date', style: TextStyle(fontSize: 13, color: isDark ? Colors.white38 : AppTheme.textSecondaryLight)),
+                Text('Meal Start Date', style: TextStyle(fontSize: 13, color: isDark ? Colors.white38 : AppTheme.textSecondaryLight)),
                 const SizedBox(height: 2),
-                Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDark ? Colors.white : AppTheme.textPrimaryLight)),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isFlagged ? Colors.orange : (isDark ? Colors.white : AppTheme.textPrimaryLight),
+                  ),
+                ),
               ],
             ),
           ),
           TextButton(
             onPressed: cartProvider.isLoading ? null : () => _changeStartDate(context, item, cartProvider),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              minimumSize: const Size(72, 0),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
             child: const Text('Change', style: TextStyle(fontWeight: FontWeight.w700)),
           ),
         ],
@@ -200,43 +220,25 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Future<void> _changeStartDate(BuildContext context, CartItem item, CartProvider cartProvider) async {
-    final tomorrow = DateTime.now().add(const Duration(days: 1));
-    final first = DateTime(tomorrow.year, tomorrow.month, tomorrow.day);
-    final last = first.add(const Duration(days: 60));
-    DateTime initial = first;
-    if (item.startDate != null) {
-      try {
-        final parsed = DateTime.parse(item.startDate!);
-        final p = DateTime(parsed.year, parsed.month, parsed.day);
-        if (!p.isBefore(first)) initial = p;
-      } catch (_) {}
-    }
+    final first = MealDate.firstSelectableStartDate();
+    final last = MealDate.lastSelectableStartDate();
+    final initial = MealDate.parseOrTomorrow(item.startDate);
     final selectedDate = await showDatePicker(
       context: context,
-      initialDate: initial,
+      initialDate: initial.isBefore(first) ? first : initial,
       firstDate: first,
       lastDate: last,
       helpText: 'Select Meal Start Date',
       confirmText: 'SAVE',
     );
     if (selectedDate == null || !context.mounted) return;
-    final dateStr = '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}';
+    final dateStr = MealDate.formatYmd(selectedDate);
     final ok = await cartProvider.updateItemStartDate(item.id, dateStr);
     if (!context.mounted) return;
     if (ok) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Start date updated'), behavior: SnackBarBehavior.floating));
     } else if (cartProvider.error != null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(cartProvider.error!), backgroundColor: Colors.red.shade700, behavior: SnackBarBehavior.floating));
-    }
-  }
-
-  /// Format ISO date string to readable format
-  String _formatDate(String dateStr) {
-    try {
-      final date = DateTime.parse(dateStr);
-      return '${date.day.toString().padLeft(2, '0')}-${date.month.toString().padLeft(2, '0')}-${date.year}';
-    } catch (_) {
-      return dateStr;
     }
   }
 
@@ -306,7 +308,7 @@ class _CartScreenState extends State<CartScreen> {
       ),
     );
 
-    final result = await cartProvider.checkoutAll(isSandbox: true);
+    final result = await cartProvider.checkoutAll(isSandbox: ApiEndpoints.isSandboxPayment);
     if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
     if (!context.mounted) return;
 
@@ -315,7 +317,16 @@ class _CartScreenState extends State<CartScreen> {
       final txnId = result['merchantTransactionId']?.toString() ?? '';
       final orderId = result['orderId']?.toString() ?? '';
       if (sdkStatus == 'SUCCESS' || sdkStatus == 'INTERRUPTED') {
-        Navigator.pushReplacement(context, CupertinoPageRoute(builder: (_) => PaymentStatusScreen(txnId: txnId, orderId: orderId)));
+        Navigator.pushReplacement(
+          context,
+          CupertinoPageRoute(
+            builder: (_) => PaymentStatusScreen(
+              txnId: txnId,
+              orderId: orderId,
+              orderType: 'cart',
+            ),
+          ),
+        );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Payment failed or was cancelled.'), backgroundColor: Colors.red.shade700, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))));
       }

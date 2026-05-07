@@ -18,6 +18,18 @@ class ApiEndpoints {
     return domain;
   }
 
+  /// Whether the PhonePe SDK should run against the SANDBOX (UAT) environment.
+  /// Production-grade behavior: any non-`production` ENVIRONMENT is sandbox.
+  /// Optional override via PHONEPE_SANDBOX=true|false in .env for staging tests.
+  static bool get isSandboxPayment {
+    final override = dotenv.env['PHONEPE_SANDBOX'];
+    if (override != null && override.isNotEmpty) {
+      return override.toLowerCase() == 'true';
+    }
+    final env = (dotenv.env['ENVIRONMENT'] ?? 'development').toLowerCase();
+    return env != 'production';
+  }
+
   // Auth - Login (existing user)
   static const String loginSendOtp = '/api/client/auth/login/send-otp';
   static const String loginVerifyOtp = '/api/client/auth/login/verify-otp';

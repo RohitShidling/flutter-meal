@@ -609,12 +609,12 @@ class _ChildFormState extends State<_ChildForm> {
                   child: TextFormField(
                     controller: TextEditingController(text: TimeUtils.formatToDisplay(_timeController.text)),
                     decoration: const InputDecoration(
-                      labelText: 'Meal Time', 
-                      hintText: 'Select delivery time',
+                      labelText: 'Meal Delivery Time',
+                      hintText: 'Select meal delivery time',
                       prefixIcon: Icon(CupertinoIcons.clock),
                       suffixIcon: Icon(CupertinoIcons.chevron_down, size: 16),
                     ),
-                    validator: (v) => Validators.time(_timeController.text, fieldName: 'Meal time'),
+                    validator: (v) => Validators.time(_timeController.text, fieldName: 'Meal delivery time'),
                   ),
                 ),
               ),

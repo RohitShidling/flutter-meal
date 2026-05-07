@@ -14,6 +14,8 @@ import 'package:meal_app/features/profile/providers/profile_provider.dart';
 import 'package:meal_app/features/subscription/ui/screens/payment_status_screen.dart';
 import 'package:meal_app/features/subscription/ui/screens/cart_screen.dart';
 import 'package:meal_app/core/utils/error_handler.dart';
+import 'package:meal_app/core/utils/meal_date.dart';
+import 'package:meal_app/core/network/api_endpoints.dart';
 
 class SubscriptionScreen extends StatefulWidget {
   const SubscriptionScreen({super.key});
@@ -40,38 +42,25 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     });
   }
 
-  /// Next calendar day (local) at midnight — lower bound for start dates.
-  DateTime _firstSelectableStartDate() {
-    final n = DateTime.now().add(const Duration(days: 1));
-    return DateTime(n.year, n.month, n.day);
-  }
-
-  /// yyyy-MM-dd — same rules as direct "Buy Now" payment.
+  /// yyyy-MM-dd — uses centralized MealDate rules (starts tomorrow at earliest).
   Future<String?> _pickStartDate(
     BuildContext context, {
     String? currentIso,
     String confirmText = 'CONFIRM',
   }) async {
-    final first = _firstSelectableStartDate();
-    DateTime initial = first;
-    if (currentIso != null) {
-      try {
-        final parsed = DateTime.parse(currentIso);
-        final p = DateTime(parsed.year, parsed.month, parsed.day);
-        if (!p.isBefore(first)) initial = p;
-      } catch (_) {}
-    }
-    final last = first.add(const Duration(days: 60));
+    final first = MealDate.firstSelectableStartDate();
+    final initial = MealDate.parseOrTomorrow(currentIso);
+    final last = MealDate.lastSelectableStartDate();
     final selectedDate = await showDatePicker(
       context: context,
-      initialDate: initial,
+      initialDate: initial.isBefore(first) ? first : initial,
       firstDate: first,
       lastDate: last,
       helpText: 'Select Meal Start Date',
       confirmText: confirmText,
     );
     if (selectedDate == null) return null;
-    return '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}';
+    return MealDate.formatYmd(selectedDate);
   }
 
   @override
@@ -341,8 +330,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     bool includeSaturday,
   ) async {
     // Default to tomorrow — user can change start date from the cart screen
-    final tomorrow = DateTime.now().add(const Duration(days: 1));
-    final startDate = '${tomorrow.year}-${tomorrow.month.toString().padLeft(2, '0')}-${tomorrow.day.toString().padLeft(2, '0')}';
+    final startDate = MealDate.tomorrowYmd();
 
     final cartProvider = context.read<CartProvider>();
     final success = await cartProvider.addItem(
@@ -369,55 +357,111 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(ctx).viewInsets.bottom + 36),
-        decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Select Plan for $name', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: isDark ? Colors.white : AppTheme.textPrimaryLight)),
-            const SizedBox(height: 16),
-            ...plans.map((plan) => InkWell(
-              onTap: () {
-                Navigator.pop(ctx);
-                _showSaturdayOptionSheet(context, plan, entityType, entityId);
-              },
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: isDark ? AppTheme.surfaceDark : Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(plan.planName, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: isDark ? Colors.white : AppTheme.textPrimaryLight)),
-                          Text(
-                            '${plan.billingCycle} • ${plan.durationDays} days',
-                            style: TextStyle(fontSize: 12, color: isDark ? Colors.white54 : AppTheme.textSecondaryLight),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Text(
-                      '₹${plan.priceWithSaturday} / ₹${plan.priceWithoutSaturday}',
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: AppTheme.primaryColor),
-                    ),
-                  ],
-                ),
+      builder: (ctx) => SafeArea(
+        top: false,
+        child: Container(
+          padding: EdgeInsets.fromLTRB(20, 8, 20, MediaQuery.of(ctx).viewInsets.bottom + 24),
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildSheetGrabber(isDark),
+              const SizedBox(height: 4),
+              Text(
+                'Choose Plan',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: isDark ? Colors.white : AppTheme.textPrimaryLight),
               ),
-            )),
+              const SizedBox(height: 4),
+              Text(
+                'For $name',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDark ? Colors.white54 : AppTheme.textSecondaryLight),
+              ),
+              const SizedBox(height: 16),
+              ...plans.map((plan) => _buildPlanPickerRow(ctx, plan, entityType, entityId, isDark)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlanPickerRow(BuildContext ctx, SubscriptionModel plan, String entityType, String entityId, bool isDark) {
+    return InkWell(
+      onTap: () {
+        Navigator.pop(ctx);
+        _showSaturdayOptionSheet(context, plan, entityType, entityId);
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.surfaceDark : Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withOpacity(0.10),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(CupertinoIcons.creditcard_fill, color: AppTheme.primaryColor, size: 18),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    plan.planName,
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: isDark ? Colors.white : AppTheme.textPrimaryLight),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${plan.billingCycle} • ${plan.durationDays} days',
+                    style: TextStyle(fontSize: 12, color: isDark ? Colors.white54 : AppTheme.textSecondaryLight),
+                  ),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '₹${plan.priceWithSaturday}',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AppTheme.primaryColor),
+                ),
+                Text(
+                  '/ ₹${plan.priceWithoutSaturday} no Sat',
+                  style: TextStyle(fontSize: 10, color: isDark ? Colors.white54 : AppTheme.textSecondaryLight),
+                ),
+              ],
+            ),
+            const SizedBox(width: 6),
+            Icon(CupertinoIcons.chevron_right, size: 14, color: isDark ? Colors.white38 : Colors.grey),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// Reusable drag-handle for bottom sheets — production polish detail.
+  Widget _buildSheetGrabber(bool isDark) {
+    return Center(
+      child: Container(
+        width: 40,
+        height: 4,
+        margin: const EdgeInsets.only(top: 8, bottom: 12),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white24 : Colors.black.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(4),
         ),
       ),
     );
@@ -633,29 +677,51 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
-        decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Choose Plan Variant',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+      builder: (ctx) => SafeArea(
+        top: false,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildSheetGrabber(isDark),
+              Text(
+                isBuyNow ? 'Confirm & Pay' : 'Add to Cart',
+                style: TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w900,
+                  color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            _buildVariantTile(ctx, plan, includeSaturday: true, isDark: isDark, isBuyNow: isBuyNow, entityType: entityType, entityId: entityId),
-            const SizedBox(height: 10),
-            _buildVariantTile(ctx, plan, includeSaturday: false, isDark: isDark, isBuyNow: isBuyNow, entityType: entityType, entityId: entityId),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                'Choose your plan variant',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isDark ? Colors.white54 : AppTheme.textSecondaryLight,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildVariantTile(
+                ctx, plan,
+                includeSaturday: true, isDark: isDark, isBuyNow: isBuyNow,
+                entityType: entityType, entityId: entityId,
+              ),
+              const SizedBox(height: 10),
+              _buildVariantTile(
+                ctx, plan,
+                includeSaturday: false, isDark: isDark, isBuyNow: isBuyNow,
+                entityType: entityType, entityId: entityId,
+              ),
+              const SizedBox(height: 14),
+              _buildVariantInfoBanner(isDark),
+            ],
+          ),
         ),
       ),
     );
@@ -675,6 +741,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     final subtitle = includeSaturday
         ? 'Meals include Saturdays'
         : 'Saturday meals excluded';
+    final accent = includeSaturday ? AppTheme.primaryColor : Colors.indigo;
+
     return InkWell(
       onTap: () async {
         Navigator.pop(sheetContext);
@@ -688,29 +756,73 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         }
         _addToCartViaAPI(plan, entityType, entityId, includeSaturday);
       },
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: isDark ? Colors.white24 : Colors.grey.shade300),
+          color: isDark ? AppTheme.surfaceDark : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade200),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 3)),
+          ],
         ),
         child: Row(
           children: [
-            const Icon(CupertinoIcons.calendar, color: AppTheme.primaryColor),
-            const SizedBox(width: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: accent.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                includeSaturday ? CupertinoIcons.calendar_today : CupertinoIcons.calendar,
+                color: accent,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: TextStyle(fontWeight: FontWeight.w700, color: isDark ? Colors.white : AppTheme.textPrimaryLight)),
+                  Text(title, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: isDark ? Colors.white : AppTheme.textPrimaryLight)),
+                  const SizedBox(height: 2),
                   Text(subtitle, style: TextStyle(fontSize: 12, color: isDark ? Colors.white54 : AppTheme.textSecondaryLight)),
                 ],
               ),
             ),
-            Text('₹$price', style: const TextStyle(fontWeight: FontWeight.w800, color: AppTheme.primaryColor)),
+            Text('₹$price', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17, color: accent)),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildVariantInfoBanner(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryColor.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.18)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(CupertinoIcons.info_circle_fill, color: AppTheme.primaryColor, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Meal delivery starts from your selected start date — never today.',
+              style: TextStyle(
+                fontSize: 12,
+                color: isDark ? Colors.white70 : AppTheme.textSecondaryLight,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -742,7 +854,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       entityId: entityId,
       includeSaturday: includeSaturday,
       startDate: startDate,
-      isSandbox: true,
+      isSandbox: ApiEndpoints.isSandboxPayment,
     );
     if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
     if (!context.mounted) return;
@@ -752,7 +864,16 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       final String txnId = result['merchantTransactionId'] as String? ?? '';
       final String orderId = result['orderId'] as String? ?? '';
       if (sdkStatus == 'SUCCESS' || sdkStatus == 'INTERRUPTED') {
-        Navigator.push(context, CupertinoPageRoute(builder: (context) => PaymentStatusScreen(txnId: txnId, orderId: orderId)));
+        Navigator.push(
+          context,
+          CupertinoPageRoute(
+            builder: (context) => PaymentStatusScreen(
+              txnId: txnId,
+              orderId: orderId,
+              orderType: 'single',
+            ),
+          ),
+        );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Payment failed or was cancelled.'), backgroundColor: Colors.red.shade700, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))));
       }

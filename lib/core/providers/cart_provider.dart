@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:meal_app/core/network/cart_repository.dart';
 import 'package:meal_app/core/network/api_endpoints.dart';
 import 'package:meal_app/core/services/phonepe_service.dart';
+import 'package:meal_app/core/utils/meal_date.dart';
 
 /// Server-side cart item — mirrors the backend response.
 class CartItem {
@@ -14,6 +15,9 @@ class CartItem {
   final String? entityId;
   final String? subscriptionId;
   final bool includeSaturday;
+  final int? mealSizeId;
+  final String? mealSizeName;
+  final String? mealTiming;
 
   CartItem({
     required this.id,
@@ -25,6 +29,9 @@ class CartItem {
     this.entityId,
     this.subscriptionId,
     this.includeSaturday = true,
+    this.mealSizeId,
+    this.mealSizeName,
+    this.mealTiming,
   });
 
   factory CartItem.fromJson(Map<String, dynamic> json) {
@@ -38,6 +45,11 @@ class CartItem {
       entityId: json['entity_id']?.toString(),
       subscriptionId: json['subscription_id']?.toString(),
       includeSaturday: json['include_saturday'] == null ? true : json['include_saturday'] == true,
+      mealSizeId: json['meal_size_id'] is int
+          ? json['meal_size_id'] as int
+          : int.tryParse(json['meal_size_id']?.toString() ?? ''),
+      mealSizeName: json['meal_size_name']?.toString(),
+      mealTiming: json['meal_timing']?.toString(),
     );
   }
 }
@@ -97,6 +109,44 @@ class CartProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+
+    // After load, silently fix any items whose start date is missing/today/past.
+    // Meal subscriptions can never start today, so we promote them to tomorrow.
+    await _autoCorrectInvalidStartDates();
+  }
+
+  /// Patches any cart items that have a missing / past / today start_date,
+  /// bumping them to tomorrow on the server. Runs in the background; errors
+  /// are swallowed so a transient network glitch never blocks the UI.
+  Future<void> _autoCorrectInvalidStartDates() async {
+    if (_items.isEmpty) return;
+    final invalid = _items.where((i) => !MealDate.isValidFutureStartDate(i.startDate)).toList();
+    if (invalid.isEmpty) return;
+
+    final tomorrow = MealDate.tomorrowYmd();
+    bool changed = false;
+    for (final item in invalid) {
+      try {
+        await _repository.updateCartItemStartDate(itemId: item.id, startDate: tomorrow);
+        changed = true;
+      } catch (_) {
+        // Silent — user can still manually change date in the UI.
+      }
+    }
+    if (changed) {
+      // Re-fetch without recursion (skip auto-correct second time).
+      try {
+        final data = await _repository.getCart();
+        final cart = data['cart'];
+        if (cart != null) {
+          _cartId = cart['id']?.toString();
+          _totalAmount = double.tryParse(cart['total_amount']?.toString() ?? '0') ?? 0;
+        }
+        final List itemsList = data['items'] ?? [];
+        _items = itemsList.map((json) => CartItem.fromJson(json)).toList();
+        notifyListeners();
+      } catch (_) {/* keep prior state */}
+    }
   }
 
   // ─── Add item to server cart ────────────────────────────────────────────────
@@ -113,12 +163,17 @@ class CartProvider with ChangeNotifier {
     notifyListeners();
 
     try {
+      // Defensive: never allow today / past as add-to-cart start date.
+      final safeStart = MealDate.isValidFutureStartDate(startDate)
+          ? startDate
+          : MealDate.tomorrowYmd();
+
       await _repository.addToCart(
         subscriptionId: subscriptionId,
         entityType: entityType,
         entityId: entityId,
         includeSaturday: includeSaturday,
-        startDate: startDate,
+        startDate: safeStart,
       );
 
       // Refresh cart from server to get updated state
@@ -140,9 +195,14 @@ class CartProvider with ChangeNotifier {
     notifyListeners();
 
     try {
+      // Defensive: clamp to tomorrow if caller somehow passes today/past.
+      final safeStart = MealDate.isValidFutureStartDate(startDate)
+          ? startDate
+          : MealDate.tomorrowYmd();
+
       await _repository.updateCartItemStartDate(
         itemId: cartItemId,
-        startDate: startDate,
+        startDate: safeStart,
       );
       await fetchCart();
       return true;
@@ -195,6 +255,17 @@ class CartProvider with ChangeNotifier {
     return _error == null;
   }
 
+  /// Local-only reset — used after a successful payment to avoid an extra
+  /// network round-trip (the backend marks the cart as `checked_out`
+  /// during finalization, so it will not be returned by GET /cart anyway).
+  void resetLocal() {
+    _items = [];
+    _totalAmount = 0;
+    _cartId = null;
+    _error = null;
+    notifyListeners();
+  }
+
   // ─── Check if entity is already in cart ─────────────────────────────────────
 
   bool hasEntity(String entityId) {
@@ -238,12 +309,11 @@ class CartProvider with ChangeNotifier {
 
       final status = sdkResult['status'] ?? 'FAILURE';
 
-      if (status == 'SUCCESS') {
-        // Clear local state after successful payment
-        _items = [];
-        _totalAmount = 0;
-        _cartId = null;
-      }
+      // IMPORTANT: do NOT clear local cart here. The cart must remain intact
+      // until the backend confirms the payment as SUCCESS in PaymentStatusScreen.
+      // SDK SUCCESS only means the PhonePe app reported success; the order
+      // is still marked `pending` in our DB until callback/webhook/polling
+      // syncs the actual gateway state.
 
       return {
         ...paymentData,

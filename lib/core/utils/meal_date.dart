@@ -1,0 +1,77 @@
+/// Centralized helpers for meal subscription start-date rules.
+///
+/// Business rule:
+///   • Meal delivery never starts today — it always starts the next calendar
+///     day or later. So the lower bound for any start date selection is
+///     tomorrow at local midnight.
+///
+/// All helpers in this file return values in the device's local timezone,
+/// matching what the backend expects (`yyyy-MM-dd`).
+class MealDate {
+  MealDate._();
+
+  /// Extracts `yyyy-MM-dd` from an ISO string (date or datetime).
+  /// Returns null if not long enough.
+  static String? _toYmd(String? iso) {
+    if (iso == null) return null;
+    final s = iso.trim();
+    if (s.length < 10) return null;
+    return s.substring(0, 10);
+  }
+
+  /// Tomorrow at local midnight — the earliest valid meal start date.
+  static DateTime firstSelectableStartDate() {
+    final now = DateTime.now().add(const Duration(days: 1));
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  /// Default duration window the user can pick from (60 days from tomorrow).
+  static DateTime lastSelectableStartDate() {
+    return firstSelectableStartDate().add(const Duration(days: 60));
+  }
+
+  /// Formats a [DateTime] as backend-friendly `yyyy-MM-dd`.
+  static String formatYmd(DateTime date) {
+    final m = date.month.toString().padLeft(2, '0');
+    final d = date.day.toString().padLeft(2, '0');
+    return '${date.year}-$m-$d';
+  }
+
+  /// Returns tomorrow as a `yyyy-MM-dd` string.
+  static String tomorrowYmd() => formatYmd(firstSelectableStartDate());
+
+  /// Returns true if [iso] is a valid `yyyy-MM-dd` and is on/after tomorrow.
+  /// Returns false for null / unparseable / today / past dates.
+  static bool isValidFutureStartDate(String? iso) {
+    if (iso == null || iso.trim().isEmpty) return false;
+    final parsed = DateTime.tryParse(_toYmd(iso) ?? iso);
+    if (parsed == null) return false;
+    final p = DateTime(parsed.year, parsed.month, parsed.day);
+    return !p.isBefore(firstSelectableStartDate());
+  }
+
+  /// Parses [iso] (yyyy-MM-dd) into a normalized DateTime,
+  /// clamping to tomorrow if missing/past.
+  static DateTime parseOrTomorrow(String? iso) {
+    if (iso == null || iso.trim().isEmpty) return firstSelectableStartDate();
+    final parsed = DateTime.tryParse(_toYmd(iso) ?? iso);
+    if (parsed == null) return firstSelectableStartDate();
+    final p = DateTime(parsed.year, parsed.month, parsed.day);
+    if (p.isBefore(firstSelectableStartDate())) return firstSelectableStartDate();
+    return p;
+  }
+
+  /// Display format: `dd MMM yyyy` (e.g. 08 May 2026) without intl dependency.
+  static String formatDisplay(String? iso) {
+    if (iso == null || iso.trim().isEmpty) return '—';
+    final parsed = DateTime.tryParse(_toYmd(iso) ?? iso);
+    if (parsed == null) return iso;
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    final d = parsed.day.toString().padLeft(2, '0');
+    final m = months[parsed.month - 1];
+    return '$d $m ${parsed.year}';
+  }
+}

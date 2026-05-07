@@ -2,18 +2,28 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 import 'package:meal_app/core/providers/payment_provider.dart';
+import 'package:meal_app/core/providers/cart_provider.dart';
+import 'package:meal_app/core/providers/meal_provider.dart';
 import 'package:meal_app/core/theme/app_theme.dart';
 import 'package:meal_app/core/widgets/apple_card.dart';
+import 'package:meal_app/core/utils/meal_date.dart';
+import 'package:meal_app/core/utils/time_utils.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 class PaymentStatusScreen extends StatefulWidget {
   final String txnId;
   final String orderId;
 
+  /// Hint from caller — `'cart'` for cart checkout, `'single'` for buy-now.
+  /// Used as fallback when backend has not yet returned `orderType` during
+  /// early polling so we can still apply the correct cart-clear rule.
+  final String? orderType;
+
   const PaymentStatusScreen({
     super.key,
     required this.txnId,
     required this.orderId,
+    this.orderType,
   });
 
   @override
@@ -25,6 +35,7 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
   bool _isPolling = true;
   int _retryCount = 0;
   final int _maxRetries = 10;
+  bool _postSuccessHandled = false;
 
   @override
   void initState() {
@@ -36,7 +47,7 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
     while (_isPolling && _retryCount < _maxRetries && mounted) {
       try {
         final data = await context.read<PaymentProvider>().checkStatus(widget.txnId);
-        
+
         if (mounted) {
           setState(() {
             _statusData = data;
@@ -61,6 +72,53 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
     if (mounted && _isPolling) {
       setState(() => _isPolling = false);
     }
+
+    // After polling stops, if we resolved to SUCCESS, run the success-side effects.
+    if (mounted && _currentStatus == 'SUCCESS' && !_postSuccessHandled) {
+      _postSuccessHandled = true;
+      // Schedule after current frame so providers have settled
+      WidgetsBinding.instance.addPostFrameCallback((_) => _onPaymentConfirmedSuccess());
+    }
+  }
+
+  /// Runs ONLY when the backend confirms the payment as SUCCESS.
+  /// • For cart orders: clears the server-side cart (best-effort, then local).
+  /// • Refreshes subscription/meal/payment providers so Home shows "Active Plan".
+  Future<void> _onPaymentConfirmedSuccess() async {
+    if (!mounted) return;
+
+    final cart = context.read<CartProvider>();
+    final meal = context.read<MealProvider>();
+    final payment = context.read<PaymentProvider>();
+
+    final orderType = (_statusData?['orderType']?.toString() ?? widget.orderType ?? '').toLowerCase();
+    final isCartOrder = orderType == 'cart';
+
+    if (isCartOrder) {
+      // Backend marks the cart as `checked_out` during finalization, so the
+      // active GET /cart will return empty. Still call clearCart server-side
+      // as a defensive cleanup — but if it fails, we always reset locally.
+      try {
+        await cart.clearCart();
+      } catch (_) {/* ignore */}
+      cart.resetLocal();
+    } else {
+      // Even for single-entity purchases, refetch in case server state changed.
+      try {
+        await cart.fetchCart();
+      } catch (_) {/* ignore */}
+    }
+
+    // Refresh dashboard-relevant data so Home and Subscription screens show
+    // the new active plan immediately when user navigates back.
+    try {
+      await Future.wait([
+        meal.fetchSubscriptionStatus(),
+        meal.fetchMealStatus(),
+        meal.fetchAlerts(),
+        payment.fetchActiveSubscriptions(),
+      ]);
+    } catch (_) {/* ignore — these are best-effort refreshes */}
   }
 
   /// Resolve payment status from the API response.
@@ -69,7 +127,7 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
     final localStatus = data['localStatus']?.toString().toLowerCase() ?? '';
     final gatewayState = data['gatewayState']?.toString().toUpperCase() ?? '';
     final orderStatus = data['orderStatus']?.toString().toLowerCase() ?? '';
-    
+
     if (localStatus == 'success' || gatewayState == 'COMPLETED' || orderStatus == 'completed') {
       return 'SUCCESS';
     }
@@ -156,6 +214,7 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
     final entityName = data['entityName']?.toString() ?? '';
     final entityType = data['entityType']?.toString() ?? '';
     final planName = data['planName']?.toString() ?? '';
+    final mealTiming = data['mealTiming']?.toString() ?? '';
     final List cartItems = data['cartItems'] ?? [];
 
     return SingleChildScrollView(
@@ -200,6 +259,8 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
                   _buildStatusRow('Plan', planName, isDark),
                 if (orderType != 'cart' && entityName.isNotEmpty)
                   _buildStatusRow('For', '$entityName${entityType.isNotEmpty ? ' ($entityType)' : ''}', isDark),
+                if (orderType != 'cart' && mealTiming.isNotEmpty)
+                  _buildStatusRow('Meal Delivery Time', TimeUtils.formatToDisplay(mealTiming), isDark),
               ],
             ),
           ),
@@ -229,6 +290,8 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
     final planName = item['plan_name']?.toString() ?? '';
     final unitPrice = item['unit_price']?.toString() ?? '0';
     final startDate = item['start_date']?.toString() ?? '';
+    final mealSizeName = item['meal_size_name']?.toString() ?? '';
+    final mealTiming = item['meal_timing']?.toString() ?? '';
 
     IconData icon;
     Color color;
@@ -272,8 +335,12 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
               children: [
                 Text(entityName, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: isDark ? Colors.white : AppTheme.textPrimaryLight)),
                 Text('$planName • ${entityType.toUpperCase()}', style: TextStyle(fontSize: 11, color: isDark ? Colors.white54 : AppTheme.textSecondaryLight)),
+                if (mealSizeName.isNotEmpty)
+                  Text('Meal Size: $mealSizeName', style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.grey)),
+                if (mealTiming.isNotEmpty)
+                  Text('Delivery: ${TimeUtils.formatToDisplay(mealTiming)}', style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.grey)),
                 if (startDate.isNotEmpty)
-                  Text('Start: ${_formatDate(startDate)}', style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.grey)),
+                  Text('Start: ${MealDate.formatDisplay(startDate)}', style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.grey)),
               ],
             ),
           ),
@@ -298,7 +365,7 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
         ),
         const SizedBox(height: 12),
         Text(
-          'Something went wrong with your transaction. Please try again.',
+          'Something went wrong with your transaction. Your cart has been kept so you can try again.',
           textAlign: TextAlign.center,
           style: TextStyle(color: isDark ? Colors.white54 : Colors.grey, fontSize: 16),
         ),
@@ -325,7 +392,7 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
         ),
         const SizedBox(height: 12),
         Text(
-          'We are still waiting for confirmation from your bank. It should update shortly.',
+          'We are still waiting for confirmation from your bank. It should update shortly. Your cart is preserved.',
           textAlign: TextAlign.center,
           style: TextStyle(color: isDark ? Colors.white54 : Colors.grey, fontSize: 16),
         ),
@@ -368,14 +435,5 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
         ],
       ),
     );
-  }
-
-  String _formatDate(String dateStr) {
-    try {
-      final date = DateTime.parse(dateStr);
-      return '${date.day.toString().padLeft(2, '0')}-${date.month.toString().padLeft(2, '0')}-${date.year}';
-    } catch (_) {
-      return dateStr;
-    }
   }
 }
