@@ -153,6 +153,8 @@ class _HomeScreenState extends State<HomeScreen> {
       actions: [
         _buildSubscribeButton(context),
         const SizedBox(width: 8),
+        _buildCartActionButton(context),
+        const SizedBox(width: 4),
         IconButton(
           icon: const Icon(CupertinoIcons.settings_solid, size: 24),
           onPressed: () {
@@ -164,6 +166,48 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(width: 12),
       ],
+    );
+  }
+
+  Widget _buildCartActionButton(BuildContext context) {
+    final itemCount = context.watch<CartProvider>().itemCount;
+
+    return IconButton(
+      onPressed: () {
+        Navigator.push(
+          context,
+          CupertinoPageRoute(builder: (_) => const CartScreen()),
+        );
+      },
+      icon: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          const Icon(CupertinoIcons.cart_fill, size: 24),
+          if (itemCount > 0)
+            Positioned(
+              right: -8,
+              top: -6,
+              child: Container(
+                constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  itemCount > 99 ? '99+' : '$itemCount',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+      tooltip: itemCount > 0 ? 'Cart ($itemCount)' : 'Cart',
     );
   }
 
@@ -534,56 +578,27 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// Quick actions — conditionally shown:
   /// - Meal Skips: only when user has active subscription
-  /// - Cart: only when user has items in cart
   Widget _buildQuickActions(BuildContext context, bool isDark) {
     final mealProvider = context.watch<MealProvider>();
-    final cartProvider = context.watch<CartProvider>();
     final isSubscribed = mealProvider.isSubscribed;
-    final cartCount = cartProvider.itemCount;
 
-    // If neither condition is met, don't show the section at all
-    if (!isSubscribed && cartCount == 0) return const SizedBox.shrink();
-
-    final List<Widget> actionWidgets = [];
-
-    if (isSubscribed) {
-      actionWidgets.add(
-        Expanded(
-          child: _buildQuickActionTile(
-            context,
-            'Meal Skips',
-            CupertinoIcons.calendar_badge_minus,
-            Colors.orange,
-            isDark,
-            () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const MealSkipScreen())),
-          ),
-        ),
-      );
-    }
-
-    if (cartCount > 0) {
-      if (actionWidgets.isNotEmpty) {
-        actionWidgets.add(const SizedBox(width: 12));
-      }
-      actionWidgets.add(
-        Expanded(
-          child: _buildQuickActionTile(
-            context,
-            cartCount > 0 ? 'Cart ($cartCount)' : 'Cart',
-            CupertinoIcons.cart_fill,
-            AppTheme.primaryColor,
-            isDark,
-            () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const CartScreen())),
-            badge: cartCount > 0 ? cartCount : null,
-          ),
-        ),
-      );
-    }
+    if (!isSubscribed) return const SizedBox.shrink();
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
-        children: actionWidgets,
+        children: [
+          Expanded(
+            child: _buildQuickActionTile(
+              context,
+              'Meal Skips',
+              CupertinoIcons.calendar_badge_minus,
+              Colors.orange,
+              isDark,
+              () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const MealSkipScreen())),
+            ),
+          ),
+        ],
       ).animate().fadeIn(delay: 200.ms),
     );
   }

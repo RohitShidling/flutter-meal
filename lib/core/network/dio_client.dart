@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:meal_app/core/network/api_endpoints.dart';
 import 'package:meal_app/core/providers/session_provider.dart';
 import 'package:meal_app/core/storage/secure_storage.dart';
@@ -20,14 +21,17 @@ class DioClient {
       },
     ));
 
-    _dio.interceptors.add(LogInterceptor(
-      request: true,
-      requestHeader: true,
-      requestBody: true,
-      responseHeader: true,
-      responseBody: true,
-      error: true,
-    ));
+    // Never emit full HTTP logs in release builds to avoid leaking tokens/PII.
+    if (!kReleaseMode) {
+      _dio.interceptors.add(LogInterceptor(
+        request: true,
+        requestHeader: false, // hides Authorization bearer token
+        requestBody: true,
+        responseHeader: false,
+        responseBody: true,
+        error: true,
+      ));
+    }
 
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {

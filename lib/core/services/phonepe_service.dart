@@ -68,7 +68,7 @@ class PhonePeService {
 
     final environment = isSandbox ? 'SANDBOX' : 'PRODUCTION';
 
-    dev.log('PhonePe Init: env=$environment, merchantId=$merchantId, orderId=$orderId');
+    dev.log('PhonePe init started: env=$environment, orderId=$orderId');
 
     // Step 1: Initialize the SDK
     final bool initialized = await PhonePePaymentSdk.init(
@@ -91,7 +91,7 @@ class PhonePeService {
     };
     final String request = json.encode(payload);
 
-    dev.log('PhonePe startTransaction: $request');
+    dev.log('PhonePe startTransaction invoked');
 
     String schema = '';
     if (Platform.isIOS) {
@@ -102,7 +102,7 @@ class PhonePeService {
     final Map<dynamic, dynamic>? response =
         await PhonePePaymentSdk.startTransaction(request, schema);
 
-    dev.log('PhonePe response: $response');
+    dev.log('PhonePe response received: hasResponse=${response != null}');
 
     if (response == null) {
       return {'status': 'INTERRUPTED', 'error': 'User cancelled or no response'};

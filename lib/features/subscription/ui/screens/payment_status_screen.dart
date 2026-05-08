@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'dart:convert';
+import 'dart:io';
 import 'package:provider/provider.dart';
 import 'package:meal_app/core/providers/payment_provider.dart';
 import 'package:meal_app/core/providers/cart_provider.dart';
@@ -36,6 +38,33 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
   int _retryCount = 0;
   final int _maxRetries = 10;
   bool _postSuccessHandled = false;
+  static const String _kDebugLogPath = 'debug-f332d0.log';
+
+  Future<void> _agentLog({
+    required String hypothesisId,
+    required String location,
+    required String message,
+    required Map<String, dynamic> data,
+  }) async {
+    try {
+      final payload = <String, dynamic>{
+        'sessionId': 'f332d0',
+        'runId': 'pre-fix',
+        'hypothesisId': hypothesisId,
+        'location': location,
+        'message': message,
+        'data': data,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      };
+      final client = HttpClient();
+      final request = await client.postUrl(Uri.parse('http://127.0.0.1:7697/ingest/fc28dd6e-2aaa-4582-90c0-98d14e9492e2'));
+      request.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
+      request.headers.set('X-Debug-Session-Id', 'f332d0');
+      request.add(utf8.encode(jsonEncode(payload)));
+      await request.close();
+      client.close(force: true);
+    } catch (_) {}
+  }
 
   @override
   void initState() {
@@ -44,9 +73,31 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
   }
 
   Future<void> _startPolling() async {
+    // #region agent log
+    _agentLog(
+      hypothesisId: 'H1',
+      location: 'payment_status_screen.dart:_startPolling:entry',
+      message: 'Polling started',
+      data: {'txnId': widget.txnId, 'retryCount': _retryCount, 'isPolling': _isPolling},
+    );
+    // #endregion
     while (_isPolling && _retryCount < _maxRetries && mounted) {
       try {
         final data = await context.read<PaymentProvider>().checkStatus(widget.txnId);
+        // #region agent log
+        _agentLog(
+          hypothesisId: 'H1',
+          location: 'payment_status_screen.dart:_startPolling:status_response',
+          message: 'Payment status poll response',
+          data: {
+            'retryCount': _retryCount,
+            'hasData': data != null,
+            'localStatus': data?['localStatus']?.toString(),
+            'gatewayState': data?['gatewayState']?.toString(),
+            'orderStatus': data?['orderStatus']?.toString(),
+          },
+        );
+        // #endregion
 
         if (mounted) {
           setState(() {
@@ -72,6 +123,14 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
     if (mounted && _isPolling) {
       setState(() => _isPolling = false);
     }
+    // #region agent log
+    _agentLog(
+      hypothesisId: 'H2',
+      location: 'payment_status_screen.dart:_startPolling:exit',
+      message: 'Polling finished',
+      data: {'retryCount': _retryCount, 'isPolling': _isPolling, 'currentStatus': _currentStatus, 'postSuccessHandled': _postSuccessHandled},
+    );
+    // #endregion
 
     // After polling stops, if we resolved to SUCCESS, run the success-side effects.
     if (mounted && _currentStatus == 'SUCCESS' && !_postSuccessHandled) {
@@ -93,6 +152,14 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
 
     final orderType = (_statusData?['orderType']?.toString() ?? widget.orderType ?? '').toLowerCase();
     final isCartOrder = orderType == 'cart';
+    // #region agent log
+    _agentLog(
+      hypothesisId: 'H3',
+      location: 'payment_status_screen.dart:_onPaymentConfirmedSuccess:entry',
+      message: 'Applying post-success effects',
+      data: {'orderType': orderType, 'isCartOrder': isCartOrder, 'itemCountBefore': cart.itemCount, 'totalBefore': cart.totalAmount},
+    );
+    // #endregion
 
     if (isCartOrder) {
       // Backend marks the cart as `checked_out` during finalization, so the
@@ -119,6 +186,14 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
         payment.fetchActiveSubscriptions(),
       ]);
     } catch (_) {/* ignore — these are best-effort refreshes */}
+    // #region agent log
+    _agentLog(
+      hypothesisId: 'H4',
+      location: 'payment_status_screen.dart:_onPaymentConfirmedSuccess:after_refresh',
+      message: 'Post-success provider refresh attempted',
+      data: {'cartItemsAfter': cart.itemCount, 'cartTotalAfter': cart.totalAmount, 'activeSubscriptionsCount': payment.activeSubscriptions.length},
+    );
+    // #endregion
   }
 
   /// Resolve payment status from the API response.
@@ -152,18 +227,18 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
         child: Padding(
           padding: const EdgeInsets.all(24.0),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Spacer(),
-              if (_isPolling)
-                _buildLoadingUI(isDark)
-              else if (status == 'SUCCESS')
-                _buildSuccessUI(isDark)
-              else if (status == 'FAILED')
-                _buildFailureUI(isDark)
-              else
-                _buildPendingUI(isDark),
-              const Spacer(),
+              Expanded(
+                child: Center(
+                  child: _isPolling
+                      ? _buildLoadingUI(isDark)
+                      : (status == 'SUCCESS')
+                          ? _buildSuccessUI(isDark)
+                          : (status == 'FAILED')
+                              ? _buildFailureUI(isDark)
+                              : _buildPendingUI(isDark),
+                ),
+              ),
               if (!_isPolling)
                 ElevatedButton(
                   onPressed: () => Navigator.pop(context),

@@ -103,18 +103,19 @@ class AuthWrapper extends StatefulWidget {
 
 class _AuthWrapperState extends State<AuthWrapper> {
   bool _logoutInFlight = false;
+  SessionProvider? _sessionProvider;
 
   @override
   void initState() {
     super.initState();
     // Listen for session-expired events from the network layer.
-    final session = context.read<SessionProvider>();
-    session.addListener(_handleSessionChange);
+    _sessionProvider = context.read<SessionProvider>();
+    _sessionProvider?.addListener(_handleSessionChange);
   }
 
   @override
   void dispose() {
-    context.read<SessionProvider>().removeListener(_handleSessionChange);
+    _sessionProvider?.removeListener(_handleSessionChange);
     super.dispose();
   }
 
