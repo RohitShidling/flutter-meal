@@ -24,6 +24,7 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<MealProvider>().fetchSkips();
       context.read<MealProvider>().fetchMealStatus();
+      context.read<MealProvider>().fetchSkipPolicy();
       context.read<ChildrenProvider>().fetchChildren();
       context.read<ProfileProvider>().fetchProfiles();
     });
@@ -61,7 +62,7 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
                 // Meal status section
                 if (mealProvider.mealStatus.isNotEmpty)
                   SizedBox(
-                    height: 110,
+                    height: 120,
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -81,31 +82,41 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text(
-                                ms['entity_name']?.toString() ?? 'Entity',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 14,
-                                  color: isDark ? Colors.white : AppTheme.textPrimaryLight,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '${ms['remaining_meals'] ?? 0} / ${ms['total_meals'] ?? 0} meals left',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: isDark ? Colors.white54 : AppTheme.textSecondaryLight,
+                              Flexible(
+                                child: Text(
+                                  ms['entity_name']?.toString() ?? 'Entity',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 14,
+                                    color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              Text(
-                                ms['plan_name']?.toString() ?? '',
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  color: AppTheme.primaryColor,
-                                  fontWeight: FontWeight.w700,
+                              Flexible(
+                                child: Text(
+                                  '${ms['remaining_meals'] ?? 0} / ${ms['total_meals'] ?? 0} meals left',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isDark ? Colors.white54 : AppTheme.textSecondaryLight,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Flexible(
+                                child: Text(
+                                  ms['plan_name']?.toString() ?? '',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: AppTheme.primaryColor,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ],
@@ -134,7 +145,7 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Tap + to schedule a skip (min 3 consecutive days)',
+                                'Tap + to schedule a skip (policy-based minimum days)',
                                 style: TextStyle(color: isDark ? Colors.white54 : AppTheme.textSecondaryLight),
                               ),
                             ],
@@ -162,7 +173,27 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
                               itemCount: sortedSkips.length,
                               itemBuilder: (context, index) {
                                 final skip = sortedSkips[index];
-                                return _buildSkipCard(context, skip, isDark, mealProvider)
+                                return Dismissible(
+                                  key: ValueKey('skip_${skip['id']}'),
+                                  direction: DismissDirection.endToStart,
+                                  background: Container(
+                                    margin: const EdgeInsets.only(bottom: 14),
+                                    padding: const EdgeInsets.only(right: 22),
+                                    alignment: Alignment.centerRight,
+                                    decoration: BoxDecoration(
+                                      color: Colors.red.shade400,
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: const Icon(CupertinoIcons.delete_solid, color: Colors.white),
+                                  ),
+                                  confirmDismiss: (_) async {
+                                    final id = skip['id'];
+                                    if (id == null) return false;
+                                    final skipId = id is int ? id : int.tryParse(id.toString()) ?? 0;
+                                    return _confirmDeleteSkip(context, skipId, mealProvider);
+                                  },
+                                  child: _buildSkipCard(context, skip, isDark, mealProvider),
+                                )
                                     .animate()
                                     .fadeIn(delay: (index * 80).ms)
                                     .slideX(begin: 0.1, end: 0);
@@ -323,6 +354,38 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
     );
   }
 
+  Future<bool> _confirmDeleteSkip(BuildContext context, int skipId, MealProvider mealProvider) async {
+    final confirmed = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (_) => CupertinoAlertDialog(
+        title: const Text('Delete Skip'),
+        content: const Text('Delete this skip from your history?'),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text('No'),
+            onPressed: () => Navigator.pop(context, false),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return false;
+    final success = await mealProvider.deleteSkip(skipId);
+    if (context.mounted) {
+      if (success) {
+        ErrorHandler.showSuccess(context, 'Skip deleted successfully');
+      } else {
+        ErrorHandler.showError(context, mealProvider.error);
+      }
+    }
+    return success;
+  }
+
   void _showSkipDialog(BuildContext context) {
     final childrenProvider = context.read<ChildrenProvider>();
     final profileProvider = context.read<ProfileProvider>();
@@ -350,6 +413,8 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
     String? selectedEntity;
     DateTimeRange? selectedRange;
     String? sheetError;
+    final minSkipDays = (mealProvider.skipPolicy['min_skip_days'] as num?)?.toInt() ?? 3;
+    final minNoticeDays = (mealProvider.skipPolicy['min_notice_days'] as num?)?.toInt() ?? 1;
 
     // Helper: get subscription end_date for the selected entity from mealStatus
     DateTime? _getEntityExpiry(String entityKey) {
@@ -390,7 +455,7 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Minimum 3 consecutive days required. Start date must be tomorrow or later.',
+                  'Minimum $minSkipDays consecutive day(s). Start date must be at least $minNoticeDays day(s) in advance.',
                   style: TextStyle(fontSize: 13, color: isDark ? Colors.white54 : AppTheme.textSecondaryLight),
                 ),
                 const SizedBox(height: 24),
@@ -426,7 +491,7 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
                 const SizedBox(height: 8),
                 InkWell(
                   onTap: () async {
-                    final tomorrow = DateTime.now().add(const Duration(days: 1));
+                    final tomorrow = DateTime.now().add(Duration(days: minNoticeDays));
                     // Cap lastDate to subscription expiry for the selected entity
                     final expiry = selectedEntity != null ? _getEntityExpiry(selectedEntity!) : null;
                     final lastDate = expiry != null
@@ -448,8 +513,8 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
                     );
                     if (range != null) {
                       final days = range.end.difference(range.start).inDays + 1;
-                      if (days < 3) {
-                        setSheetState(() => sheetError = 'Minimum 3 consecutive days required');
+                      if (days < minSkipDays) {
+                        setSheetState(() => sheetError = 'Minimum $minSkipDays consecutive days required');
                         return;
                       }
                       setSheetState(() {

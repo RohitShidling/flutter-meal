@@ -99,7 +99,9 @@ class ApiEndpoints {
   static const String mealStatus = '/api/client/meals/status';
   static const String skipMeal = '/api/client/meals/skip';
   static const String mealSkips = '/api/client/meals/skips';
+  static const String mealSkipPolicy = '/api/client/meals/skip-policy';
   static String cancelSkip(int skipId) => '/api/client/meals/skip/$skipId';
+  static String deleteSkip(int skipId) => '/api/client/meals/skip/$skipId/delete';
   static const String clientMenuNutritionToday = '/api/client/menu-nutrition/today';
   static const String clientMenuNutritionWeekly = '/api/client/menu-nutrition/weekly';
 }

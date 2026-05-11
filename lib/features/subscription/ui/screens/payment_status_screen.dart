@@ -422,12 +422,17 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(color: isDark ? Colors.white54 : Colors.grey, fontWeight: FontWeight.w500)),
-          Flexible(
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(color: isDark ? Colors.white54 : Colors.grey, fontWeight: FontWeight.w500),
+            ),
+          ),
+          Expanded(
             child: Text(
               value,
+              textAlign: TextAlign.right,
               style: TextStyle(fontWeight: FontWeight.w700, color: isDark ? Colors.white : AppTheme.textPrimaryLight),
               overflow: TextOverflow.ellipsis,
             ),

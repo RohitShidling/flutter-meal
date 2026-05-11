@@ -120,6 +120,23 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           'Who are you buying this subscription for?',
           style: TextStyle(fontSize: 16, color: isDark ? Colors.white54 : AppTheme.textSecondaryLight),
         ).animate().fadeIn(delay: 200.ms),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            onPressed: () {
+              setState(() {
+                _selectedEntityType = null;
+                _selectedEntityId = null;
+                _selectedEntityName = null;
+                _selectedMealSizeId = null;
+                _step = 1;
+              });
+            },
+            icon: const Icon(CupertinoIcons.square_grid_2x2, size: 16),
+            label: const Text('View All Plans', style: TextStyle(fontWeight: FontWeight.w700)),
+          ),
+        ),
         const SizedBox(height: 32),
 
         if (childrenProvider.children.isNotEmpty) ...[
@@ -599,7 +616,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           if (plan.trialDays > 0) _buildFeatureRow('${plan.trialDays} Days Free Trial', isPremium),
           const SizedBox(height: 24),
           ElevatedButton(
-            onPressed: () => _showSaturdayOptionSheet(context, plan, _selectedEntityType!, _selectedEntityId!, isBuyNow: true),
+            onPressed: (_selectedEntityType != null && _selectedEntityId != null)
+                ? () => _showSaturdayOptionSheet(context, plan, _selectedEntityType!, _selectedEntityId!, isBuyNow: true)
+                : null,
             style: ElevatedButton.styleFrom(
               backgroundColor: isPremium ? Colors.white : AppTheme.primaryColor,
               foregroundColor: isPremium ? AppTheme.primaryColor : Colors.white,
@@ -610,15 +629,25 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           ),
           const SizedBox(height: 10),
           OutlinedButton(
-            onPressed: () {
-              _showSaturdayOptionSheet(context, plan, _selectedEntityType!, _selectedEntityId!);
-            },
+            onPressed: (_selectedEntityType != null && _selectedEntityId != null)
+                ? () => _showSaturdayOptionSheet(context, plan, _selectedEntityType!, _selectedEntityId!)
+                : null,
             style: OutlinedButton.styleFrom(
               foregroundColor: isPremium ? Colors.white : AppTheme.primaryColor,
               side: BorderSide(color: isPremium ? Colors.white54 : AppTheme.primaryColor),
               minimumSize: const Size(double.infinity, 50),
             ),
-            child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(CupertinoIcons.cart_badge_plus, size: 18), SizedBox(width: 8), Text('Add to Cart', style: TextStyle(fontWeight: FontWeight.w700))]),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(CupertinoIcons.cart_badge_plus, size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  (_selectedEntityType != null && _selectedEntityId != null) ? 'Add to Cart' : 'Select Profile First',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
           ),
         ],
       ),

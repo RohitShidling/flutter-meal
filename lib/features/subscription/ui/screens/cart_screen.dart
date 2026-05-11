@@ -208,11 +208,18 @@ class _CartScreenState extends State<CartScreen> {
           TextButton(
             onPressed: cartProvider.isLoading ? null : () => _changeStartDate(context, item, cartProvider),
             style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               minimumSize: const Size(72, 0),
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              alignment: Alignment.centerRight,
             ),
-            child: const Text('Change', style: TextStyle(fontWeight: FontWeight.w700)),
+            child: const Text(
+              'Change',
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                color: AppTheme.primaryColor,
+              ),
+            ),
           ),
         ],
       ),

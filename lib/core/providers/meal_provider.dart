@@ -38,6 +38,8 @@ class MealProvider with ChangeNotifier {
   // Meal skips
   List<dynamic> _skips = [];
   List<dynamic> get skips => _skips;
+  Map<String, dynamic> _skipPolicy = const {'min_skip_days': 3, 'min_notice_days': 1};
+  Map<String, dynamic> get skipPolicy => _skipPolicy;
 
   // Subscription alerts (expiry warnings)
   List<dynamic> _alerts = [];
@@ -152,9 +154,32 @@ class MealProvider with ChangeNotifier {
     }
   }
 
+  Future<void> fetchSkipPolicy() async {
+    try {
+      final data = await _repository.fetchMealSkipPolicy();
+      if (data.isNotEmpty) {
+        _skipPolicy = data;
+        notifyListeners();
+      }
+    } catch (e) {
+      _error = e.toString();
+    }
+  }
+
   Future<bool> cancelSkip(int skipId) async {
     try {
       final success = await _repository.cancelSkip(skipId);
+      if (success) await fetchSkips();
+      return success;
+    } catch (e) {
+      _error = e.toString().replaceAll('Exception:', '').trim();
+      return false;
+    }
+  }
+
+  Future<bool> deleteSkip(int skipId) async {
+    try {
+      final success = await _repository.deleteSkip(skipId);
       if (success) await fetchSkips();
       return success;
     } catch (e) {

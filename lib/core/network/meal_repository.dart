@@ -86,6 +86,18 @@ class MealRepository {
     }
   }
 
+  Future<Map<String, dynamic>> fetchMealSkipPolicy() async {
+    try {
+      final response = await _dioClient.dio.get(ApiEndpoints.mealSkipPolicy);
+      if (response.data['success'] == true) {
+        return Map<String, dynamic>.from(response.data['data'] ?? {});
+      }
+      return const {};
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<bool> cancelSkip(int skipId) async {
     try {
       final response = await _dioClient.dio.delete(ApiEndpoints.cancelSkip(skipId));
@@ -95,6 +107,19 @@ class MealRepository {
           ?? e.response?.data?['error']?.toString()
           ?? e.message
           ?? 'Failed to cancel skip';
+      throw Exception(msg);
+    }
+  }
+
+  Future<bool> deleteSkip(int skipId) async {
+    try {
+      final response = await _dioClient.dio.delete(ApiEndpoints.deleteSkip(skipId));
+      return response.data['success'] == true;
+    } on DioException catch (e) {
+      final msg = e.response?.data?['message']?.toString()
+          ?? e.response?.data?['error']?.toString()
+          ?? e.message
+          ?? 'Failed to delete skip';
       throw Exception(msg);
     }
   }
