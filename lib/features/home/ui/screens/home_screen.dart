@@ -23,6 +23,7 @@ import 'package:meal_app/features/subscription/ui/screens/meal_skip_screen.dart'
 import 'package:meal_app/features/subscription/ui/screens/cart_screen.dart';
 import 'package:meal_app/core/widgets/image_preview_dialog.dart';
 import 'package:meal_app/features/subscription/ui/screens/subscription_management_screen.dart';
+import 'package:meal_app/core/services/network_status_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -37,10 +38,44 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    NetworkStatusService.instance.addBecameOnlineListener(_onBecameOnline);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadAllData();
       _fetchUserName();
       _loadDeferredData();
+    });
+  }
+
+  @override
+  void dispose() {
+    NetworkStatusService.instance.removeBecameOnlineListener(_onBecameOnline);
+    super.dispose();
+  }
+
+  /// Refresh home-critical data when connectivity returns (realtime UX).
+  void _onBecameOnline() {
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final homepage = context.read<HomepageProvider>();
+      final menu = context.read<MenuProvider>();
+      final cart = context.read<CartProvider>();
+      final auth = context.read<AuthProvider>();
+      final meal = context.read<MealProvider>();
+
+      await Future.wait([
+        homepage.fetchHomepageEntries(force: true),
+        menu.fetchTodayMenu(),
+        cart.fetchCart(),
+        auth.refreshMeProfile(silent: true),
+      ]);
+      if (!mounted) return;
+      await Future.wait([
+        meal.fetchAlerts(),
+        meal.fetchMealStatus(),
+        meal.fetchSubscriptionStatus(),
+      ]);
+      if (mounted) await _fetchUserName();
     });
   }
 
@@ -760,9 +795,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 Text(
                   title,
                   style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
                 Text(

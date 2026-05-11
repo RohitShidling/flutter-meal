@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:meal_app/core/network/api_endpoints.dart';
+import 'package:meal_app/core/services/network_status_service.dart';
+import 'package:meal_app/core/services/offline_queue.dart';
 import 'package:meal_app/features/profile/data/models/profile_models.dart';
 import 'package:meal_app/features/profile/data/repositories/profile_repository.dart';
 import 'package:meal_app/core/utils/error_handler.dart';
@@ -50,6 +53,27 @@ class ProfileProvider with ChangeNotifier {
   }
 
   Future<bool> saveTeacherProfile(TeacherProfileModel profile) async {
+    if (!NetworkStatusService.instance.isOnline) {
+      await OfflineQueue.enqueue(
+        method: _teacherProfile != null ? 'PUT' : 'POST',
+        path: ApiEndpoints.teacherProfile,
+        data: profile.toJson(),
+      );
+      _teacherProfile = TeacherProfileModel(
+        id: _teacherProfile?.id ?? 'local-${DateTime.now().microsecondsSinceEpoch}',
+        name: profile.name,
+        schoolCollegeName: profile.schoolCollegeName,
+        city: profile.city,
+        state: profile.state,
+        location: profile.location,
+        status: profile.status,
+        mealSizeId: profile.mealSizeId,
+        mealTime: profile.mealTime,
+      );
+      notifyListeners();
+      return true;
+    }
+
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -74,6 +98,13 @@ class ProfileProvider with ChangeNotifier {
   }
 
   Future<bool> deleteTeacherProfile() async {
+    if (!NetworkStatusService.instance.isOnline) {
+      await OfflineQueue.enqueue(method: 'DELETE', path: ApiEndpoints.teacherProfile);
+      _teacherProfile = null;
+      notifyListeners();
+      return true;
+    }
+
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -96,6 +127,27 @@ class ProfileProvider with ChangeNotifier {
   }
 
   Future<bool> saveProfessionalProfile(ProfessionalProfileModel profile) async {
+    if (!NetworkStatusService.instance.isOnline) {
+      await OfflineQueue.enqueue(
+        method: _professionalProfile != null ? 'PUT' : 'POST',
+        path: ApiEndpoints.professionalProfile,
+        data: profile.toJson(),
+      );
+      _professionalProfile = ProfessionalProfileModel(
+        id: _professionalProfile?.id ?? 'local-${DateTime.now().microsecondsSinceEpoch}',
+        name: profile.name,
+        companyName: profile.companyName,
+        corporateLocationId: profile.corporateLocationId,
+        city: profile.city,
+        state: profile.state,
+        lunchTime: profile.lunchTime,
+        corporateLocationName: profile.corporateLocationName,
+        mealSizeId: profile.mealSizeId,
+      );
+      notifyListeners();
+      return true;
+    }
+
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -120,6 +172,13 @@ class ProfileProvider with ChangeNotifier {
   }
 
   Future<bool> deleteProfessionalProfile() async {
+    if (!NetworkStatusService.instance.isOnline) {
+      await OfflineQueue.enqueue(method: 'DELETE', path: ApiEndpoints.professionalProfile);
+      _professionalProfile = null;
+      notifyListeners();
+      return true;
+    }
+
     _isLoading = true;
     _error = null;
     notifyListeners();

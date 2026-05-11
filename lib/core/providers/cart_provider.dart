@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:meal_app/core/network/cart_repository.dart';
 import 'package:meal_app/core/network/api_endpoints.dart';
+import 'package:meal_app/core/services/network_status_service.dart';
+import 'package:meal_app/core/services/offline_queue.dart';
 import 'package:meal_app/core/services/phonepe_service.dart';
 import 'package:meal_app/core/utils/meal_date.dart';
 
@@ -158,6 +160,40 @@ class CartProvider with ChangeNotifier {
     required bool includeSaturday,
     required String startDate,
   }) async {
+    if (!NetworkStatusService.instance.isOnline) {
+      final safeStart = MealDate.isValidFutureStartDate(startDate)
+          ? startDate
+          : MealDate.tomorrowYmd();
+      await OfflineQueue.enqueue(
+        method: 'POST',
+        path: ApiEndpoints.addToCart,
+        data: {
+          'subscriptionId': subscriptionId,
+          'entityType': entityType,
+          'entityId': entityId,
+          'includeSaturday': includeSaturday,
+          'startDate': safeStart,
+        },
+      );
+      // Optimistic UX: reflect "in cart" immediately.
+      _items = [
+        ..._items,
+        CartItem(
+          id: -DateTime.now().microsecondsSinceEpoch,
+          entityName: '',
+          entityType: entityType,
+          planName: '',
+          unitPrice: 0,
+          startDate: safeStart,
+          entityId: entityId,
+          subscriptionId: subscriptionId,
+          includeSaturday: includeSaturday,
+        ),
+      ];
+      notifyListeners();
+      return true;
+    }
+
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -190,6 +226,37 @@ class CartProvider with ChangeNotifier {
   // ─── Update cart line start date ────────────────────────────────────────────
 
   Future<bool> updateItemStartDate(int cartItemId, String startDate) async {
+    if (!NetworkStatusService.instance.isOnline) {
+      final safeStart = MealDate.isValidFutureStartDate(startDate)
+          ? startDate
+          : MealDate.tomorrowYmd();
+      await OfflineQueue.enqueue(
+        method: 'PATCH',
+        path: ApiEndpoints.removeCartItem(cartItemId),
+        data: {'startDate': safeStart},
+      );
+      _items = _items
+          .map((i) => i.id == cartItemId
+              ? CartItem(
+                  id: i.id,
+                  entityName: i.entityName,
+                  entityType: i.entityType,
+                  planName: i.planName,
+                  unitPrice: i.unitPrice,
+                  startDate: safeStart,
+                  entityId: i.entityId,
+                  subscriptionId: i.subscriptionId,
+                  includeSaturday: i.includeSaturday,
+                  mealSizeId: i.mealSizeId,
+                  mealSizeName: i.mealSizeName,
+                  mealTiming: i.mealTiming,
+                )
+              : i)
+          .toList();
+      notifyListeners();
+      return true;
+    }
+
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -217,6 +284,16 @@ class CartProvider with ChangeNotifier {
   // ─── Remove item from server cart ───────────────────────────────────────────
 
   Future<bool> removeItem(int cartItemId) async {
+    if (!NetworkStatusService.instance.isOnline) {
+      await OfflineQueue.enqueue(
+        method: 'DELETE',
+        path: ApiEndpoints.removeCartItem(cartItemId),
+      );
+      _items = _items.where((i) => i.id != cartItemId).toList();
+      notifyListeners();
+      return true;
+    }
+
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -237,6 +314,16 @@ class CartProvider with ChangeNotifier {
   // ─── Clear entire cart on server ────────────────────────────────────────────
 
   Future<bool> clearCart() async {
+    if (!NetworkStatusService.instance.isOnline) {
+      await OfflineQueue.enqueue(method: 'DELETE', path: ApiEndpoints.clearCart);
+      _items = [];
+      _totalAmount = 0;
+      _cartId = null;
+      _error = null;
+      notifyListeners();
+      return true;
+    }
+
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -275,6 +362,12 @@ class CartProvider with ChangeNotifier {
   // ─── Cart Checkout via PhonePe SDK ──────────────────────────────────────────
 
   Future<Map<String, dynamic>?> checkoutAll({bool isSandbox = true}) async {
+    if (!NetworkStatusService.instance.isOnline) {
+      _error = 'You are offline. Please reconnect to complete payment.';
+      notifyListeners();
+      return null;
+    }
+
     if (_items.isEmpty) {
       _error = 'Cart is empty';
       notifyListeners();

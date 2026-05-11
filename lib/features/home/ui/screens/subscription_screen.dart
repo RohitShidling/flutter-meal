@@ -15,6 +15,8 @@ import 'package:meal_app/features/subscription/ui/screens/payment_status_screen.
 import 'package:meal_app/features/subscription/ui/screens/cart_screen.dart';
 import 'package:meal_app/core/utils/error_handler.dart';
 import 'package:meal_app/core/providers/meal_provider.dart';
+import 'package:meal_app/core/widgets/badges/subscription_badge.dart';
+import 'package:meal_app/features/subscription/ui/widgets/segmented_plan_picker.dart';
 
 class SubscriptionScreen extends StatefulWidget {
   const SubscriptionScreen({super.key});
@@ -31,6 +33,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   int? _selectedMealSizeId;
   int? _selectedTrialMealSizeId;
   int? _selectedRegularMealSizeId;
+  int _plansSegment = 0; // 0 = Trial, 1 = Regular
 
   @override
   void initState() {
@@ -200,7 +203,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             entityType: 'professional',
             entityId: profileProvider.professionalProfile!.id!,
             name: profileProvider.professionalProfile!.name,
-            subtitle: 'Professional Profile • Large Pack',
+            subtitle: 'Pro Profile • Large Pack',
             icon: CupertinoIcons.briefcase_fill,
             color: Colors.orange,
             isDark: isDark,
@@ -276,14 +279,23 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                           Expanded(
                             child: Text(
                               name,
-                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: isDark ? Colors.white : AppTheme.textPrimaryLight),
+                              style: TextStyle(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 21,
+                                color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                              ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           _buildSubscriptionIndicator(entityType, entityId),
                         ],
                       ),
-                      Text(subtitle, style: TextStyle(color: isDark ? Colors.white54 : AppTheme.textSecondaryLight, fontSize: 12)),
+                      Text(
+                        subtitle,
+                        style: TextStyle(color: isDark ? Colors.white54 : AppTheme.textSecondaryLight, fontSize: 12),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ],
                   ),
                 ),
@@ -354,10 +366,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     if (match == null) {
       return const SizedBox.shrink();
     }
-    final planName = (match['plan_name'] ?? '').toString().toLowerCase();
-    final isTrial = planName.contains('trial');
-    final color = isTrial ? Colors.amber.shade700 : Colors.green;
-    return Icon(CupertinoIcons.check_mark_circled_solid, size: 18, color: color);
+    return const SubscriptionBadge();
   }
 
   /// Quick add to cart via server API.
@@ -492,6 +501,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final trialPlans = availablePlans.where((p) => p.trialDays > 0).toList();
     final paidPlans = availablePlans.where((p) => p.trialDays == 0).toList();
+    final hasTrial = trialPlans.isNotEmpty;
+    final hasPaid = paidPlans.isNotEmpty;
+    final showSegmented = hasTrial && hasPaid;
+    final showingTrial = showSegmented ? _plansSegment == 0 : hasTrial;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -517,17 +530,24 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         else if (availablePlans.isEmpty)
           const Text('No subscription plans available for this profile type.')
         else ...[
-          if (trialPlans.isNotEmpty) ...[
+          if (showSegmented) ...[
+            SegmentedPlanPicker(
+              value: _plansSegment,
+              isDark: isDark,
+              onChanged: (v) => setState(() => _plansSegment = v),
+            ),
+            const SizedBox(height: 14),
+          ],
+
+          if (showingTrial)
             _buildPlanTypeSwitcherCard(
               context,
               title: 'Trial Plan',
               plans: trialPlans,
               selectedMealSizeId: _selectedTrialMealSizeId,
               onSelectMealSize: (value) => setState(() => _selectedTrialMealSizeId = value),
-            ),
-            const SizedBox(height: 12),
-          ],
-          if (paidPlans.isNotEmpty) ...[
+            )
+          else
             _buildPlanTypeSwitcherCard(
               context,
               title: 'Regular Plan',
@@ -535,7 +555,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               selectedMealSizeId: _selectedRegularMealSizeId,
               onSelectMealSize: (value) => setState(() => _selectedRegularMealSizeId = value),
             ),
-          ],
         ],
         
         const SizedBox(height: 40),
