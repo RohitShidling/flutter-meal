@@ -31,6 +31,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
   
   bool _isInitializing = true;
   bool _isSaving = false;
+  bool _isEditing = false;
 
   // Switch to onUserInteraction after first submit attempt
   AutovalidateMode _autovalidateMode = AutovalidateMode.disabled;
@@ -76,10 +77,14 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
             });
           }
           
+          _isEditing = false;
           _isInitializing = false;
         });
       } else if (mounted) {
-        setState(() => _isInitializing = false);
+        setState(() {
+          _isEditing = true;
+          _isInitializing = false;
+        });
       }
     });
   }
@@ -157,7 +162,9 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
 
     if (success) {
       ErrorHandler.showSuccess(context, 'Professional profile saved successfully');
-      Navigator.pop(context);
+      setState(() => _isEditing = false);
+      // Ensure we have latest data
+      profileProvider.fetchProfiles(force: true);
     } else {
       ErrorHandler.showError(context, profileProvider.error);
     }
@@ -168,6 +175,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
     final profileProvider = context.watch<ProfileProvider>();
     final lookup = context.watch<LookupProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final profile = profileProvider.professionalProfile;
 
     return Scaffold(
       appBar: AppBar(
@@ -182,7 +190,9 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
       ),
       body: (profileProvider.isLoading || _isInitializing)
         ? const Center(child: CircularProgressIndicator())
-        : SingleChildScrollView(
+        : (profile != null && !_isEditing)
+          ? _buildProfileCard(context, profile)
+          : SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: Form(
               key: _formKey,
@@ -191,7 +201,9 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Setup your corporate profile for lunch deliveries.',
+                    profile == null 
+                      ? 'Setup your corporate profile for lunch deliveries.'
+                      : 'Update your corporate profile details.',
                     style: TextStyle(
                       color: isDark ? Colors.white70 : Theme.of(context).textTheme.bodyMedium?.color,
                     ),
@@ -345,23 +357,168 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                             height: 22,
                             child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
                           )
-                        : const Text('Save Professional Profile'),
+                        : Text(profile == null ? 'Save Professional Profile' : 'Update Profile'),
                   ),
-                  if (context.read<ProfileProvider>().professionalProfile != null) ...[
+                  if (_isEditing && profile != null) ...[
                     const SizedBox(height: 16),
                     TextButton(
-                      onPressed: () => _confirmDelete(context),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.red,
-                        minimumSize: const Size(double.infinity, 50),
-                      ),
-                      child: const Text('Delete Professional Profile', style: TextStyle(fontWeight: FontWeight.bold)),
+                      onPressed: () => setState(() => _isEditing = false),
+                      style: TextButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
+                      child: const Text('Cancel Edit'),
                     ),
                   ],
                 ],
               ),
             ),
           ),
+    );
+  }
+
+  Widget _buildProfileCard(BuildContext context, ProfessionalProfileModel profile) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final lookup = context.read<LookupProvider>();
+    final mealSizeName = lookup.mealSizes.where((m) => m.id == profile.mealSizeId).firstOrNull?.displayName ?? 'Default';
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: isDark ? AppTheme.surfaceDark : Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05),
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: isDark 
+                          ? [AppTheme.primaryColor.withOpacity(0.2), Colors.transparent]
+                          : [AppTheme.primaryColor.withOpacity(0.05), Colors.transparent],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(CupertinoIcons.briefcase_fill, color: AppTheme.primaryColor),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                profile.name,
+                                style: TextStyle(
+                                  fontSize: 20, 
+                                  fontWeight: FontWeight.w900,
+                                  color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                                ),
+                              ),
+                              Text(
+                                'Professional Profile',
+                                style: TextStyle(
+                                  color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        _buildIconButton(CupertinoIcons.pencil, Colors.blue, () => setState(() => _isEditing = true)),
+                        const SizedBox(width: 8),
+                        _buildIconButton(CupertinoIcons.trash, Colors.red, () => _confirmDelete(context)),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                    child: Column(
+                      children: [
+                        const Divider(height: 1),
+                        const SizedBox(height: 20),
+                        _buildInfoRow(CupertinoIcons.building_2_fill, profile.companyName, isDark),
+                        const SizedBox(height: 14),
+                        _buildInfoRow(CupertinoIcons.location_solid, '${profile.city}, ${profile.state}', isDark),
+                        const SizedBox(height: 14),
+                        _buildInfoRow(CupertinoIcons.clock_fill, 'Lunch Time: ${TimeUtils.formatToDisplay(profile.lunchTime)}', isDark),
+                        const SizedBox(height: 14),
+                        _buildInfoRow(CupertinoIcons.square_grid_2x2_fill, 'Meal Size: $mealSizeName', isDark),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 30),
+          Text(
+            'Your professional profile is active. Lunch will be delivered to your corporate location.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: isDark ? Colors.white54 : Colors.black54,
+              fontSize: 14,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIconButton(IconData icon, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, color: color, size: 20),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String text, bool isDark) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 15,
+              color: isDark ? Colors.white.withOpacity(0.9) : AppTheme.textPrimaryLight,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -384,7 +541,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
               if (!mounted) return;
               if (success) {
                 ErrorHandler.showSuccess(this.context, 'Professional profile deleted successfully');
-                Navigator.pop(this.context);
+                // No need to pop, provider update will trigger build and show empty form
               } else {
                 ErrorHandler.showError(this.context, 'Failed to delete — profile may have active subscriptions');
               }

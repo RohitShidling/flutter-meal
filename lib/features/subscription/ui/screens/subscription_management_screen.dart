@@ -221,9 +221,20 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
                             ),
                           ),
                         ),
-                      Text(
-                        status.toUpperCase(),
-                        style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w800),
+                      Builder(
+                        builder: (context) {
+                          final now = DateTime.now();
+                          final today = DateTime(now.year, now.month, now.day);
+                          final isUpcoming = startDate != null && startDate.isAfter(today);
+                          
+                          return Text(
+                            (isUpcoming ? 'UPCOMING' : status).toUpperCase(),
+                            style: TextStyle(
+                              color: isUpcoming ? Colors.orange : Colors.green, 
+                              fontWeight: FontWeight.w800
+                            ),
+                          );
+                        }
                       ),
                     ],
                   ),

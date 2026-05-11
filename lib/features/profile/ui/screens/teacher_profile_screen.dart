@@ -34,6 +34,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
   String _status = 'active';
   bool _isInitializing = true;
   bool _isSaving = false;
+  bool _isEditing = false;
 
   // Switch to onUserInteraction after first submit attempt
   AutovalidateMode _autovalidateMode = AutovalidateMode.disabled;
@@ -78,11 +79,15 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
             _status = profile.status;
             _timeController.text = profile.mealTime ?? '13:30';
             _selectedMealSize = lookupProvider.mealSizes.where((m) => m.id == profile.mealSizeId).firstOrNull;
+            _isEditing = false;
             _isInitializing = false;
           });
         }
       } else if (mounted) {
-        setState(() => _isInitializing = false);
+        setState(() {
+          _isEditing = true;
+          _isInitializing = false;
+        });
       }
     });
   }
@@ -158,7 +163,8 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
 
     if (success) {
       ErrorHandler.showSuccess(context, 'Teacher profile saved successfully');
-      Navigator.pop(context);
+      setState(() => _isEditing = false);
+      profileProvider.fetchProfiles(force: true);
     } else {
       ErrorHandler.showError(context, profileProvider.error);
     }
@@ -169,6 +175,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
     final profileProvider = context.watch<ProfileProvider>();
     final lookupProvider = context.watch<LookupProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final profile = profileProvider.teacherProfile;
 
     return Scaffold(
       appBar: AppBar(
@@ -183,7 +190,9 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
       ),
       body: (profileProvider.isLoading || _isInitializing)
         ? const Center(child: CircularProgressIndicator())
-        : SingleChildScrollView(
+        : (profile != null && !_isEditing)
+          ? _buildProfileCard(context, profile)
+          : SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: Form(
               key: _formKey,
@@ -192,7 +201,9 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                    Text(
-                    'Update your teacher profile details below.',
+                    profile == null 
+                      ? 'Setup your teacher profile for school deliveries.'
+                      : 'Update your teacher profile details below.',
                     style: TextStyle(
                       color: isDark ? Colors.white70 : Theme.of(context).textTheme.bodyMedium?.color,
                     ),
@@ -361,23 +372,168 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
                             height: 22,
                             child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
                           )
-                        : const Text('Save Profile'),
+                        : Text(profile == null ? 'Save Teacher Profile' : 'Update Profile'),
                   ),
-                  if (context.read<ProfileProvider>().teacherProfile != null) ...[
+                  if (_isEditing && profile != null) ...[
                     const SizedBox(height: 16),
                     TextButton(
-                      onPressed: () => _confirmDelete(context),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.red,
-                        minimumSize: const Size(double.infinity, 50),
-                      ),
-                      child: const Text('Delete Teacher Profile', style: TextStyle(fontWeight: FontWeight.bold)),
+                      onPressed: () => setState(() => _isEditing = false),
+                      style: TextButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
+                      child: const Text('Cancel Edit'),
                     ),
                   ],
                 ],
               ),
             ),
           ),
+    );
+  }
+
+  Widget _buildProfileCard(BuildContext context, TeacherProfileModel profile) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final lookup = context.read<LookupProvider>();
+    final mealSizeName = lookup.mealSizes.where((m) => m.id == profile.mealSizeId).firstOrNull?.displayName ?? 'Default';
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: isDark ? AppTheme.surfaceDark : Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05),
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: isDark 
+                          ? [AppTheme.primaryColor.withOpacity(0.2), Colors.transparent]
+                          : [AppTheme.primaryColor.withOpacity(0.05), Colors.transparent],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(CupertinoIcons.person_crop_square_fill, color: AppTheme.primaryColor),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                profile.name,
+                                style: TextStyle(
+                                  fontSize: 20, 
+                                  fontWeight: FontWeight.w900,
+                                  color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                                ),
+                              ),
+                              Text(
+                                'Teacher Profile',
+                                style: TextStyle(
+                                  color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        _buildIconButton(CupertinoIcons.pencil, Colors.blue, () => setState(() => _isEditing = true)),
+                        const SizedBox(width: 8),
+                        _buildIconButton(CupertinoIcons.trash, Colors.red, () => _confirmDelete(context)),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                    child: Column(
+                      children: [
+                        const Divider(height: 1),
+                        const SizedBox(height: 20),
+                        _buildInfoRow(CupertinoIcons.building_2_fill, profile.schoolCollegeName, isDark),
+                        const SizedBox(height: 14),
+                        _buildInfoRow(CupertinoIcons.location_solid, '${profile.city}, ${profile.state}', isDark),
+                        const SizedBox(height: 14),
+                        _buildInfoRow(CupertinoIcons.clock_fill, 'Meal Time: ${TimeUtils.formatToDisplay(profile.mealTime ?? '12:30:00')}', isDark),
+                        const SizedBox(height: 14),
+                        _buildInfoRow(CupertinoIcons.square_grid_2x2_fill, 'Meal Size: $mealSizeName', isDark),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 30),
+          Text(
+            'Your teacher profile is active. Meals will be delivered to your school/college.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: isDark ? Colors.white54 : Colors.black54,
+              fontSize: 14,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIconButton(IconData icon, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, color: color, size: 20),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String text, bool isDark) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 15,
+              color: isDark ? Colors.white.withOpacity(0.9) : AppTheme.textPrimaryLight,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -400,7 +556,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
               if (!mounted) return;
               if (success) {
                 ErrorHandler.showSuccess(this.context, 'Teacher profile deleted successfully');
-                Navigator.pop(this.context);
+                // Provider update will show empty form
               } else {
                 ErrorHandler.showError(this.context, 'Failed to delete — profile may have active subscriptions');
               }
