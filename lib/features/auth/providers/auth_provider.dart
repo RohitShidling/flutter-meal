@@ -11,6 +11,9 @@ enum AuthMode { login, register }
 class AuthProvider with ChangeNotifier {
   final AuthRepository _authRepository;
 
+  /// Hard cap so a bad base URL / hung socket cannot leave OTP buttons spinning forever.
+  static const Duration _authApiTimeout = Duration(seconds: 18);
+
   AuthState _state = AuthState.initial;
   AuthMode _authMode = AuthMode.login;
   String _errorMessage = '';
@@ -65,6 +68,13 @@ class AuthProvider with ChangeNotifier {
     return true;
   }
 
+  Future<T> _withAuthTimeout<T>(Future<T> future) {
+    return future.timeout(
+      _authApiTimeout,
+      onTimeout: () => throw TimeoutException('Request timed out', _authApiTimeout),
+    );
+  }
+
   // ─── LOGIN FLOW ────────────────────────────────────────────────────────────
 
   Future<bool> loginSendOtp(String phone) async {
@@ -74,7 +84,7 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final success = await _authRepository.loginSendOtp(phone);
+      final success = await _withAuthTimeout(_authRepository.loginSendOtp(phone));
       if (success) {
         _state = AuthState.unauthenticated;
         notifyListeners();
@@ -99,10 +109,15 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final success = await _authRepository.loginVerifyOtp(_phoneNumber, code);
+      final success = await _withAuthTimeout(_authRepository.loginVerifyOtp(_phoneNumber, code));
       if (success) {
         markPendingDashboardRefresh();
-        await refreshMeProfile(silent: true, forceNetwork: true);
+        try {
+          await refreshMeProfile(silent: true, forceNetwork: true)
+              .timeout(const Duration(seconds: 15));
+        } catch (_) {
+          // Still log in — username can come from token / storage if /me is unreachable.
+        }
         _state = AuthState.authenticated;
         notifyListeners();
         return true;
@@ -130,7 +145,7 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final success = await _authRepository.registerSendOtp(phone, username);
+      final success = await _withAuthTimeout(_authRepository.registerSendOtp(phone, username));
       if (success) {
         _state = AuthState.unauthenticated;
         notifyListeners();
@@ -155,10 +170,14 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final success = await _authRepository.registerVerifyOtp(_phoneNumber, _username, code);
+      final success =
+          await _withAuthTimeout(_authRepository.registerVerifyOtp(_phoneNumber, _username, code));
       if (success) {
         markPendingDashboardRefresh();
-        await refreshMeProfile(silent: true, forceNetwork: true);
+        try {
+          await refreshMeProfile(silent: true, forceNetwork: true)
+              .timeout(const Duration(seconds: 15));
+        } catch (_) {}
         _state = AuthState.authenticated;
         notifyListeners();
         return true;
@@ -182,7 +201,11 @@ class AuthProvider with ChangeNotifier {
     _state = AuthState.loading;
     notifyListeners();
 
-    await _authRepository.logout();
+    try {
+      await _authRepository.logout().timeout(const Duration(seconds: 10));
+    } catch (_) {
+      // Still clear local session even if server is unreachable.
+    }
     
     _state = AuthState.unauthenticated;
     _phoneNumber = '';
@@ -204,7 +227,9 @@ class AuthProvider with ChangeNotifier {
         }
         return;
       }
-      final liveUsername = await _authRepository.fetchCurrentUsername();
+      final liveUsername = await _authRepository
+          .fetchCurrentUsername()
+          .timeout(const Duration(seconds: 12), onTimeout: () => null);
       if (liveUsername != null && liveUsername.trim().isNotEmpty) {
         _username = liveUsername.trim();
       }

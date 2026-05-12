@@ -14,8 +14,9 @@ class DioClient {
       : _sessionProvider = sessionProvider {
     _dio = Dio(BaseOptions(
       baseUrl: ApiEndpoints.baseUrl,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
+      connectTimeout: const Duration(seconds: 8),
+      sendTimeout: const Duration(seconds: 12),
+      receiveTimeout: const Duration(seconds: 12),
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -99,7 +100,8 @@ class DioClient {
       }
     } catch (_) {/* fall through */}
 
-    const maxRetries = 1;
+    // Do not retry unreachable hosts — avoids doubling wait time on wrong IP / dead servers.
+    const maxRetries = 0;
     var attempt = 0;
     while (attempt < maxRetries) {
       attempt += 1;
@@ -135,7 +137,12 @@ class DioClient {
       if (refreshToken == null) return null;
 
       // Note: We use a separate Dio instance to avoid infinite loops in interceptors
-      final tokenDio = Dio(BaseOptions(baseUrl: ApiEndpoints.baseUrl));
+      final tokenDio = Dio(BaseOptions(
+        baseUrl: ApiEndpoints.baseUrl,
+        connectTimeout: const Duration(seconds: 8),
+        sendTimeout: const Duration(seconds: 12),
+        receiveTimeout: const Duration(seconds: 12),
+      ));
       final response = await tokenDio.post(
         ApiEndpoints.refresh,
         data: {'refreshToken': refreshToken},
