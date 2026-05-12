@@ -1,3 +1,4 @@
+import 'dart:async' show TimeoutException;
 import 'dart:io' show SocketException;
 
 import 'package:dio/dio.dart';
@@ -22,6 +23,10 @@ class ErrorHandler {
 
     if (error is SocketException) {
       return _noInternet;
+    }
+
+    if (error is TimeoutException) {
+      return 'Connection timed out. Please check your internet and try again.';
     }
 
     if (error is DioException) {
