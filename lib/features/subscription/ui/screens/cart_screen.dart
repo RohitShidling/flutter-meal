@@ -4,10 +4,13 @@ import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:meal_app/core/theme/app_theme.dart';
 import 'package:meal_app/core/providers/cart_provider.dart';
+import 'package:meal_app/core/providers/subscription_provider.dart';
+import 'package:meal_app/core/models/subscription_model.dart';
 import 'package:meal_app/core/widgets/apple_card.dart';
 import 'package:meal_app/core/utils/meal_date.dart';
 import 'package:meal_app/core/utils/time_utils.dart';
 import 'package:meal_app/core/network/api_endpoints.dart';
+import 'package:meal_app/core/utils/error_handler.dart';
 import 'package:meal_app/features/subscription/ui/screens/payment_status_screen.dart';
 
 class CartScreen extends StatefulWidget {
@@ -22,13 +25,34 @@ class _CartScreenState extends State<CartScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<CartProvider>().fetchCart();
+      context.read<CartProvider>().syncOfflineItemsIfAny();
+      context.read<SubscriptionProvider>().fetchSubscriptions(force: true, silent: true);
     });
+  }
+
+  /// Match cart line to catalog plan so we can show per-variant duration (with vs without Saturday).
+  SubscriptionModel? _planForItem(CartItem item, List<SubscriptionModel> plans) {
+    final sid = item.subscriptionId?.trim();
+    if (sid == null || sid.isEmpty) return null;
+    for (final p in plans) {
+      if (p.id == sid) return p;
+    }
+    return null;
+  }
+
+  int? _durationDaysForCartLine(CartItem item, SubscriptionModel? plan) {
+    if (plan == null) return null;
+    final d = item.includeSaturday
+        ? (plan.durationDaysWithSaturday ?? plan.durationDays)
+        : (plan.durationDaysWithoutSaturday ?? plan.durationDays);
+    if (d <= 0) return null;
+    return d;
   }
 
   @override
   Widget build(BuildContext context) {
     final cartProvider = context.watch<CartProvider>();
+    final subscriptionPlans = context.watch<SubscriptionProvider>().subscriptions;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final items = cartProvider.items;
 
@@ -58,7 +82,14 @@ class _CartScreenState extends State<CartScreen> {
                           padding: const EdgeInsets.all(20),
                           itemCount: items.length,
                           itemBuilder: (context, index) {
-                            return _buildCartItem(context, items[index], index, isDark, cartProvider)
+                            return _buildCartItem(
+                                  context,
+                                  items[index],
+                                  index,
+                                  isDark,
+                                  cartProvider,
+                                  _planForItem(items[index], subscriptionPlans),
+                                )
                                 .animate().fadeIn(delay: (index * 100).ms).slideX(begin: 0.1, end: 0);
                           },
                         ),
@@ -85,7 +116,7 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
-  Widget _buildCartItem(BuildContext context, CartItem item, int index, bool isDark, CartProvider cartProvider) {
+  Widget _buildCartItem(BuildContext context, CartItem item, int index, bool isDark, CartProvider cartProvider, SubscriptionModel? matchedPlan) {
     IconData entityIcon;
     Color entityColor;
     switch (item.entityType) {
@@ -119,9 +150,7 @@ class _CartScreenState extends State<CartScreen> {
       confirmDismiss: (_) async {
         final success = await cartProvider.removeItem(item.id);
         if (!success && mounted) {
-          ScaffoldMessenger.of(this.context).showSnackBar(
-            SnackBar(content: Text(cartProvider.error ?? 'Failed to remove item'), backgroundColor: Colors.red.shade700),
-          );
+          ErrorHandler.showError(this.context, cartProvider.error ?? 'Could not remove item');
         }
         return false; // Don't animate dismiss — fetchCart will refresh the list
       },
@@ -153,6 +182,12 @@ class _CartScreenState extends State<CartScreen> {
             const Divider(height: 24),
             _buildDetailRow('Plan', item.planName, isDark),
             _buildDetailRow('Variant', item.includeSaturday ? 'With Saturday' : 'Without Saturday', isDark),
+            if (_durationDaysForCartLine(item, matchedPlan) != null)
+              _buildDetailRow(
+                'Plan length',
+                '${_durationDaysForCartLine(item, matchedPlan)} days',
+                isDark,
+              ),
             if ((item.mealSizeName ?? '').isNotEmpty)
               _buildDetailRow('Meal Size', item.mealSizeName!, isDark),
             if ((item.mealTiming ?? '').isNotEmpty)
@@ -245,7 +280,7 @@ class _CartScreenState extends State<CartScreen> {
     if (ok) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Start date updated'), behavior: SnackBarBehavior.floating));
     } else if (cartProvider.error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(cartProvider.error!), backgroundColor: Colors.red.shade700, behavior: SnackBarBehavior.floating));
+      ErrorHandler.showError(context, cartProvider.error);
     }
   }
 
@@ -349,7 +384,7 @@ class _CartScreenState extends State<CartScreen> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Payment failed or was cancelled.'), backgroundColor: Colors.red.shade700, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))));
       }
     } else if (cartProvider.error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(cartProvider.error!), backgroundColor: Colors.red.shade700, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))));
+      ErrorHandler.showError(context, cartProvider.error);
     }
   }
 

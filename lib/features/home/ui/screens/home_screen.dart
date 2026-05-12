@@ -24,7 +24,9 @@ import 'package:meal_app/features/subscription/ui/screens/meal_skip_screen.dart'
 import 'package:meal_app/features/subscription/ui/screens/cart_screen.dart';
 import 'package:meal_app/core/widgets/image_preview_dialog.dart';
 import 'package:meal_app/features/subscription/ui/screens/subscription_management_screen.dart';
+import 'package:meal_app/core/services/connectivity_service.dart';
 import 'package:meal_app/core/services/network_status_service.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -35,6 +37,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String _displayName = '';
+  ConnectivityService? _connectivityService;
+  bool _wasOnline = true;
 
   @override
   void initState() {
@@ -161,7 +165,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       // Today's meal section — only visible for subscribed users
                       _buildTodayMealCard(context, isDark),
                       _buildAlertsBanner(context, isDark),
-                      _buildQuickActions(context, isDark),
                       _buildFeatureCards(context),
                       const SizedBox(height: 20),
                       _buildQuickStatus(context),
@@ -538,12 +541,13 @@ class _HomeScreenState extends State<HomeScreen> {
     if (imageUrl != null && imageUrl.isNotEmpty) {
       return ClipRRect(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        child: Image.network(
-          imageUrl,
+        child: CachedNetworkImage(
+          imageUrl: imageUrl,
           height: height,
           width: double.infinity,
           fit: BoxFit.contain,
-          errorBuilder: (_, __, ___) => _buildMealPlaceholder(height),
+          placeholder: (_, __) => _buildMealPlaceholder(height),
+          errorWidget: (_, __, ___) => _buildMealPlaceholder(height),
         ),
       );
     }

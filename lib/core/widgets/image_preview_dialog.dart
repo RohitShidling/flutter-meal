@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 
@@ -79,25 +80,21 @@ class ImagePreviewDialog extends StatelessWidget {
                   child: GestureDetector(
                     // Absorb taps on the actual image so it doesn't dismiss when tapping the image
                     onTap: () {},
-                    child: Image.network(
-                      imageUrl,
+                    child: CachedNetworkImage(
+                      imageUrl: imageUrl,
                       fit: BoxFit.contain,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
+                      progressIndicatorBuilder: (context, _, progress) {
                         return SizedBox(
                           width: 48,
                           height: 48,
                           child: CircularProgressIndicator(
-                            value: loadingProgress.expectedTotalBytes != null
-                                ? loadingProgress.cumulativeBytesLoaded /
-                                    loadingProgress.expectedTotalBytes!
-                                : null,
+                            value: progress.progress,
                             color: Colors.white,
                             strokeWidth: 3,
                           ),
                         );
                       },
-                      errorBuilder: (_, __, ___) => const Icon(
+                      errorWidget: (_, __, ___) => const Icon(
                         CupertinoIcons.photo, 
                         color: Colors.white54, 
                         size: 64,

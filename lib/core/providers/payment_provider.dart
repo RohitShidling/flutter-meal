@@ -2,14 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:meal_app/core/network/payment_repository.dart';
 import 'package:meal_app/core/network/api_endpoints.dart';
 import 'package:meal_app/core/services/phonepe_service.dart';
+import 'package:meal_app/core/storage/local_cache.dart';
+import 'package:meal_app/core/utils/error_handler.dart';
 
 /// Payment status returned after the SDK transaction completes.
 enum PaymentStatus { none, processing, success, failure, interrupted }
 
 class PaymentProvider with ChangeNotifier {
   final PaymentRepository _repository;
+  final LocalCache _cache;
+  static const _historyCacheKey = 'cache_payment_history_v1';
+  static const _activeCacheKey = 'cache_active_subscriptions_v1';
 
-  PaymentProvider(this._repository);
+  PaymentProvider(this._repository, this._cache);
 
   bool _isLoading = false;
   bool get isLoading => _isLoading;
@@ -32,13 +37,25 @@ class PaymentProvider with ChangeNotifier {
   // ─── Payment History ───────────────────────────────────────────────────────
 
   Future<void> fetchPaymentHistory() async {
+    bool hasCachedData = false;
+    final cached = await _cache.loadJson(_historyCacheKey);
+    if (cached != null && _paymentHistory.isEmpty) {
+      _paymentHistory = (cached['items'] as List? ?? const []).toList();
+      hasCachedData = _paymentHistory.isNotEmpty;
+      notifyListeners();
+    } else if (_paymentHistory.isNotEmpty) {
+      hasCachedData = true;
+    }
+
     _isLoading = true;
     _error = null;
     notifyListeners();
     try {
       _paymentHistory = await _repository.getPaymentHistory();
+      await _cache.saveJson(_historyCacheKey, {'items': _paymentHistory});
     } catch (e) {
-      _error = e.toString();
+      // Keep showing cached history in offline mode; only show hard error if nothing cached.
+      _error = hasCachedData ? null : ErrorHandler.getErrorMessage(e);
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -48,13 +65,25 @@ class PaymentProvider with ChangeNotifier {
   // ─── Active Subscriptions ──────────────────────────────────────────────────
 
   Future<void> fetchActiveSubscriptions() async {
+    bool hasCachedData = false;
+    final cached = await _cache.loadJson(_activeCacheKey);
+    if (cached != null && _activeSubscriptions.isEmpty) {
+      _activeSubscriptions = (cached['items'] as List? ?? const []).toList();
+      hasCachedData = _activeSubscriptions.isNotEmpty;
+      notifyListeners();
+    } else if (_activeSubscriptions.isNotEmpty) {
+      hasCachedData = true;
+    }
+
     _isLoading = true;
     _error = null;
     notifyListeners();
     try {
       _activeSubscriptions = await _repository.getActiveSubscriptions();
+      await _cache.saveJson(_activeCacheKey, {'items': _activeSubscriptions});
     } catch (e) {
-      _error = e.toString();
+      // Keep showing cached plans in offline mode; only show hard error if nothing cached.
+      _error = hasCachedData ? null : ErrorHandler.getErrorMessage(e);
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -128,7 +157,7 @@ class PaymentProvider with ChangeNotifier {
         'sdkError': sdkResult['error'],
       };
     } catch (e) {
-      _error = e.toString().replaceAll('Exception:', '').trim();
+      _error = ErrorHandler.getErrorMessage(e);
       _paymentStatus = PaymentStatus.failure;
       return null;
     } finally {
@@ -143,7 +172,7 @@ class PaymentProvider with ChangeNotifier {
     try {
       return await _repository.getPaymentStatus(txnId);
     } catch (e) {
-      _error = e.toString();
+      _error = ErrorHandler.getErrorMessage(e);
       return null;
     }
   }

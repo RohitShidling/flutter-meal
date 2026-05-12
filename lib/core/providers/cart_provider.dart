@@ -5,7 +5,9 @@ import 'package:meal_app/core/services/network_status_service.dart';
 import 'package:meal_app/core/services/offline_queue.dart';
 import 'package:meal_app/core/services/phonepe_service.dart';
 import 'package:meal_app/core/storage/cache_store.dart';
+import 'package:meal_app/core/storage/local_cache.dart';
 import 'package:meal_app/core/utils/meal_date.dart';
+import 'package:meal_app/core/utils/error_handler.dart';
 
 /// Server-side cart item — mirrors the backend response.
 class CartItem {
@@ -61,8 +63,11 @@ class CartItem {
 /// All operations hit the backend — no local-only state.
 class CartProvider with ChangeNotifier {
   final CartRepository _repository;
+  final LocalCache _cache;
+  static const _cartCacheKey = 'cache_cart_v1';
+  int _nextOfflineTempId = -1;
 
-  CartProvider(this._repository) {
+  CartProvider(this._repository, this._cache) {
     _loadCachedCart();
   }
 
@@ -83,17 +88,25 @@ class CartProvider with ChangeNotifier {
   DateTime? _lastFetchedAt;
   Future<void>? _inflightFetch;
 
+  /// Bumped when local cart rows change so a slow `_loadCachedCart` read does not
+  /// overwrite fresher in-memory state (e.g. offline remove completed before disk read finished).
+  int _localCartMutationGen = 0;
+
+  void _bumpLocalCartMutation() => _localCartMutationGen++;
+
   int get itemCount => _items.length;
 
   Future<void> _loadCachedCart() async {
+    final genAtStart = _localCartMutationGen;
     try {
       final cached = await CacheStore.getJson('cart_data');
+      if (genAtStart != _localCartMutationGen) return;
       if (cached is Map<String, dynamic>) {
         _cartId = cached['cart_id']?.toString();
         _totalAmount = (cached['total_amount'] as num?)?.toDouble() ?? 0;
         final itemsList = cached['items'];
         if (itemsList is List) {
-          _items = itemsList.map((json) => CartItem.fromJson(json)).toList();
+          _items = itemsList.map((json) => CartItem.fromJson(Map<String, dynamic>.from(json as Map))).toList();
         }
         notifyListeners();
       }
@@ -125,6 +138,59 @@ class CartProvider with ChangeNotifier {
     } catch (_) {
       // ignore cache errors
     }
+  }
+
+  Future<void> _persistLocalCart() => _persistCart();
+
+  bool _isLikelyNetworkError(Object e) {
+    final raw = e.toString().toLowerCase();
+    return raw.contains('socket') ||
+        raw.contains('network') ||
+        raw.contains('timed out') ||
+        raw.contains('failed host lookup') ||
+        raw.contains('connection');
+  }
+
+  Future<void> _addLocalItem({
+    required String subscriptionId,
+    required String entityType,
+    required String entityId,
+    required bool includeSaturday,
+    required String startDate,
+    String? entityName,
+    String? planName,
+    double? unitPrice,
+    int? mealSizeId,
+    String? mealSizeName,
+    String? mealTiming,
+  }) async {
+    _bumpLocalCartMutation();
+    final safeStart = MealDate.isValidFutureStartDate(startDate)
+        ? startDate
+        : MealDate.tomorrowYmd();
+    _items = [
+      ..._items.where((i) =>
+          !(i.subscriptionId == subscriptionId &&
+              i.entityType == entityType &&
+              i.entityId == entityId &&
+              i.includeSaturday == includeSaturday)),
+      CartItem(
+        id: -DateTime.now().microsecondsSinceEpoch,
+        entityName: entityName ?? entityType.toUpperCase(),
+        entityType: entityType,
+        planName: planName ?? 'Plan',
+        unitPrice: unitPrice ?? 0,
+        startDate: safeStart,
+        entityId: entityId,
+        subscriptionId: subscriptionId,
+        includeSaturday: includeSaturday,
+        mealSizeId: mealSizeId,
+        mealSizeName: mealSizeName,
+        mealTiming: mealTiming,
+      ),
+    ];
+    _totalAmount = _items.fold(0.0, (sum, i) => sum + i.unitPrice);
+    await _persistLocalCart();
   }
 
   // ─── Fetch cart from server ─────────────────────────────────────────────────
@@ -170,7 +236,7 @@ class CartProvider with ChangeNotifier {
       _lastFetchedAt = DateTime.now();
       await _persistCart();
     } catch (e) {
-      _error = e.toString();
+      _error = ErrorHandler.getErrorMessage(e);
       // Keep cached cart data on network error instead of clearing
       if (_items.isEmpty) {
         _totalAmount = 0;
@@ -227,6 +293,12 @@ class CartProvider with ChangeNotifier {
     required String entityId,
     required bool includeSaturday,
     required String startDate,
+    String? entityName,
+    String? planName,
+    double? unitPrice,
+    int? mealSizeId,
+    String? mealSizeName,
+    String? mealTiming,
   }) async {
     if (!NetworkStatusService.instance.isOnline) {
       final safeStart = MealDate.isValidFutureStartDate(startDate)
@@ -243,21 +315,20 @@ class CartProvider with ChangeNotifier {
           'startDate': safeStart,
         },
       );
-      // Optimistic UX: reflect "in cart" immediately.
-      _items = [
-        ..._items,
-        CartItem(
-          id: -DateTime.now().microsecondsSinceEpoch,
-          entityName: '',
-          entityType: entityType,
-          planName: '',
-          unitPrice: 0,
-          startDate: safeStart,
-          entityId: entityId,
-          subscriptionId: subscriptionId,
-          includeSaturday: includeSaturday,
-        ),
-      ];
+      // Same metadata + pricing as when we queue after a failed network call.
+      await _addLocalItem(
+        subscriptionId: subscriptionId,
+        entityType: entityType,
+        entityId: entityId,
+        includeSaturday: includeSaturday,
+        startDate: safeStart,
+        entityName: entityName,
+        planName: planName,
+        unitPrice: unitPrice,
+        mealSizeId: mealSizeId,
+        mealSizeName: mealSizeName,
+        mealTiming: mealTiming,
+      );
       notifyListeners();
       return true;
     }
@@ -284,6 +355,25 @@ class CartProvider with ChangeNotifier {
       await fetchCart(force: true, silent: true);
       return true;
     } catch (e) {
+      if (_isLikelyNetworkError(e)) {
+        await _addLocalItem(
+          subscriptionId: subscriptionId,
+          entityType: entityType,
+          entityId: entityId,
+          includeSaturday: includeSaturday,
+          startDate: startDate,
+          entityName: entityName,
+          planName: planName,
+          unitPrice: unitPrice,
+          mealSizeId: mealSizeId,
+          mealSizeName: mealSizeName,
+          mealTiming: mealTiming,
+        );
+        _error = null;
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      }
       _error = _extractErrorMessage(e);
       _isLoading = false;
       notifyListeners();
@@ -303,6 +393,7 @@ class CartProvider with ChangeNotifier {
         path: ApiEndpoints.removeCartItem(cartItemId),
         data: {'startDate': safeStart},
       );
+      _bumpLocalCartMutation();
       _items = _items
           .map((i) => i.id == cartItemId
               ? CartItem(
@@ -321,6 +412,7 @@ class CartProvider with ChangeNotifier {
                 )
               : i)
           .toList();
+      await _persistCart();
       notifyListeners();
       return true;
     }
@@ -357,7 +449,10 @@ class CartProvider with ChangeNotifier {
         method: 'DELETE',
         path: ApiEndpoints.removeCartItem(cartItemId),
       );
+      _bumpLocalCartMutation();
       _items = _items.where((i) => i.id != cartItemId).toList();
+      _totalAmount = _items.fold(0.0, (sum, i) => sum + i.unitPrice);
+      await _persistCart();
       notifyListeners();
       return true;
     }
@@ -367,6 +462,14 @@ class CartProvider with ChangeNotifier {
     notifyListeners();
 
     try {
+      if (cartItemId <= 0) {
+        _items.removeWhere((i) => i.id == cartItemId);
+        _totalAmount = _items.fold(0, (sum, i) => sum + i.unitPrice);
+        await _persistLocalCart();
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      }
       await _repository.removeCartItem(cartItemId);
       // Refresh cart from server
       await fetchCart(force: true, silent: true);
@@ -384,10 +487,12 @@ class CartProvider with ChangeNotifier {
   Future<bool> clearCart() async {
     if (!NetworkStatusService.instance.isOnline) {
       await OfflineQueue.enqueue(method: 'DELETE', path: ApiEndpoints.clearCart);
+      _bumpLocalCartMutation();
       _items = [];
       _totalAmount = 0;
       _cartId = null;
       _error = null;
+      await _persistCart();
       notifyListeners();
       return true;
     }
@@ -401,8 +506,17 @@ class CartProvider with ChangeNotifier {
       _items = [];
       _totalAmount = 0;
       _cartId = null;
+      await _persistLocalCart();
     } catch (e) {
-      _error = _extractErrorMessage(e);
+      if (_isLikelyNetworkError(e)) {
+        _items = [];
+        _totalAmount = 0;
+        _cartId = null;
+        await _persistLocalCart();
+        _error = null;
+      } else {
+        _error = _extractErrorMessage(e);
+      }
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -418,7 +532,28 @@ class CartProvider with ChangeNotifier {
     _totalAmount = 0;
     _cartId = null;
     _error = null;
+    _persistLocalCart();
     notifyListeners();
+  }
+
+  Future<void> syncOfflineItemsIfAny() async {
+    final pending = _items.where((i) => i.id <= 0).toList();
+    if (pending.isEmpty) return;
+    for (final item in pending) {
+      if (item.subscriptionId == null || item.entityId == null) continue;
+      try {
+        await _repository.addToCart(
+          subscriptionId: item.subscriptionId!,
+          entityType: item.entityType,
+          entityId: item.entityId!,
+          includeSaturday: item.includeSaturday,
+          startDate: item.startDate ?? MealDate.tomorrowYmd(),
+        );
+      } catch (_) {
+        // keep pending item for next reconnect
+      }
+    }
+    await fetchCart();
   }
 
   // ─── Check if entity is already in cart ─────────────────────────────────────
@@ -431,13 +566,18 @@ class CartProvider with ChangeNotifier {
 
   Future<Map<String, dynamic>?> checkoutAll({bool isSandbox = true}) async {
     if (!NetworkStatusService.instance.isOnline) {
-      _error = 'You are offline. Please reconnect to complete payment.';
+      _error = 'No internet connection. Connect to the internet to complete payment.';
       notifyListeners();
       return null;
     }
 
     if (_items.isEmpty) {
       _error = 'Cart is empty';
+      notifyListeners();
+      return null;
+    }
+    if (_items.any((i) => i.id <= 0)) {
+      _error = 'No internet connection. Connect before checkout so your cart can be updated.';
       notifyListeners();
       return null;
     }
@@ -490,14 +630,5 @@ class CartProvider with ChangeNotifier {
     }
   }
 
-  /// Extracts a clean error message from exceptions.
-  String _extractErrorMessage(Object e) {
-    final raw = e.toString();
-    // Try to extract 'message' from DioException response
-    if (raw.contains('message')) {
-      final match = RegExp(r'"message"\s*:\s*"([^"]+)"').firstMatch(raw);
-      if (match != null) return match.group(1)!;
-    }
-    return raw.replaceAll('Exception:', '').trim();
-  }
+  String _extractErrorMessage(Object e) => ErrorHandler.getErrorMessage(e);
 }

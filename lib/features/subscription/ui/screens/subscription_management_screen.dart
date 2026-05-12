@@ -6,6 +6,7 @@ import 'package:meal_app/core/theme/app_theme.dart';
 import 'package:meal_app/core/providers/payment_provider.dart';
 import 'package:meal_app/core/widgets/apple_card.dart';
 import 'package:meal_app/core/utils/time_utils.dart';
+import 'package:meal_app/core/services/connectivity_service.dart';
 
 class SubscriptionManagementScreen extends StatefulWidget {
   const SubscriptionManagementScreen({super.key});
@@ -16,6 +17,8 @@ class SubscriptionManagementScreen extends StatefulWidget {
 
 class _SubscriptionManagementScreenState extends State<SubscriptionManagementScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  ConnectivityService? _connectivityService;
+  bool _wasOnline = true;
 
   @override
   void initState() {
@@ -28,9 +31,32 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final service = context.read<ConnectivityService>();
+    if (_connectivityService == service) return;
+    _connectivityService?.removeListener(_handleConnectivityChange);
+    _connectivityService = service;
+    _wasOnline = _connectivityService?.isOnline ?? true;
+    _connectivityService?.addListener(_handleConnectivityChange);
+  }
+
+  @override
   void dispose() {
+    _connectivityService?.removeListener(_handleConnectivityChange);
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleConnectivityChange() async {
+    final online = _connectivityService?.isOnline ?? true;
+    if (online && !_wasOnline && mounted) {
+      await Future.wait([
+        context.read<PaymentProvider>().fetchActiveSubscriptions(),
+        context.read<PaymentProvider>().fetchPaymentHistory(),
+      ]);
+    }
+    _wasOnline = online;
   }
 
   @override
@@ -163,9 +189,9 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
                       style: const TextStyle(color: AppTheme.primaryColor, fontSize: 10, fontWeight: FontWeight.w900),
                     ),
                   ),
-                  Icon(
+                  const Icon(
                     CupertinoIcons.checkmark_seal_fill,
-                    color: Theme.of(context).colorScheme.primary,
+                    color: Color(0xFF22C55E),
                     size: 20,
                   ),
                 ],

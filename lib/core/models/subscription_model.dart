@@ -56,7 +56,7 @@ class SubscriptionModel {
           .toList(),
       displayOrder: int.tryParse('${json['display_order'] ?? 0}') ?? 0,
       isActive: json['is_active'],
-      mealSizeId: json['meal_size_id'],
+      mealSizeId: json['meal_size_id'] == null ? null : int.tryParse('${json['meal_size_id']}'),
     );
   }
 

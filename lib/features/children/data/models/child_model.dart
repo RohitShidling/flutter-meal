@@ -30,7 +30,7 @@ class ChildModel {
       rollNumber: json['roll_number'] ?? json['rollNumber'],
       schoolId: json['school_id'] ?? json['schoolId'],
       standardId: json['standard_id'] ?? json['standardId'],
-      mealSizeId: json['meal_size_id'] ?? json['mealSizeId'],
+      mealSizeId: int.tryParse('${json['meal_size_id'] ?? json['mealSizeId'] ?? 0}') ?? 0,
       mealTime: json['meal_time'] ?? json['mealTime'],
       schoolName: json['school_name'],
       standardName: json['standard_name'],

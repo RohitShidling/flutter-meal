@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:meal_app/core/services/network_status_service.dart';
+import 'package:meal_app/core/utils/error_handler.dart';
 import 'package:meal_app/features/auth/data/repositories/auth_repository.dart';
 
 enum AuthState { initial, loading, authenticated, unauthenticated, error }
@@ -85,7 +86,7 @@ class AuthProvider with ChangeNotifier {
         return false;
       }
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = ErrorHandler.getErrorMessage(e);
       _state = AuthState.error;
       notifyListeners();
       return false;
@@ -112,7 +113,7 @@ class AuthProvider with ChangeNotifier {
         return false;
       }
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = ErrorHandler.getErrorMessage(e);
       _state = AuthState.error;
       notifyListeners();
       return false;
@@ -141,7 +142,7 @@ class AuthProvider with ChangeNotifier {
         return false;
       }
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = ErrorHandler.getErrorMessage(e);
       _state = AuthState.error;
       notifyListeners();
       return false;
@@ -168,7 +169,7 @@ class AuthProvider with ChangeNotifier {
         return false;
       }
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = ErrorHandler.getErrorMessage(e);
       _state = AuthState.error;
       notifyListeners();
       return false;

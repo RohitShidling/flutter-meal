@@ -22,8 +22,12 @@ class TeacherProfileModel {
   });
 
   factory TeacherProfileModel.fromJson(Map<String, dynamic> json) {
+    final parsedId = json['id'] ??
+        json['teacher_id'] ??
+        json['profile_id'] ??
+        json['entity_id'];
     return TeacherProfileModel(
-      id: json['id'],
+      id: parsedId?.toString(),
       name: json['name'],
       schoolCollegeName: json['school_college_name'],
       city: json['city'],
@@ -37,6 +41,7 @@ class TeacherProfileModel {
 
   Map<String, dynamic> toJson() {
     return {
+      'id': id,
       'name': name,
       'school_college_name': schoolCollegeName,
       'city': city,
@@ -73,8 +78,12 @@ class ProfessionalProfileModel {
   });
 
   factory ProfessionalProfileModel.fromJson(Map<String, dynamic> json) {
+    final parsedId = json['id'] ??
+        json['professional_id'] ??
+        json['profile_id'] ??
+        json['entity_id'];
     return ProfessionalProfileModel(
-      id: json['id'],
+      id: parsedId?.toString(),
       name: json['name'],
       companyName: json['company_name'],
       corporateLocationId: json['corporate_location_id'],
@@ -88,6 +97,7 @@ class ProfessionalProfileModel {
 
   Map<String, dynamic> toJson() {
     return {
+      'id': id,
       'name': name,
       'company_name': companyName,
       'corporate_location_id': corporateLocationId,

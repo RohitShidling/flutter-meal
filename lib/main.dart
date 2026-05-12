@@ -5,7 +5,9 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'package:meal_app/core/network/dio_client.dart';
 import 'package:meal_app/features/home/providers/menu_provider.dart';
+import 'package:meal_app/core/services/connectivity_service.dart';
 import 'package:meal_app/core/storage/secure_storage.dart';
+import 'package:meal_app/core/storage/local_cache.dart';
 import 'package:meal_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:meal_app/features/auth/providers/auth_provider.dart';
 import 'package:meal_app/features/auth/ui/screens/login_screen.dart';
@@ -45,9 +47,11 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     // Dependency Injection
     final secureStorage = SecureStorage();
+    final cache = LocalCache();
     // The session provider is a long-lived singleton shared between the
     // network layer (to push expire events) and the UI (to react to them).
     final sessionProvider = SessionProvider();
+    final connectivityService = ConnectivityService()..start();
     final dioClient = DioClient(secureStorage, sessionProvider: sessionProvider);
     final authRepository = AuthRepository(dioClient, secureStorage);
     final lookupRepository = LookupRepository(dioClient);
@@ -65,17 +69,18 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: sessionProvider),
+        ChangeNotifierProvider.value(value: connectivityService),
         ChangeNotifierProvider(create: (_) => AuthProvider(authRepository)),
         ChangeNotifierProvider(create: (_) => LookupProvider(lookupRepository)),
-        ChangeNotifierProvider(create: (_) => ChildrenProvider(childrenRepository)),
-        ChangeNotifierProvider(create: (_) => ProfileProvider(profileRepository)),
+        ChangeNotifierProvider(create: (_) => ChildrenProvider(childrenRepository, cache)),
+        ChangeNotifierProvider(create: (_) => ProfileProvider(profileRepository, cache)),
         ChangeNotifierProvider(create: (_) => ThemeProvider(secureStorage)),
-        ChangeNotifierProvider(create: (_) => SubscriptionProvider(SubscriptionRepository(dioClient))),
-        ChangeNotifierProvider(create: (_) => MenuProvider(dioClient)),
-        ChangeNotifierProvider(create: (_) => PaymentProvider(paymentRepository)),
-        ChangeNotifierProvider(create: (_) => HomepageProvider(homepageRepository)),
-        ChangeNotifierProvider(create: (_) => CartProvider(cartRepository)),
-        ChangeNotifierProvider(create: (_) => MealProvider(mealRepository)),
+        ChangeNotifierProvider(create: (_) => SubscriptionProvider(SubscriptionRepository(dioClient), cache)),
+        ChangeNotifierProvider(create: (_) => MenuProvider(dioClient, cache)),
+        ChangeNotifierProvider(create: (_) => PaymentProvider(paymentRepository, cache)),
+        ChangeNotifierProvider(create: (_) => HomepageProvider(homepageRepository, cache)),
+        ChangeNotifierProvider(create: (_) => CartProvider(cartRepository, cache)),
+        ChangeNotifierProvider(create: (_) => MealProvider(mealRepository, cache)),
       ],
       child: const MainApp(),
     );

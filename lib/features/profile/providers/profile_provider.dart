@@ -3,14 +3,16 @@ import 'package:meal_app/core/network/api_endpoints.dart';
 import 'package:meal_app/core/services/network_status_service.dart';
 import 'package:meal_app/core/services/offline_queue.dart';
 import 'package:meal_app/core/storage/cache_store.dart';
+import 'package:meal_app/core/storage/local_cache.dart';
 import 'package:meal_app/features/profile/data/models/profile_models.dart';
 import 'package:meal_app/features/profile/data/repositories/profile_repository.dart';
-import 'package:meal_app/core/utils/error_handler.dart';
 
 class ProfileProvider with ChangeNotifier {
   final ProfileRepository _repository;
+  final LocalCache _cache;
+  static const _cacheKey = 'cache_profiles_v1';
 
-  ProfileProvider(this._repository) {
+  ProfileProvider(this._repository, this._cache) {
     _loadFromCache();
   }
 
@@ -66,6 +68,7 @@ class ProfileProvider with ChangeNotifier {
   }
 
   Future<void> _doFetch({bool silent = false}) async {
+    final hasCachedProfile = _teacherProfile != null || _professionalProfile != null;
     if (!silent) {
       if (_teacherProfile == null && _professionalProfile == null) {
         _isLoading = true;
@@ -86,7 +89,8 @@ class ProfileProvider with ChangeNotifier {
       _profileStatus = results[2] as Map<String, dynamic>?;
       _lastFetchedAt = DateTime.now();
     } catch (e) {
-      _error = e;
+      // Keep using cached profile silently in offline mode.
+      _error = hasCachedProfile ? null : e;
     } finally {
       _isLoading = false;
       notifyListeners();

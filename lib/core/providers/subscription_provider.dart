@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:meal_app/core/models/subscription_model.dart';
 import 'package:meal_app/core/network/subscription_repository.dart';
 import 'package:meal_app/core/storage/cache_store.dart';
+import 'package:meal_app/core/storage/local_cache.dart';
+import 'package:meal_app/core/utils/error_handler.dart';
 
 class SubscriptionProvider with ChangeNotifier {
   final SubscriptionRepository _repository;
+  final LocalCache _cache;
+  static const _cacheKey = 'cache_subscriptions_v1';
 
-  SubscriptionProvider(this._repository) {
+  SubscriptionProvider(this._repository, this._cache) {
     _loadFromCache();
   }
 
@@ -63,7 +67,7 @@ class SubscriptionProvider with ChangeNotifier {
       );
       _lastFetchedAt = DateTime.now();
     } catch (e) {
-      _error = e.toString();
+      _error = ErrorHandler.getErrorMessage(e);
     } finally {
       _isLoading = false;
       notifyListeners();

@@ -4,9 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:meal_app/core/services/network_status_service.dart';
 
-/// Premium offline banner: swipe to dismiss, auto-dismiss ~2.6s after reconnect,
-//hi
-/// smooth slide/fade, full Light/Dark support (theme-driven colors).
+/// Bottom banner when there is no network; swipe to dismiss.
 class OfflineBanner extends StatefulWidget {
   final Widget child;
   const OfflineBanner({super.key, required this.child});
@@ -162,7 +160,7 @@ class _OfflineBannerState extends State<OfflineBanner> with SingleTickerProvider
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
-                                  'You are offline. Cached content is available; changes will sync when you reconnect.',
+                                  'No internet connection. Check your Wi‑Fi or mobile data.',
                                   style: TextStyle(
                                     color: textColor.withValues(alpha: 0.94),
                                     fontWeight: FontWeight.w600,

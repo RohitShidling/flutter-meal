@@ -46,6 +46,8 @@ dependencies:
   phonepe_payment_sdk: ^3.0.2
   connectivity_plus: ^6.1.4
   shared_preferences: ^2.5.3
+  cached_network_image: ^3.4.1
+  flutter_cache_manager: ^3.4.1
 
 dev_dependencies:
   flutter_test:

@@ -1,42 +1,166 @@
+import 'dart:io' show SocketException;
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:meal_app/core/theme/app_theme.dart';
 
+/// Central place for user-visible error text — avoids exposing raw exceptions,
+/// Dio dumps, or stack traces in snackbars and forms.
 class ErrorHandler {
+  static const String _noInternet =
+      'No internet connection. Check your network and try again.';
+  static const String _serverSlow =
+      'The server is taking too long to respond. Please try again.';
+  static const String _genericRetry =
+      'Something went wrong. Please try again.';
+  static const String _serviceUnavailable =
+      'Service is temporarily unavailable. Please try again later.';
+
+  /// Converts API failures, network errors, and exceptions into short copy for users.
   static String getErrorMessage(dynamic error) {
+    if (error == null) return _genericRetry;
+
+    if (error is SocketException) {
+      return _noInternet;
+    }
+
     if (error is DioException) {
-      switch (error.type) {
-        case DioExceptionType.connectionTimeout:
-          return 'Connection timed out. Please check your internet.';
-        case DioExceptionType.receiveTimeout:
-          return 'Server is taking too long to respond.';
-        case DioExceptionType.badResponse:
-          final data = error.response?.data;
-          if (data is Map) {
-            // Extract detailed errors array if present
-            if (data.containsKey('errors') && data['errors'] is List && (data['errors'] as List).isNotEmpty) {
-              return (data['errors'] as List).join(', ');
-            }
-            if (data.containsKey('message')) {
-              return data['message'];
-            }
-          }
-          return 'Server error: ${error.response?.statusCode}';
-        case DioExceptionType.cancel:
-          return 'Request was cancelled.';
-        default:
-          return 'Network error. Please try again later.';
+      return _messageFromDio(error);
+    }
+
+    final raw = error.toString();
+    if (_looksLikeNetworkFailure(raw)) {
+      return _noInternet;
+    }
+    if (_looksLikeTechnicalNoise(raw)) {
+      return _genericRetry;
+    }
+
+    final trimmed = raw.replaceAll('Exception:', '').trim();
+    if (trimmed.isEmpty) return _genericRetry;
+    // Short user-ish strings (e.g. from repositories) can pass through.
+    if (trimmed.length <= 120 && !_looksLikeTechnicalNoise(trimmed)) {
+      return trimmed;
+    }
+    return _genericRetry;
+  }
+
+  static String _messageFromDio(DioException error) {
+    switch (error.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+        return 'Connection timed out. Please check your internet and try again.';
+      case DioExceptionType.receiveTimeout:
+        return _serverSlow;
+      case DioExceptionType.connectionError:
+        return _noInternetOrFromUnderlying(error);
+      case DioExceptionType.badCertificate:
+        return 'Secure connection could not be established. Please try again later.';
+      case DioExceptionType.badResponse:
+        return _messageFromBadResponse(error);
+      case DioExceptionType.cancel:
+        return 'Request was cancelled.';
+      case DioExceptionType.unknown:
+        return _unknownDio(error);
+    }
+  }
+
+  static String _noInternetOrFromUnderlying(DioException error) {
+    final u = error.error;
+    if (u is SocketException) return _noInternet;
+    final s = '${error.message} $u';
+    if (_looksLikeNetworkFailure(s)) return _noInternet;
+    return _noInternet;
+  }
+
+  static String _unknownDio(DioException error) {
+    final u = error.error;
+    if (u is SocketException) return _noInternet;
+    if (u is DioException) return _messageFromDio(u);
+    if (u != null) {
+      final inner = getErrorMessage(u);
+      if (inner != _genericRetry || u is FormatException) {
+        return inner;
       }
     }
-    return error.toString();
+    final combined = '${error.message} ${error.error}';
+    if (_looksLikeNetworkFailure(combined)) return _noInternet;
+    return _genericRetry;
   }
+
+  static String _messageFromBadResponse(DioException error) {
+    final code = error.response?.statusCode ?? 0;
+    final data = error.response?.data;
+
+    if (data is Map) {
+      if (data.containsKey('errors') &&
+          data['errors'] is List &&
+          (data['errors'] as List).isNotEmpty) {
+        final joined = (data['errors'] as List).map((e) => e.toString()).join(', ');
+        if (joined.length <= 200) return joined;
+      }
+      if (data.containsKey('message')) {
+        final m = data['message'];
+        if (m != null) {
+          final text = m.toString().trim();
+          if (text.isNotEmpty && text.length <= 300 && !_looksLikeTechnicalNoise(text)) {
+            return text;
+          }
+        }
+      }
+    }
+
+    if (code == 401 || code == 403) {
+      return 'Session expired or access denied. Please sign in again.';
+    }
+    if (code == 404) {
+      return 'We could not find what you asked for. Please try again.';
+    }
+    if (code == 422) {
+      return 'Some information could not be accepted. Please check and try again.';
+    }
+    if (code >= 500) {
+      return _serviceUnavailable;
+    }
+    if (code >= 400) {
+      return 'Request could not be completed. Please try again.';
+    }
+    return _genericRetry;
+  }
+
+  static bool _looksLikeNetworkFailure(String raw) {
+    final s = raw.toLowerCase();
+    return s.contains('socketexception') ||
+        s.contains('failed host lookup') ||
+        s.contains('network is unreachable') ||
+        s.contains('connection refused') ||
+        s.contains('connection reset') ||
+        s.contains('connection aborted') ||
+        s.contains('network error') ||
+        s.contains('errno = 7') ||
+        s.contains('errno = 101') ||
+        s.contains('no address associated with hostname') ||
+        s.contains('handshakeexception') ||
+        s.contains('certificate verify failed');
+  }
+
+  static bool _looksLikeTechnicalNoise(String raw) {
+    final s = raw.toLowerCase();
+    return s.contains('dioexception') ||
+        s.contains('dioexception [') ||
+        (s.contains('statuscode:') && s.contains('http')) ||
+        raw.length > 280 ||
+        (s.contains(' at ') && (s.contains('.dart:') || s.contains('package:')));
+  }
+
+  /// Use when storing a string error on a provider (e.g. cart) for UI display.
+  static String userFacing(Object? error) => getErrorMessage(error);
 
   /// Shows an error snackbar.
   /// Always clears previous snackbars first to prevent stacking.
   static void showError(BuildContext context, dynamic error) {
     final message = getErrorMessage(error);
     final messenger = ScaffoldMessenger.of(context);
-    // Clear any existing snackbars to prevent stacking
     messenger.clearSnackBars();
     messenger.showSnackBar(
       SnackBar(
@@ -60,7 +184,6 @@ class ErrorHandler {
   /// Always clears previous snackbars first to prevent stacking.
   static void showSuccess(BuildContext context, String message) {
     final messenger = ScaffoldMessenger.of(context);
-    // Clear any existing snackbars to prevent stacking
     messenger.clearSnackBars();
     messenger.showSnackBar(
       SnackBar(

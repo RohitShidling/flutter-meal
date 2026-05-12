@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -36,9 +37,9 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: menuProvider.isLoading
+      body: menuProvider.isLoading && menuProvider.weeklyMenu.isEmpty
           ? const Center(child: CupertinoActivityIndicator())
-          : menuProvider.error != null
+          : menuProvider.error != null && menuProvider.weeklyMenu.isEmpty
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -128,12 +129,17 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
               onTap: () => ImagePreviewDialog.show(context, imageUrl, title: '$dayLabel — $items'),
               child: ClipRRect(
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                child: Image.network(
-                  imageUrl,
+                child: CachedNetworkImage(
+                  imageUrl: imageUrl,
                   height: 130,
                   width: double.infinity,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
+                  placeholder: (_, __) => Container(
+                    height: 70,
+                    color: AppTheme.primaryColor.withOpacity(0.05),
+                    child: Center(child: Icon(CupertinoIcons.photo, color: Colors.grey.withOpacity(0.3))),
+                  ),
+                  errorWidget: (_, __, ___) => Container(
                     height: 70,
                     color: AppTheme.primaryColor.withOpacity(0.05),
                     child: Center(child: Icon(CupertinoIcons.photo, color: Colors.grey.withOpacity(0.3))),
