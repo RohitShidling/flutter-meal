@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:meal_app/core/services/network_status_service.dart';
 
 /// Premium offline banner: swipe to dismiss, auto-dismiss ~2.6s after reconnect,
+//hi
 /// smooth slide/fade, full Light/Dark support (theme-driven colors).
 class OfflineBanner extends StatefulWidget {
   final Widget child;
