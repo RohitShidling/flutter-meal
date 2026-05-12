@@ -38,9 +38,13 @@ class AuthRepository {
         final data = response.data['data'];
         final accessToken = data['accessToken'];
         final refreshToken = data['refreshToken'];
+        final userName = data['user']?['username']?.toString();
         
         await _secureStorage.saveTokens(accessToken, refreshToken);
         await _secureStorage.savePhoneNumber(phoneNumber);
+        if (userName != null && userName.trim().isNotEmpty) {
+          await _secureStorage.saveUsername(userName.trim());
+        }
         return true;
       }
       return false;
@@ -81,9 +85,13 @@ class AuthRepository {
         final data = response.data['data'];
         final accessToken = data['accessToken'];
         final refreshToken = data['refreshToken'];
+        final userName = data['user']?['username']?.toString() ?? username;
         
         await _secureStorage.saveTokens(accessToken, refreshToken);
         await _secureStorage.savePhoneNumber(phoneNumber);
+        if (userName.trim().isNotEmpty) {
+          await _secureStorage.saveUsername(userName.trim());
+        }
         return true;
       }
       return false;
@@ -114,6 +122,10 @@ class AuthRepository {
   }
 
   Future<String?> getUsername() async {
+    final cached = await _secureStorage.getUsername();
+    if (cached != null && cached.trim().isNotEmpty) {
+      return cached.trim();
+    }
     final token = await _secureStorage.getAccessToken();
     if (token == null) return null;
     try {
@@ -124,6 +136,21 @@ class AuthRepository {
       return data['username'];
     } catch (e) {
       return null;
+    }
+  }
+
+  Future<String?> fetchCurrentUsername() async {
+    try {
+      final response = await _dioClient.dio.get(ApiEndpoints.me);
+      final userName = response.data['data']?['user']?['username']?.toString();
+      if (userName != null && userName.trim().isNotEmpty) {
+        await _secureStorage.saveUsername(userName.trim());
+        return userName.trim();
+      }
+      return await getUsername();
+    } on DioException {
+      // Offline/network fallback to cached username.
+      return await getUsername();
     }
   }
 

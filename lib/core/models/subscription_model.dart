@@ -59,4 +59,22 @@ class SubscriptionModel {
       mealSizeId: json['meal_size_id'],
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'plan_name': planName,
+        'price': price,
+        'price_with_saturday': priceWithSaturday,
+        'price_without_saturday': priceWithoutSaturday,
+        'saturday_option_enabled': saturdayOptionEnabled,
+        'billing_cycle': billingCycle,
+        'duration_days': durationDays,
+        'duration_days_with_saturday': durationDaysWithSaturday,
+        'duration_days_without_saturday': durationDaysWithoutSaturday,
+        'trial_days': trialDays,
+        'features': features,
+        'display_order': displayOrder,
+        'is_active': isActive,
+        'meal_size_id': mealSizeId,
+      };
 }

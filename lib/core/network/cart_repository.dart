@@ -1,5 +1,6 @@
 import 'package:meal_app/core/network/dio_client.dart';
 import 'package:meal_app/core/network/api_endpoints.dart';
+import 'package:meal_app/core/storage/cache_store.dart';
 
 /// Repository for server-side cart operations.
 /// All cart data lives on the backend — the client never stores cart locally.
@@ -10,14 +11,21 @@ class CartRepository {
 
   /// GET /api/client/cart — Fetch the current active cart from the server.
   Future<Map<String, dynamic>> getCart() async {
+    const cacheKey = 'cart_data';
     try {
       final response = await _dioClient.dio.get(ApiEndpoints.viewCart);
       if (response.data['success'] == true) {
-        return response.data['data'] ?? {};
+        final data = response.data['data'] ?? {};
+        await CacheStore.setJson(cacheKey, data);
+        return data;
       }
       return {};
     } catch (e) {
-      // If 404 (no cart), return empty
+      // If 404 (no cart), return empty; otherwise try cache
+      final cached = await CacheStore.getJson(cacheKey);
+      if (cached is Map) {
+        return Map<String, dynamic>.from(cached);
+      }
       return {};
     }
   }

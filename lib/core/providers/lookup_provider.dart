@@ -17,6 +17,8 @@ class LookupProvider with ChangeNotifier {
   List<CompanyModel> _companies = [];
 
   bool _isLoading = false;
+  DateTime? _lastFetchedAt;
+  Future<void>? _inflightInitialRequest;
 
   List<SchoolModel> get schools => _schools;
   List<StandardModel> get standards => _standards;
@@ -29,9 +31,21 @@ class LookupProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
 
   Future<void> fetchInitialData({bool force = false}) async {
-    if (!force && _schools.isNotEmpty && _standards.isNotEmpty) return;
+    final isFresh = _lastFetchedAt != null && DateTime.now().difference(_lastFetchedAt!).inMinutes < 10;
+    if (!force && _schools.isNotEmpty && _standards.isNotEmpty && isFresh) return;
+    if (_inflightInitialRequest != null) return _inflightInitialRequest;
     if (_isLoading) return;
-    
+
+    final request = _doFetchInitialData();
+    _inflightInitialRequest = request;
+    try {
+      await request;
+    } finally {
+      _inflightInitialRequest = null;
+    }
+  }
+
+  Future<void> _doFetchInitialData() async {
     _isLoading = true;
     notifyListeners();
 
@@ -51,12 +65,11 @@ class LookupProvider with ChangeNotifier {
       _corporateLocations = results[3] as List<CorporateLocationModel>;
       _subscriptions = results[4] as List<Map<String, dynamic>>;
       _states = results[5] as List<StateModel>;
-      
-      // Clear cities and companies initially as they depend on state/city selection
       _cities = [];
       _companies = [];
+      _lastFetchedAt = DateTime.now();
     } catch (e) {
-      // Handle error
+      // keep old cached data for offline fallback
     } finally {
       _isLoading = false;
       notifyListeners();

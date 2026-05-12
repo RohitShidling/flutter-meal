@@ -29,6 +29,8 @@ import 'package:meal_app/core/providers/cart_provider.dart';
 import 'package:meal_app/core/network/meal_repository.dart';
 import 'package:meal_app/core/providers/meal_provider.dart';
 import 'package:meal_app/core/providers/session_provider.dart';
+import 'package:meal_app/core/services/network_status_service.dart';
+import 'package:meal_app/core/widgets/offline_banner.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -55,6 +57,10 @@ class MyApp extends StatelessWidget {
     final homepageRepository = HomepageRepository(dioClient);
     final cartRepository = CartRepository(dioClient);
     final mealRepository = MealRepository(dioClient);
+
+    // Start global online/offline monitor + attach Dio for queue replay.
+    NetworkStatusService.instance.attachDioClient(dioClient);
+    NetworkStatusService.instance.start();
 
     return MultiProvider(
       providers: [
@@ -87,6 +93,7 @@ class MainApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: context.watch<ThemeProvider>().themeMode,
+      builder: (context, child) => OfflineBanner(child: child ?? const SizedBox.shrink()),
       // navigatorKey lets us show messages from the network layer if needed.
       home: const AuthWrapper(),
     );
@@ -158,10 +165,10 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
     switch (authState) {
       case AuthState.initial:
-        // Show a blank screen matching the native splash background color
-        return const Scaffold(
-          backgroundColor: Color(0xFFF8FAFC),
-          body: SizedBox.shrink(),
+        // Lightweight shell — never block on network; theme follows system.
+        return Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          body: const SizedBox.shrink(),
         );
       case AuthState.authenticated:
         return const HomeScreen();

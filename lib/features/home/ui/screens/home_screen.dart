@@ -19,10 +19,12 @@ import 'package:meal_app/features/home/providers/menu_provider.dart';
 import 'package:meal_app/features/home/ui/screens/weekly_menu_screen.dart';
 import 'package:meal_app/core/providers/meal_provider.dart';
 import 'package:meal_app/core/providers/cart_provider.dart';
+import 'package:meal_app/core/providers/subscription_provider.dart';
 import 'package:meal_app/features/subscription/ui/screens/meal_skip_screen.dart';
 import 'package:meal_app/features/subscription/ui/screens/cart_screen.dart';
 import 'package:meal_app/core/widgets/image_preview_dialog.dart';
 import 'package:meal_app/features/subscription/ui/screens/subscription_management_screen.dart';
+import 'package:meal_app/core/services/network_status_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -37,50 +39,82 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadAllData();
-      _fetchUserName();
+    NetworkStatusService.instance.addBecameOnlineListener(_onBecameOnline);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _bootstrapHome());
+  }
+
+  @override
+  void dispose() {
+    NetworkStatusService.instance.removeBecameOnlineListener(_onBecameOnline);
+    super.dispose();
+  }
+
+  /// Refresh home-critical data when connectivity returns (realtime UX).
+  void _onBecameOnline() {
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await Future.wait([
+        context.read<HomepageProvider>().fetchHomepageEntries(force: true, silent: true),
+        context.read<MenuProvider>().fetchTodayMenu(silent: true),
+        context.read<CartProvider>().fetchCart(force: true, silent: true),
+        context.read<AuthProvider>().refreshMeProfile(silent: true),
+      ]);
+      if (!mounted) return;
+      await _refreshMealDataBundle();
+      if (mounted) _syncDisplayNameFromAuth();
     });
+  }
+
+  /// Cold start / return-to-home: cache-first essentials, then meal bundle only when online.
+  Future<void> _bootstrapHome() async {
+    if (!mounted) return;
+    final auth = context.read<AuthProvider>();
+    final forceFresh = auth.consumePendingDashboardRefresh();
+
+    if (forceFresh) {
+      await Future.wait([
+        context.read<HomepageProvider>().fetchHomepageEntries(force: true, silent: true),
+        context.read<MenuProvider>().fetchTodayMenu(silent: true),
+        context.read<CartProvider>().fetchCart(force: true, silent: true),
+        context.read<AuthProvider>().refreshMeProfile(silent: true, forceNetwork: true),
+        context.read<SubscriptionProvider>().fetchSubscriptions(force: true, silent: true),
+      ]);
+    } else {
+      await _loadAllData();
+    }
+    if (!mounted) return;
+    _syncDisplayNameFromAuth();
+    await _refreshMealDataBundle();
+    if (mounted) _syncDisplayNameFromAuth();
   }
 
   Future<void> _loadAllData() async {
     if (!mounted) return;
-    final futures = <Future>[];
-    futures.add(context.read<ChildrenProvider>().fetchChildren());
-    futures.add(context.read<HomepageProvider>().fetchHomepageEntries());
-    futures.add(context.read<MenuProvider>().fetchTodayMenu());
-    futures.add(context.read<MealProvider>().fetchAlerts());
-    futures.add(context.read<MealProvider>().fetchMealStatus());
-    futures.add(context.read<MealProvider>().fetchSubscriptionStatus());
-    futures.add(context.read<CartProvider>().fetchCart());
-    await Future.wait(futures);
+    await Future.wait([
+      context.read<HomepageProvider>().fetchHomepageEntries(silent: true),
+      context.read<MenuProvider>().fetchTodayMenu(silent: true),
+      context.read<CartProvider>().fetchCart(silent: true),
+      context.read<AuthProvider>().refreshMeProfile(silent: true),
+    ]);
   }
 
-  /// Fetch the username from /api/client/auth/me endpoint
-  Future<void> _fetchUserName() async {
+  Future<void> _refreshMealDataBundle() async {
+    if (!mounted || !NetworkStatusService.instance.isOnline) return;
+    final meal = context.read<MealProvider>();
+    await Future.wait([
+      meal.fetchAlerts(silent: true),
+      meal.fetchMealStatus(silent: true),
+      meal.fetchSubscriptionStatus(silent: true),
+    ]);
+  }
+
+  void _syncDisplayNameFromAuth() {
     if (!mounted) return;
-    try {
-      final profileProvider = context.read<ProfileProvider>();
-      await profileProvider.fetchProfiles(force: true);
-      final profileStatus = profileProvider.profileStatus;
-      if (profileStatus != null && mounted) {
-        final user = profileStatus['user'];
-        if (user != null && user['username'] != null) {
-          setState(() {
-            _displayName = user['username'].toString();
-          });
-          return;
-        }
-      }
-    } catch (_) {}
-    
-    // Fallback to auth provider username
-    if (mounted) {
-      final authProvider = context.read<AuthProvider>();
-      setState(() {
-        _displayName = authProvider.username.isNotEmpty ? authProvider.username : 'User';
-      });
-    }
+    final name = context.read<AuthProvider>().username.trim();
+    setState(() {
+      _displayName = name.isNotEmpty ? name : 'User';
+    });
   }
 
   @override
@@ -96,11 +130,19 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Scaffold(
       body: RefreshIndicator(
         onRefresh: () async {
-          // Fix: Refresh ALL providers on pull-to-refresh to avoid stale data
+          if (!mounted) return;
           await Future.wait([
-            _loadAllData(),
-            _fetchUserName(),
+            context.read<HomepageProvider>().fetchHomepageEntries(force: true, silent: true),
+            context.read<MenuProvider>().fetchTodayMenu(silent: true),
+            context.read<CartProvider>().fetchCart(force: true, silent: true),
+            context.read<AuthProvider>().refreshMeProfile(
+              silent: true,
+              forceNetwork: NetworkStatusService.instance.isOnline,
+            ),
           ]);
+          if (!mounted) return;
+          await _refreshMealDataBundle();
+          if (mounted) _syncDisplayNameFromAuth();
         },
         child: Container(
           decoration: BoxDecoration(
@@ -137,6 +179,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildAppBar(BuildContext context) {
+    final itemCount = context.watch<CartProvider>().itemCount;
     return SliverAppBar(
       floating: true,
       backgroundColor: Colors.transparent,
@@ -151,10 +194,31 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       actions: [
+        // Always show upgrade button
         _buildSubscribeButton(context),
-        const SizedBox(width: 8),
-        _buildCartActionButton(context),
-        const SizedBox(width: 4),
+        const SizedBox(width: 6),
+        // Show cart icon only when cart has items
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (child, animation) {
+            return FadeTransition(
+              opacity: animation,
+              child: SizeTransition(sizeFactor: animation, axis: Axis.horizontal, child: child),
+            );
+          },
+          child: itemCount > 0
+              ? Row(
+                  key: const ValueKey('cart-visible'),
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildCartActionButton(context),
+                    const SizedBox(width: 6),
+                  ],
+                )
+              : const SizedBox(key: ValueKey('cart-hidden')),
+        ),
         IconButton(
           icon: const Icon(CupertinoIcons.settings_solid, size: 24),
           onPressed: () {
@@ -171,6 +235,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildCartActionButton(BuildContext context) {
     final itemCount = context.watch<CartProvider>().itemCount;
+    final badgeColor = Theme.of(context).colorScheme.error;
 
     return IconButton(
       onPressed: () {
@@ -182,25 +247,24 @@ class _HomeScreenState extends State<HomeScreen> {
       icon: Stack(
         clipBehavior: Clip.none,
         children: [
-          const Icon(CupertinoIcons.cart_fill, size: 24),
+          Icon(
+            CupertinoIcons.cart_fill,
+            size: 24,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
           if (itemCount > 0)
             Positioned(
-              right: -8,
-              top: -6,
+              right: -2,
+              top: -2,
               child: Container(
-                constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-                padding: const EdgeInsets.symmetric(horizontal: 4),
+                width: 9,
+                height: 9,
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryColor,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  itemCount > 99 ? '99+' : '$itemCount',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
+                  color: badgeColor,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Theme.of(context).scaffoldBackgroundColor,
+                    width: 1.5,
                   ),
                 ),
               ),
@@ -222,33 +286,33 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         },
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               colors: [Color(0xFFFF4D00), Color(0xFFFF8533)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(18),
             boxShadow: [
               BoxShadow(
                 color: const Color(0xFFFF4D00).withOpacity(0.3),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
               ),
             ],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(CupertinoIcons.sparkles, color: Colors.white, size: 16),
-              const SizedBox(width: 6),
+              const Icon(CupertinoIcons.sparkles, color: Colors.white, size: 14),
+              const SizedBox(width: 5),
               const Text(
                 'UPGRADE',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w900,
-                  fontSize: 12,
+                  fontSize: 11,
                   letterSpacing: 0.5,
                 ),
               ),
@@ -263,7 +327,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildWelcomeSection(bool isDark) {
-    final name = _displayName.isNotEmpty ? _displayName : 'User';
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+    final name = _displayName.isNotEmpty ? _displayName.trim() : 'User';
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -278,22 +344,22 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Row(
         children: [
           Text(
-            'Welcome back, ',
-            style: TextStyle(
-              fontSize: 22,
-              color: isDark ? Colors.white : AppTheme.textSecondaryLight,
-              fontWeight: FontWeight.w500,
+            'Welcome Back ',
+            style: textTheme.titleMedium?.copyWith(
+              fontSize: 18,
+              color: colorScheme.onSurface.withOpacity(0.8),
+              fontWeight: FontWeight.w600,
             ),
           ),
           Expanded(
             child: Text(
               name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 22,
+              maxLines: 2,
+              softWrap: true,
+              style: textTheme.titleMedium?.copyWith(
+                fontSize: 18,
                 fontWeight: FontWeight.w900,
-                color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                color: colorScheme.onSurface,
               ),
             ),
           ),
@@ -603,7 +669,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildQuickActionTile(BuildContext context, String label, IconData icon, Color color, bool isDark, VoidCallback onTap, {int? badge}) {
+  Widget _buildQuickActionTile(BuildContext context, String label, IconData icon, Color color, bool isDark, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(18),
@@ -644,8 +710,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildFeatureCards(BuildContext context) {
     final homepageProvider = context.watch<HomepageProvider>();
-    
-    if (homepageProvider.isLoading) {
+
+    // Show cached data immediately; only show spinner if truly empty and loading.
+    if (homepageProvider.entries.isEmpty && homepageProvider.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
@@ -702,22 +769,31 @@ class _HomeScreenState extends State<HomeScreen> {
   void _handleCardTap(BuildContext context, HomepageEntry entry) {
     switch (entry.entityId) {
       case 'ENT-1':
-        Navigator.push(
-          context,
-          CupertinoPageRoute(builder: (_) => const ChildrenManagementScreen()),
-        );
+        context.read<ChildrenProvider>().fetchChildren().whenComplete(() {
+          if (!context.mounted) return;
+          Navigator.push(
+            context,
+            CupertinoPageRoute(builder: (_) => const ChildrenManagementScreen()),
+          );
+        });
         return;
       case 'ENT-2':
-        Navigator.push(
-          context,
-          CupertinoPageRoute(builder: (_) => const TeacherProfileScreen()),
-        );
+        context.read<ProfileProvider>().fetchProfiles().whenComplete(() {
+          if (!context.mounted) return;
+          Navigator.push(
+            context,
+            CupertinoPageRoute(builder: (_) => const TeacherProfileScreen()),
+          );
+        });
         return;
       case 'ENT-3':
-        Navigator.push(
-          context,
-          CupertinoPageRoute(builder: (_) => const ProfessionalProfileScreen()),
-        );
+        context.read<ProfileProvider>().fetchProfiles().whenComplete(() {
+          if (!context.mounted) return;
+          Navigator.push(
+            context,
+            CupertinoPageRoute(builder: (_) => const ProfessionalProfileScreen()),
+          );
+        });
         return;
       default:
         ScaffoldMessenger.of(context).showSnackBar(
@@ -750,16 +826,20 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
+                  maxLines: 4,
+                  softWrap: true,
+                  overflow: TextOverflow.visible,
                 ),
                 const SizedBox(height: 4),
                 Text(
                   subtitle,
-                  style: TextStyle(
-                    fontSize: 13,
+                    style: TextStyle(
+                      fontSize: 12,
                     color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
                   ),
                 ),
@@ -825,10 +905,15 @@ class _HomeScreenState extends State<HomeScreen> {
             // Left: Children
             Expanded(
               child: InkWell(
-                onTap: () => Navigator.push(
-                  context,
-                  CupertinoPageRoute(builder: (_) => const ChildrenManagementScreen()),
-                ),
+                onTap: () {
+                  context.read<ChildrenProvider>().fetchChildren(silent: true).whenComplete(() {
+                    if (!context.mounted) return;
+                    Navigator.push(
+                      context,
+                      CupertinoPageRoute(builder: (_) => const ChildrenManagementScreen()),
+                    );
+                  });
+                },
                 borderRadius: const BorderRadius.horizontal(left: Radius.circular(18)),
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),

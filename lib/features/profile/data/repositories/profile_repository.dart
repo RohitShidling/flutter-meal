@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:meal_app/core/network/api_endpoints.dart';
 import 'package:meal_app/core/network/dio_client.dart';
+import 'package:meal_app/core/storage/cache_store.dart';
 import 'package:meal_app/features/profile/data/models/profile_models.dart';
 
 class ProfileRepository {
@@ -10,13 +11,19 @@ class ProfileRepository {
 
   // Teacher Profile
   Future<TeacherProfileModel?> getTeacherProfile() async {
+    const cacheKey = 'teacher_profile';
     try {
       final response = await _dioClient.dio.get(ApiEndpoints.teacherProfile);
       if (response.data['success'] == true && response.data['data'] != null) {
+        await CacheStore.setJson(cacheKey, response.data['data']);
         return TeacherProfileModel.fromJson(response.data['data']);
       }
       return null;
     } catch (e) {
+      final cached = await CacheStore.getJson(cacheKey);
+      if (cached is Map) {
+        return TeacherProfileModel.fromJson(Map<String, dynamic>.from(cached));
+      }
       return null;
     }
   }
@@ -43,13 +50,19 @@ class ProfileRepository {
 
   // Professional Profile
   Future<ProfessionalProfileModel?> getProfessionalProfile() async {
+    const cacheKey = 'professional_profile';
     try {
       final response = await _dioClient.dio.get(ApiEndpoints.professionalProfile);
       if (response.data['success'] == true && response.data['data'] != null) {
+        await CacheStore.setJson(cacheKey, response.data['data']);
         return ProfessionalProfileModel.fromJson(response.data['data']);
       }
       return null;
     } catch (e) {
+      final cached = await CacheStore.getJson(cacheKey);
+      if (cached is Map) {
+        return ProfessionalProfileModel.fromJson(Map<String, dynamic>.from(cached));
+      }
       return null;
     }
   }

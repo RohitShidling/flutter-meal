@@ -1,3 +1,4 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:meal_app/core/network/api_endpoints.dart';
@@ -91,7 +92,14 @@ class DioClient {
   }
 
   Future<Response<dynamic>?> _retryRequest(RequestOptions requestOptions) async {
-    const maxRetries = 2;
+    try {
+      final results = await Connectivity().checkConnectivity();
+      if (results.isNotEmpty && results.every((r) => r == ConnectivityResult.none)) {
+        return null;
+      }
+    } catch (_) {/* fall through */}
+
+    const maxRetries = 1;
     var attempt = 0;
     while (attempt < maxRetries) {
       attempt += 1;

@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:meal_app/core/network/dio_client.dart';
 import 'package:meal_app/core/network/api_endpoints.dart';
+import 'package:meal_app/core/storage/cache_store.dart';
 
 class MenuProvider with ChangeNotifier {
   final DioClient _dioClient;
-  
-  MenuProvider(this._dioClient);
+
+  MenuProvider(this._dioClient) {
+    _loadCachedTodayMenu();
+  }
 
   bool _isLoading = false;
   bool get isLoading => _isLoading;
@@ -25,6 +28,9 @@ class MenuProvider with ChangeNotifier {
   String? _error;
   String? get error => _error;
 
+  bool _hasInitiallyLoaded = false;
+  bool get hasInitiallyLoaded => _hasInitiallyLoaded;
+
   String _normalizeDateKey(dynamic raw) {
     final value = raw?.toString() ?? '';
     if (value.isEmpty) return '';
@@ -38,10 +44,29 @@ class MenuProvider with ChangeNotifier {
     return [];
   }
 
-  Future<void> fetchTodayMenu() async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
+  Future<void> _loadCachedTodayMenu() async {
+    try {
+      final cached = await CacheStore.getJson('today_menu');
+      if (cached is Map<String, dynamic>) {
+        _isSubscribed = cached['is_subscribed'] ?? false;
+        if (_isSubscribed) {
+          _todayMenu = cached['menu'] != null ? Map<String, dynamic>.from(cached['menu']) : null;
+          _subscriptionSummary = cached['subscription_summary'] ?? [];
+        }
+        _hasInitiallyLoaded = true;
+        notifyListeners();
+      }
+    } catch (_) {
+      // ignore
+    }
+  }
+
+  Future<void> fetchTodayMenu({bool silent = false}) async {
+    if (!silent) {
+      if (_todayMenu == null) _isLoading = true;
+      _error = null;
+      notifyListeners();
+    }
 
     try {
       final mealResponse = await _dioClient.dio.get('/api/client/meals/today');
@@ -68,12 +93,22 @@ class MenuProvider with ChangeNotifier {
         _todayMenu = null;
         _subscriptionSummary = [];
       }
+      // Cache the response structure
+      await CacheStore.setJson('today_menu', {
+        'is_subscribed': _isSubscribed,
+        'menu': _todayMenu,
+        'subscription_summary': _subscriptionSummary,
+      }, ttl: const Duration(hours: 6));
+      _hasInitiallyLoaded = true;
     } catch (e) {
       if (e.toString().contains('403')) {
         _isSubscribed = false;
         _todayMenu = null;
+        _subscriptionSummary = [];
+        await CacheStore.remove('today_menu');
       } else {
         _error = e.toString();
+        // Keep cached data on network error
       }
     } finally {
       _isLoading = false;

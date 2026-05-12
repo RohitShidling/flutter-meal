@@ -138,15 +138,24 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
                               Text(
                                 'No meal skips scheduled',
                                 style: TextStyle(
-                                  fontSize: 18,
+                                  fontSize: 16,
                                   fontWeight: FontWeight.w700,
                                   color: isDark ? Colors.white : AppTheme.textPrimaryLight,
                                 ),
+                                textAlign: TextAlign.center,
                               ),
                               const SizedBox(height: 8),
-                              Text(
-                                'Tap + to schedule a skip (policy-based minimum days)',
-                                style: TextStyle(color: isDark ? Colors.white54 : AppTheme.textSecondaryLight),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 24),
+                                child: Text(
+                                  'Tap + to schedule a skip (policy-based minimum days)',
+                                  textAlign: TextAlign.center,
+                                  softWrap: true,
+                                  maxLines: 3,
+                                  style: TextStyle(
+                                    color: isDark ? Colors.white54 : AppTheme.textSecondaryLight,
+                                  ),
+                                ),
                               ),
                             ],
                           ),

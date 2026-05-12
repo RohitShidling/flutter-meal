@@ -18,6 +18,9 @@ class ApiEndpoints {
     return domain;
   }
 
+  /// Public health check (no auth) — use for reachability only.
+  static const String health = '/health';
+
   /// Whether the PhonePe SDK should run against the SANDBOX (UAT) environment.
   /// Production-grade behavior: any non-`production` ENVIRONMENT is sandbox.
   /// Optional override via PHONEPE_SANDBOX=true|false in .env for staging tests.
