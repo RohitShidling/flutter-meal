@@ -7,6 +7,7 @@ import 'package:meal_app/core/providers/cart_provider.dart';
 import 'package:meal_app/core/providers/subscription_provider.dart';
 import 'package:meal_app/core/models/subscription_model.dart';
 import 'package:meal_app/core/widgets/apple_card.dart';
+import 'package:meal_app/core/widgets/app_skeleton.dart';
 import 'package:meal_app/core/utils/meal_date.dart';
 import 'package:meal_app/core/utils/time_utils.dart';
 import 'package:meal_app/core/network/api_endpoints.dart';
@@ -69,7 +70,52 @@ class _CartScreenState extends State<CartScreen> {
         ],
       ),
       body: cartProvider.isLoading && items.isEmpty
-          ? const Center(child: CircularProgressIndicator())
+          ? ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                const SkeletonBone(height: 22, width: 120, borderRadius: BorderRadius.all(Radius.circular(8))),
+                const SizedBox(height: 20),
+                ...List.generate(
+                  3,
+                  (_) => Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: isDark ? AppTheme.surfaceDark : Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.12)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const SkeletonBone(width: 48, height: 48, borderRadius: BorderRadius.all(Radius.circular(14))),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    SkeletonBone(width: MediaQuery.sizeOf(context).width * 0.4, height: 16, borderRadius: BorderRadius.circular(6)),
+                                    const SizedBox(height: 8),
+                                    SkeletonBone(width: 80, height: 12, borderRadius: BorderRadius.circular(6)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          const SkeletonBone(height: 12, borderRadius: BorderRadius.all(Radius.circular(4))),
+                          const SizedBox(height: 8),
+                          const SkeletonBone(height: 12, width: 200, borderRadius: BorderRadius.all(Radius.circular(4))),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            )
           : items.isEmpty
               ? _buildEmptyCart(isDark)
               : Column(

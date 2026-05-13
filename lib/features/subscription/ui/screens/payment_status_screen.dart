@@ -169,14 +169,14 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
               ),
               if (!_isPolling)
                 ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
                   style: ElevatedButton.styleFrom(
                     minimumSize: const Size(double.infinity, 56),
                     backgroundColor: AppTheme.primaryColor,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
-                  child: const Text('Back to App', style: TextStyle(fontWeight: FontWeight.w800)),
+                  child: const Text('Go to Home', style: TextStyle(fontWeight: FontWeight.w800)),
                 ).animate().fadeIn(delay: 500.ms),
               const SizedBox(height: 20),
             ],
@@ -199,11 +199,6 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
         Text(
           'Please do not close the app or press back.',
           style: TextStyle(color: isDark ? Colors.white54 : Colors.grey),
-        ),
-        const SizedBox(height: 16),
-        Text(
-          'Attempt ${_retryCount + 1} of $_maxRetries',
-          style: TextStyle(fontSize: 12, color: isDark ? Colors.white38 : Colors.grey.shade400),
         ),
       ],
     ).animate().fadeIn();

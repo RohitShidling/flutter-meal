@@ -1,3 +1,6 @@
+import 'package:timezone/data/latest.dart' as tz_data;
+import 'package:timezone/timezone.dart' as tz;
+
 /// Centralized helpers for meal subscription start-date rules.
 ///
 /// Business rule:
@@ -9,6 +12,28 @@
 /// matching what the backend expects (`yyyy-MM-dd`).
 class MealDate {
   MealDate._();
+
+  static bool _tzDataLoaded = false;
+
+  /// Loads IANA DB once; required for [sessionTodayYmd].
+  static void ensureSessionTimezoneData() {
+    if (_tzDataLoaded) return;
+    tz_data.initializeTimeZones();
+    _tzDataLoaded = true;
+  }
+
+  /// Calendar `yyyy-MM-dd` in **Asia/Kolkata** — matches backend `parseSessionToday()`.
+  static String sessionTodayYmd() {
+    try {
+      ensureSessionTimezoneData();
+      final loc = tz.getLocation('Asia/Kolkata');
+      final now = tz.TZDateTime.now(loc);
+      return formatYmd(DateTime(now.year, now.month, now.day));
+    } catch (_) {
+      final n = DateTime.now();
+      return formatYmd(DateTime(n.year, n.month, n.day));
+    }
+  }
 
   /// Extracts `yyyy-MM-dd` from an ISO string (date or datetime).
   /// Returns null if not long enough.

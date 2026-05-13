@@ -31,6 +31,8 @@ class ProfileProvider with ChangeNotifier {
   ProfessionalProfileModel? get professionalProfile => _professionalProfile;
   Map<String, dynamic>? get profileStatus => _profileStatus;
   bool get isLoading => _isLoading;
+  /// True while a profile fetch is in flight (including silent refreshes).
+  bool get isFetchingProfiles => _inflightRequest != null;
   dynamic get error => _error;
 
   Future<void> _loadFromCache() async {
@@ -73,6 +75,10 @@ class ProfileProvider with ChangeNotifier {
       if (_teacherProfile == null && _professionalProfile == null) {
         _isLoading = true;
       }
+      _error = null;
+      notifyListeners();
+    } else if (!hasCachedProfile) {
+      _isLoading = true;
       _error = null;
       notifyListeners();
     }

@@ -170,6 +170,62 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
     }
   }
 
+  bool _professionalHasUnsavedChanges(ProfessionalProfileModel? baseline) {
+    if (!_isEditing) return false;
+    final loc = _selectedCorporateLocation;
+    final draft = ProfessionalProfileModel(
+      name: _nameController.text.trim(),
+      companyName: loc?.name ?? '',
+      corporateLocationId: loc?.id.toString() ?? '',
+      city: (_selectedCity?.name ?? loc?.city ?? '').trim(),
+      state: (_selectedState?.name ?? loc?.state ?? '').trim(),
+      lunchTime: _timeController.text,
+      mealSizeId: _selectedMealSize?.id,
+    );
+    if (baseline == null) {
+      return draft.name.isNotEmpty ||
+          loc != null ||
+          draft.city.isNotEmpty ||
+          draft.state.isNotEmpty ||
+          (draft.mealSizeId != null && draft.mealSizeId != 0) ||
+          TimeUtils.normalizeBackendTime(draft.lunchTime) != '13:30';
+    }
+    return draft.name != baseline.name.trim() ||
+        draft.companyName != baseline.companyName.trim() ||
+        draft.corporateLocationId != baseline.corporateLocationId ||
+        draft.city != baseline.city.trim() ||
+        draft.state != baseline.state.trim() ||
+        draft.mealSizeId != baseline.mealSizeId ||
+        TimeUtils.normalizeBackendTime(draft.lunchTime) !=
+            TimeUtils.normalizeBackendTime(baseline.lunchTime);
+  }
+
+  Future<void> _promptLeaveProfessionalEditor(ProfessionalProfileModel? baseline) async {
+    if (!_professionalHasUnsavedChanges(baseline)) {
+      if (mounted) Navigator.of(context).pop();
+      return;
+    }
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Discard changes?'),
+        content: const Text('You have unsaved changes to your professional profile.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, 'stay'), child: const Text('Stay')),
+          TextButton(onPressed: () => Navigator.pop(ctx, 'discard'), child: const Text('Discard')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, 'save'), child: const Text('Save')),
+        ],
+      ),
+    );
+    if (!mounted || choice == null || choice == 'stay') return;
+    if (choice == 'discard') {
+      Navigator.of(context).pop();
+      return;
+    }
+    await _submitForm();
+    if (mounted && !_isEditing) Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final profileProvider = context.watch<ProfileProvider>();
@@ -177,7 +233,13 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final profile = profileProvider.professionalProfile;
 
-    return Scaffold(
+    return PopScope(
+      canPop: !_professionalHasUnsavedChanges(profile),
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        await _promptLeaveProfessionalEditor(profile);
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: Text(
           'Professional Profile',
@@ -185,7 +247,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
         ),
         leading: IconButton(
           icon: const Icon(CupertinoIcons.back),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => _promptLeaveProfessionalEditor(profile),
         ),
       ),
       body: (profileProvider.isLoading || _isInitializing)
@@ -371,6 +433,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
               ),
             ),
           ),
+    ),
     );
   }
 

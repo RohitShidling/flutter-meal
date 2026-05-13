@@ -170,6 +170,62 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
     }
   }
 
+  bool _teacherHasUnsavedChanges(TeacherProfileModel? baseline) {
+    if (!_isEditing) return false;
+    final draft = TeacherProfileModel(
+      name: _nameController.text.trim(),
+      schoolCollegeName: _schoolController.text.trim(),
+      city: _cityController.text.trim(),
+      state: _stateController.text.trim(),
+      location: '',
+      status: _status,
+      mealSizeId: _selectedMealSize?.id,
+      mealTime: _timeController.text,
+    );
+    if (baseline == null) {
+      return draft.name.isNotEmpty ||
+          draft.schoolCollegeName.isNotEmpty ||
+          draft.city.isNotEmpty ||
+          draft.state.isNotEmpty ||
+          (draft.mealSizeId != null && draft.mealSizeId != 0) ||
+          TimeUtils.normalizeBackendTime(draft.mealTime) != '13:30';
+    }
+    return draft.name != baseline.name.trim() ||
+        draft.schoolCollegeName != baseline.schoolCollegeName.trim() ||
+        draft.city != baseline.city.trim() ||
+        draft.state != baseline.state.trim() ||
+        draft.status != baseline.status ||
+        draft.mealSizeId != baseline.mealSizeId ||
+        TimeUtils.normalizeBackendTime(draft.mealTime) !=
+            TimeUtils.normalizeBackendTime(baseline.mealTime ?? '13:30');
+  }
+
+  Future<void> _promptLeaveTeacherEditor(TeacherProfileModel? baseline) async {
+    if (!_teacherHasUnsavedChanges(baseline)) {
+      if (mounted) Navigator.of(context).pop();
+      return;
+    }
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Discard changes?'),
+        content: const Text('You have unsaved changes to your teacher profile.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, 'stay'), child: const Text('Stay')),
+          TextButton(onPressed: () => Navigator.pop(ctx, 'discard'), child: const Text('Discard')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, 'save'), child: const Text('Save')),
+        ],
+      ),
+    );
+    if (!mounted || choice == null || choice == 'stay') return;
+    if (choice == 'discard') {
+      Navigator.of(context).pop();
+      return;
+    }
+    await _submitForm();
+    if (mounted && !_isEditing) Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final profileProvider = context.watch<ProfileProvider>();
@@ -177,7 +233,13 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final profile = profileProvider.teacherProfile;
 
-    return Scaffold(
+    return PopScope(
+      canPop: !_teacherHasUnsavedChanges(profile),
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        await _promptLeaveTeacherEditor(profile);
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: Text(
           'Teacher Profile',
@@ -185,7 +247,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
         ),
         leading: IconButton(
           icon: const Icon(CupertinoIcons.back),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => _promptLeaveTeacherEditor(profile),
         ),
       ),
       body: (profileProvider.isLoading || _isInitializing)
@@ -386,6 +448,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
               ),
             ),
           ),
+    ),
     );
   }
 

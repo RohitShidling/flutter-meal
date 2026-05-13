@@ -13,13 +13,16 @@ class AppTheme {
   static const Color textPrimaryLight = Color(0xFF0F172A); // Slate 900
   static const Color textSecondaryLight = Color(0xFF475569); // Slate 600
   static const Color borderLight = Color(0xFFE2E8F0); // Slate 200
-
-  // Dark Theme Colors — PURE WHITE text for readability
+  static const Color borderDark = Color(0xFF334155); // Slate 700 — PURE WHITE text for readability
   static const Color backgroundDark = Color(0xFF020617); // Obsidian / Slate 950
   static const Color surfaceDark = Color(0xFF0F172A); // Slate 900
   static const Color textPrimaryDark = Color(0xFFFFFFFF); // Pure White
   static const Color textSecondaryDark = Color(0xFFCBD5E1); // Slate 300 — brighter secondary
-  static const Color borderDark = Color(0xFF1E293B); // Slate 800
+  // Segmented plan picker (meal size tabs)
+  static const Color segmentedTrackLight = Color(0xFFE8EEF4);
+  static const Color segmentedTrackDark = Color(0xFF1E293B);
+  static const Color segmentedBorderLight = Color(0xFFCBD5E1);
+  static const Color segmentedBorderDark = Color(0xFF334155);
 
   static ThemeData get lightTheme => _createTheme(
     brightness: Brightness.light,

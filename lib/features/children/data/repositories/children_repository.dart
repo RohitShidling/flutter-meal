@@ -28,7 +28,7 @@ class ChildrenRepository {
     }
   }
 
-  Future<bool> registerChildren(List<ChildModel> children) async {
+  Future<List<ChildModel>> registerChildren(List<ChildModel> children) async {
     try {
       final response = await _dioClient.dio.post(
         ApiEndpoints.children,
@@ -36,7 +36,13 @@ class ChildrenRepository {
           'children': children.map((c) => c.toJson()).toList(),
         },
       );
-      return response.data['success'] == true;
+      if (response.data['success'] == true) {
+        final raw = response.data['data']?['children'];
+        if (raw is List) {
+          return raw.map((c) => ChildModel.fromJson(Map<String, dynamic>.from(c as Map))).toList();
+        }
+      }
+      return [];
     } catch (e) {
       rethrow;
     }

@@ -82,6 +82,8 @@ class CartProvider with ChangeNotifier {
 
   bool _isLoading = false;
   bool get isLoading => _isLoading;
+  /// True while GET /cart is in flight (including silent refreshes).
+  bool get isFetchingCart => _inflightFetch != null;
 
   String? _error;
   String? get error => _error;
@@ -215,6 +217,10 @@ class CartProvider with ChangeNotifier {
       if (_items.isEmpty) _isLoading = true;
       _error = null;
       notifyListeners();
+    } else if (_items.isEmpty) {
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
     }
 
     try {
@@ -342,6 +348,20 @@ class CartProvider with ChangeNotifier {
       final safeStart = MealDate.isValidFutureStartDate(startDate)
           ? startDate
           : MealDate.tomorrowYmd();
+
+      final duplicate = _items.any(
+        (i) =>
+            i.entityType == entityType &&
+            i.entityId == entityId &&
+            i.subscriptionId == subscriptionId &&
+            i.includeSaturday == includeSaturday,
+      );
+      if (duplicate) {
+        _error = 'This plan variant is already in your cart for this profile.';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
 
       await _repository.addToCart(
         subscriptionId: subscriptionId,
@@ -558,8 +578,24 @@ class CartProvider with ChangeNotifier {
 
   // ─── Check if entity is already in cart ─────────────────────────────────────
 
-  bool hasEntity(String entityId) {
-    return _items.any((i) => i.entityId == entityId);
+  bool hasItemsForEntity(String entityType, String entityId) {
+    return _items.any((i) => i.entityType == entityType && i.entityId == entityId);
+  }
+
+  /// Same plan variant already in cart (matches server duplicate key intent).
+  bool hasExactCartItem({
+    required String entityType,
+    required String entityId,
+    required String subscriptionId,
+    required bool includeSaturday,
+  }) {
+    return _items.any(
+      (i) =>
+          i.entityType == entityType &&
+          i.entityId == entityId &&
+          i.subscriptionId == subscriptionId &&
+          i.includeSaturday == includeSaturday,
+    );
   }
 
   // ─── Cart Checkout via PhonePe SDK ──────────────────────────────────────────

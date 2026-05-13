@@ -21,21 +21,20 @@ class MealSizeSegmentedControl extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    final trackColor = Color.alphaBlend(
-      colorScheme.primary.withValues(alpha: isDark ? 0.14 : 0.08),
-      colorScheme.surface,
-    );
+    final trackColor = isDark ? AppTheme.segmentedTrackDark : AppTheme.segmentedTrackLight;
+    final borderColor = isDark ? AppTheme.segmentedBorderDark : AppTheme.segmentedBorderLight;
     final selectedBg = Color.alphaBlend(
-      colorScheme.primary.withValues(alpha: isDark ? 0.26 : 0.12),
+      colorScheme.primary.withValues(alpha: isDark ? 0.32 : 0.14),
       colorScheme.surface,
     );
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.all(5),
       decoration: BoxDecoration(
         color: trackColor,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor, width: 1),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -47,26 +46,18 @@ class MealSizeSegmentedControl extends StatelessWidget {
               return GestureDetector(
                 onTap: () => onChanged(index),
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
+                  duration: const Duration(milliseconds: 380),
                   curve: Curves.easeInOutCubic,
                   width: itemWidth,
-                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  padding: const EdgeInsets.symmetric(vertical: 11),
                   decoration: BoxDecoration(
-                    color: selected
-                        ? selectedBg
-                        : Colors.transparent,
+                    color: selected ? selectedBg : Colors.transparent,
                     borderRadius: BorderRadius.circular(12),
-                    boxShadow: selected
-                        ? [
-                            BoxShadow(
-                              color: isDark
-                                  ? Colors.black.withValues(alpha: 0.3)
-                                  : Colors.black.withValues(alpha: 0.06),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ]
-                        : null,
+                    border: Border.all(
+                      color: selected
+                          ? colorScheme.primary.withValues(alpha: isDark ? 0.45 : 0.35)
+                          : Colors.transparent,
+                    ),
                   ),
                   child: Center(
                     child: Text(
@@ -76,9 +67,7 @@ class MealSizeSegmentedControl extends StatelessWidget {
                         fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
                         color: selected
                             ? (isDark ? Colors.white : AppTheme.textPrimaryLight)
-                            : (isDark
-                                ? Colors.white.withValues(alpha: 0.65)
-                                : AppTheme.textSecondaryLight),
+                            : (isDark ? Colors.white54 : AppTheme.textSecondaryLight),
                       ),
                     ),
                   ),
@@ -110,21 +99,20 @@ class MealSizeSegmentedControlWrap extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    final trackColor = Color.alphaBlend(
-      colorScheme.primary.withValues(alpha: isDark ? 0.14 : 0.08),
-      colorScheme.surface,
-    );
+    final trackColor = isDark ? AppTheme.segmentedTrackDark : AppTheme.segmentedTrackLight;
     final selectedBg = Color.alphaBlend(
-      colorScheme.primary.withValues(alpha: isDark ? 0.26 : 0.12),
+      colorScheme.primary.withValues(alpha: isDark ? 0.32 : 0.14),
       colorScheme.surface,
     );
+    final borderColor = isDark ? AppTheme.segmentedBorderDark : AppTheme.segmentedBorderLight;
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.all(5),
       decoration: BoxDecoration(
         color: trackColor,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor, width: 1),
       ),
       child: Wrap(
         spacing: 4,
@@ -135,25 +123,19 @@ class MealSizeSegmentedControlWrap extends StatelessWidget {
           return GestureDetector(
             onTap: () => onChanged(index),
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
+              duration: const Duration(milliseconds: 380),
               curve: Curves.easeInOutCubic,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
               decoration: BoxDecoration(
                 color: selected
                     ? selectedBg
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(12),
-                boxShadow: selected
-                    ? [
-                        BoxShadow(
-                          color: isDark
-                              ? Colors.black.withValues(alpha: 0.3)
-                              : Colors.black.withValues(alpha: 0.06),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ]
-                    : null,
+                border: Border.all(
+                  color: selected
+                      ? colorScheme.primary.withValues(alpha: isDark ? 0.45 : 0.35)
+                      : Colors.transparent,
+                ),
               ),
               child: Text(
                 options[index],
@@ -202,19 +184,19 @@ class MealVariantCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: isDark ? AppTheme.surfaceDark : Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.withValues(alpha: 0.12),
         ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -231,25 +213,25 @@ class MealVariantCard extends StatelessWidget {
                     Text(
                       title,
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.w800,
                         color: isDark ? Colors.white : AppTheme.textPrimaryLight,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Text(
                       subtitle,
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 12,
                         color: isDark ? Colors.white54 : AppTheme.textSecondaryLight,
                       ),
                     ),
                     if (mealTypeLine != null && mealTypeLine!.trim().isNotEmpty) ...[
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 4),
                       Text(
                         mealTypeLine!,
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 11,
                           fontWeight: FontWeight.w700,
                           color: isDark ? Colors.white70 : AppTheme.textPrimaryLight.withValues(alpha: 0.85),
                         ),
@@ -264,7 +246,7 @@ class MealVariantCard extends StatelessWidget {
                   Text(
                     '₹$price',
                     style: const TextStyle(
-                      fontSize: 22,
+                      fontSize: 18,
                       fontWeight: FontWeight.w900,
                       color: AppTheme.primaryColor,
                     ),
@@ -272,7 +254,7 @@ class MealVariantCard extends StatelessWidget {
                   Text(
                     '$durationDays days',
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 11,
                       color: isDark ? Colors.white54 : AppTheme.textSecondaryLight,
                     ),
                   ),
@@ -281,27 +263,73 @@ class MealVariantCard extends StatelessWidget {
             ],
           ),
           if (features.isNotEmpty) ...[
-            const SizedBox(height: 14),
-            ...features.map((f) => Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(
-                children: [
-                  Icon(CupertinoIcons.checkmark_circle_fill, size: 16, color: AppTheme.primaryColor.withValues(alpha: 0.7)),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      f,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: isDark ? Colors.white.withValues(alpha: 0.85) : AppTheme.textPrimaryLight.withValues(alpha: 0.85),
-                      ),
+            const SizedBox(height: 10),
+            Builder(
+              builder: (context) {
+                const maxCells = 4;
+                final shown = features.take(maxCells).toList();
+                final extra = features.length - shown.length;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    GridView.count(
+                      crossAxisCount: 2,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisSpacing: 6,
+                      mainAxisSpacing: 6,
+                      childAspectRatio: 2.4,
+                      children: [
+                        for (final f in shown)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: isDark ? Colors.white.withValues(alpha: 0.06) : AppTheme.primaryColor.withValues(alpha: 0.06),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: isDark ? Colors.white.withValues(alpha: 0.1) : AppTheme.primaryColor.withValues(alpha: 0.12),
+                              ),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(CupertinoIcons.checkmark_circle_fill, size: 13, color: const Color(0xFF16A34A)),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    f,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      height: 1.2,
+                                      color: isDark ? Colors.white.withValues(alpha: 0.9) : AppTheme.textPrimaryLight.withValues(alpha: 0.9),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
-            )),
+                    if (extra > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(
+                          '+$extra more',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: isDark ? Colors.white54 : AppTheme.textSecondaryLight,
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
           ],
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
@@ -310,29 +338,29 @@ class MealVariantCard extends StatelessWidget {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppTheme.primaryColor,
                     side: const BorderSide(color: AppTheme.primaryColor),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   child: const Text(
                     'Add to Cart',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
                 child: ElevatedButton(
                   onPressed: onBuy,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryColor,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     elevation: 0,
                   ),
                   child: const Text(
                     'Buy Now',
-                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
                   ),
                 ),
               ),

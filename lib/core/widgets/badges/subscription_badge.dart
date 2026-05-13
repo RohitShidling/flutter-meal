@@ -19,7 +19,7 @@ class SubscriptionBadge extends StatelessWidget {
     return Icon(
       icon,
       size: size,
-      color: color ?? Theme.of(context).colorScheme.primary,
+      color: color ?? const Color(0xFF22C55E),
     );
   }
 }

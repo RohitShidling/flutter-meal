@@ -385,6 +385,22 @@ class _ChildFormState extends State<_ChildForm> {
       return; // errors are shown inline by validators
     }
 
+    final school = _selectedSchool!;
+    final stateName = _selectedState?.name.trim().toLowerCase() ?? '';
+    final cityName = _selectedCity?.name.trim().toLowerCase() ?? '';
+    if (stateName.isEmpty || cityName.isEmpty) {
+      ErrorHandler.showError(context, 'Please select state and city to match the school location.');
+      return;
+    }
+    if (school.state.trim().toLowerCase() != stateName) {
+      ErrorHandler.showError(context, 'Selected state does not match the school’s state. Pick the school again or correct state.');
+      return;
+    }
+    if (school.city.trim().toLowerCase() != cityName) {
+      ErrorHandler.showError(context, 'Selected city does not match the school’s city. Pick the school again or correct city.');
+      return;
+    }
+
     setState(() => _isSaving = true);
 
     final newChild = ChildModel(
@@ -395,6 +411,24 @@ class _ChildFormState extends State<_ChildForm> {
       mealSizeId: _selectedMealSize!.id,
       mealTime: _timeController.text,
     );
+
+    if (widget.child != null) {
+      final before = widget.child!;
+      final same =
+          before.name.trim() == newChild.name &&
+          before.rollNumber.trim() == newChild.rollNumber &&
+          before.schoolId == newChild.schoolId &&
+          before.standardId == newChild.standardId &&
+          before.mealSizeId == newChild.mealSizeId &&
+          TimeUtils.normalizeBackendTime(before.mealTime) == TimeUtils.normalizeBackendTime(newChild.mealTime);
+      if (same) {
+        setState(() => _isSaving = false);
+        if (!mounted) return;
+        ErrorHandler.showSuccess(context, 'No changes to save.');
+        Navigator.pop(context);
+        return;
+      }
+    }
 
     bool success;
     if (widget.child == null) {
