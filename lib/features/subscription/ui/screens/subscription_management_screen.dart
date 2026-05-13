@@ -435,7 +435,7 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
     );
   }
 
-  /// Pjrefer API `entity_name`; fall back to local child / profile lists.
+  /// Pjreferf API `entity_name`; fall back to local child / profile lists.
   String _resolveActiveEntityName(BuildContext context, dynamic raw) {
     if (raw is! Map) return 'Profile';
     final sub = Map<String, dynamic>.from(raw);
