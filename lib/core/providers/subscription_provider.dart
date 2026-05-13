@@ -22,6 +22,8 @@ class SubscriptionProvider with ChangeNotifier {
 
   List<SubscriptionModel> get subscriptions => _subscriptions;
   bool get isLoading => _isLoading;
+  /// True while a catalog request is in flight (including silent fetches).
+  bool get isFetchingSubscriptions => _inflightFetch != null;
   String? get error => _error;
 
   Future<void> _loadFromCache() async {
@@ -54,6 +56,10 @@ class SubscriptionProvider with ChangeNotifier {
   Future<void> _doFetch({bool silent = false}) async {
     if (!silent) {
       if (_subscriptions.isEmpty) _isLoading = true;
+      _error = null;
+      notifyListeners();
+    } else if (_subscriptions.isEmpty) {
+      _isLoading = true;
       _error = null;
       notifyListeners();
     }

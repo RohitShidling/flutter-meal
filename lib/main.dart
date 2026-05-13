@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+
+import 'package:meal_app/core/utils/meal_date.dart';
 
 import 'package:meal_app/core/network/dio_client.dart';
 import 'package:meal_app/features/home/providers/menu_provider.dart';
@@ -36,6 +37,7 @@ import 'package:meal_app/core/widgets/offline_banner.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  MealDate.ensureSessionTimezoneData();
   await dotenv.load(fileName: ".env");
   runApp(const MyApp());
 }

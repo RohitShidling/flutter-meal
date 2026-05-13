@@ -42,6 +42,20 @@ class TimeUtils {
     return '$hour:$minute';
   }
 
+  /// Normalizes `HH:mm` / `HH:mm:ss` to `HH:mm` for equality checks.
+  static String normalizeBackendTime(String? raw) {
+    if (raw == null) return '';
+    final t = raw.trim();
+    if (t.isEmpty) return '';
+    final parts = t.split(':');
+    if (parts.length >= 2) {
+      final h = parts[0].trim().padLeft(2, '0');
+      final m = parts[1].trim().padLeft(2, '0');
+      return '$h:$m';
+    }
+    return t;
+  }
+
   // ─── internal ────────────────────────────────────────────────────────────
 
   static String _format12(int hour24, int minute) {

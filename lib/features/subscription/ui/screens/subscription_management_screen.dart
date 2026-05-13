@@ -7,6 +7,8 @@ import 'package:meal_app/core/providers/payment_provider.dart';
 import 'package:meal_app/core/widgets/apple_card.dart';
 import 'package:meal_app/core/utils/time_utils.dart';
 import 'package:meal_app/core/services/connectivity_service.dart';
+import 'package:meal_app/features/children/providers/children_provider.dart';
+import 'package:meal_app/features/profile/providers/profile_provider.dart';
 
 class SubscriptionManagementScreen extends StatefulWidget {
   const SubscriptionManagementScreen({super.key});
@@ -27,6 +29,8 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<PaymentProvider>().fetchActiveSubscriptions();
       context.read<PaymentProvider>().fetchPaymentHistory();
+      context.read<ChildrenProvider>().fetchChildren(silent: true);
+      context.read<ProfileProvider>().fetchProfiles(silent: true);
     });
   }
 
@@ -149,7 +153,7 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
         
         // Safe type conversion for all fields
         final planName = _safeString(sub['plan_name'], 'PLAN');
-        final entityName = _safeString(sub['entity_name'], 'Profile');
+        final entityName = _resolveActiveEntityName(context, sub);
         final entityType = _safeString(sub['entity_type'], '');
         final amountPaid = _safeString(sub['amount_paid'], '');
         final remainingMeals = sub['remaining_meals'];
@@ -164,12 +168,6 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
           startDate = DateTime.tryParse(startDateStr);
         }
 
-        final expiryStr = _safeString(sub['end_date'] ?? sub['expiry_date'], '');
-        DateTime? expiry;
-        if (expiryStr.isNotEmpty) {
-          expiry = DateTime.tryParse(expiryStr);
-        }
-        
         return AppleCard(
           margin: const EdgeInsets.only(bottom: 12),
           child: Column(
@@ -218,8 +216,6 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
               // Meta details — compact column of label/value pairs
               if (startDate != null)
                 _buildMetaRow('Start Date', DateFormat('dd MMM yyyy').format(startDate), isDark),
-              if (expiry != null)
-                _buildMetaRow('Expires On', DateFormat('dd MMM yyyy').format(expiry), isDark),
               if (amountPaid.isNotEmpty)
                 _buildMetaRow('Amount Paid', '₹$amountPaid', isDark),
               _buildMetaRow('Variant', includeSaturday ? 'With Saturday' : 'Without Saturday', isDark),
@@ -437,6 +433,37 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
         );
       },
     );
+  }
+
+  /// Pjreferf API `entity_name`; fall back to local child / profile lists.
+  String _resolveActiveEntityName(BuildContext context, dynamic raw) {
+    if (raw is! Map) return 'Profile';
+    final sub = Map<String, dynamic>.from(raw);
+    var n = _safeString(
+      sub['entity_name'] ?? sub['name'] ?? sub['child_name'] ?? sub['profile_name'] ?? sub['entityName'],
+      '',
+    );
+    if (n.isNotEmpty && n != 'Profile') return n;
+    final et = _safeString(sub['entity_type'], '').toLowerCase().trim();
+    final eid = _safeString(sub['entity_id'] ?? sub['entityId'], '').trim();
+    if (eid.isEmpty) return n.isEmpty ? 'Profile' : n;
+
+    final children = context.watch<ChildrenProvider>().children;
+    if (et == 'child') {
+      for (final c in children) {
+        if (c.id?.toString() == eid) return c.name;
+      }
+    }
+    final profiles = context.watch<ProfileProvider>();
+    if (et == 'teacher') {
+      final t = profiles.teacherProfile;
+      if (t != null && t.id?.toString() == eid) return t.name;
+    }
+    if (et == 'professional') {
+      final p = profiles.professionalProfile;
+      if (p != null && p.id?.toString() == eid) return p.name;
+    }
+    return n.isEmpty ? 'Profile' : n;
   }
 
   /// Compact label/value row used inside the active-plan card.

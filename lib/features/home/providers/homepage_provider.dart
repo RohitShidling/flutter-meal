@@ -22,6 +22,8 @@ class HomepageProvider with ChangeNotifier {
   }
 
   bool get isLoading => _isLoading;
+  /// True while a homepage request is in flight (including silent background refresh).
+  bool get isFetchingHomepageEntries => _inflightRequest != null;
   String get errorMessage => _errorMessage;
   List<HomepageEntry> get entries => _entries;
   bool get hasInitiallyLoaded => _hasInitiallyLoaded;
@@ -61,6 +63,10 @@ class HomepageProvider with ChangeNotifier {
       }
       _errorMessage = '';
       notifyListeners();
+    } else if (_entries.isEmpty) {
+      _isLoading = true;
+      _errorMessage = '';
+      notifyListeners();
     }
 
     try {
@@ -77,10 +83,8 @@ class HomepageProvider with ChangeNotifier {
         _errorMessage = '';
       }
     } finally {
-      if (!silent || _entries.isNotEmpty) {
-        _isLoading = false;
-        notifyListeners();
-      }
+      _isLoading = false;
+      notifyListeners();
     }
   }
 }
