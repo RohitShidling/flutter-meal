@@ -23,7 +23,6 @@ import 'package:meal_app/core/providers/subscription_provider.dart';
 import 'package:meal_app/features/subscription/ui/screens/meal_skip_screen.dart';
 import 'package:meal_app/features/subscription/ui/screens/cart_screen.dart';
 import 'package:meal_app/core/widgets/image_preview_dialog.dart';
-import 'package:meal_app/core/widgets/app_skeleton.dart';
 import 'package:meal_app/features/subscription/ui/screens/subscription_management_screen.dart';
 import 'package:meal_app/core/services/connectivity_service.dart';
 import 'package:meal_app/core/services/network_status_service.dart';
@@ -59,25 +58,14 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted) return;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      final auth = context.read<AuthProvider>();
-      final meal = context.read<MealProvider>();
-      final menu = context.read<MenuProvider>();
-      // Ordered sync: identity → subscription gate → parallel lists → today menu → alerts/status.
-      await auth.refreshMeProfile(silent: true);
-      if (!mounted) return;
-      await meal.fetchSubscriptionStatus(silent: true);
-      if (!mounted) return;
       await Future.wait([
         context.read<HomepageProvider>().fetchHomepageEntries(force: true, silent: true),
+        context.read<MenuProvider>().fetchTodayMenu(silent: true),
         context.read<CartProvider>().fetchCart(force: true, silent: true),
-        context.read<ChildrenProvider>().fetchChildren(force: true, silent: true),
+        // C4/D2: subscription prices can change server-side; refresh catalog after reconnect.
+        context.read<SubscriptionProvider>().fetchSubscriptions(force: true, silent: true),
+        context.read<AuthProvider>().refreshMeProfile(silent: true),
       ]);
-      if (!mounted) return;
-      await menu.fetchTodayMenu(
-        silent: true,
-        onlyIfSubscribed: true,
-        mealIsSubscribed: meal.isSubscribed,
-      );
       if (!mounted) return;
       await _refreshMealDataBundle();
       if (mounted) _syncDisplayNameFromAuth();
@@ -93,33 +81,17 @@ class _HomeScreenState extends State<HomeScreen> {
     if (forceFresh) {
       await Future.wait([
         context.read<HomepageProvider>().fetchHomepageEntries(force: true, silent: true),
+        context.read<MenuProvider>().fetchTodayMenu(silent: true),
         context.read<CartProvider>().fetchCart(force: true, silent: true),
-        context.read<ChildrenProvider>().fetchChildren(force: true, silent: true),
         context.read<AuthProvider>().refreshMeProfile(silent: true, forceNetwork: true),
         context.read<SubscriptionProvider>().fetchSubscriptions(force: true, silent: true),
-        context.read<MealProvider>().fetchSubscriptionStatus(silent: true),
       ]);
-      if (!mounted) return;
-      await context.read<MenuProvider>().fetchTodayMenu(
-        silent: true,
-        onlyIfSubscribed: true,
-        mealIsSubscribed: context.read<MealProvider>().isSubscribed,
-      );
     } else {
       await _loadAllData();
     }
     if (!mounted) return;
     _syncDisplayNameFromAuth();
     await _refreshMealDataBundle();
-    if (!mounted) return;
-    if (NetworkStatusService.instance.isOnline) {
-      final meal = context.read<MealProvider>();
-      await context.read<MenuProvider>().fetchTodayMenu(
-        silent: true,
-        onlyIfSubscribed: true,
-        mealIsSubscribed: meal.isSubscribed,
-      );
-    }
     if (mounted) _syncDisplayNameFromAuth();
   }
 
@@ -127,19 +99,10 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted) return;
     await Future.wait([
       context.read<HomepageProvider>().fetchHomepageEntries(silent: true),
+      context.read<MenuProvider>().fetchTodayMenu(silent: true),
       context.read<CartProvider>().fetchCart(silent: true),
-      context.read<ChildrenProvider>().fetchChildren(silent: true),
       context.read<AuthProvider>().refreshMeProfile(silent: true),
     ]);
-    if (!mounted) return;
-    final meal = context.read<MealProvider>();
-    await meal.fetchSubscriptionStatus(silent: true);
-    if (!mounted) return;
-    await context.read<MenuProvider>().fetchTodayMenu(
-      silent: true,
-      onlyIfSubscribed: true,
-      mealIsSubscribed: meal.isSubscribed,
-    );
   }
 
   Future<void> _refreshMealDataBundle() async {
@@ -148,6 +111,7 @@ class _HomeScreenState extends State<HomeScreen> {
     await Future.wait([
       meal.fetchAlerts(silent: true),
       meal.fetchMealStatus(silent: true),
+      meal.fetchSubscriptionStatus(silent: true),
     ]);
   }
 
@@ -173,27 +137,15 @@ class _HomeScreenState extends State<HomeScreen> {
       body: RefreshIndicator(
         onRefresh: () async {
           if (!mounted) return;
-          final auth = context.read<AuthProvider>();
-          final meal = context.read<MealProvider>();
-          final menu = context.read<MenuProvider>();
-          await auth.refreshMeProfile(
-            silent: true,
-            forceNetwork: NetworkStatusService.instance.isOnline,
-          );
-          if (!mounted) return;
-          await meal.fetchSubscriptionStatus(silent: true);
-          if (!mounted) return;
           await Future.wait([
             context.read<HomepageProvider>().fetchHomepageEntries(force: true, silent: true),
+            context.read<MenuProvider>().fetchTodayMenu(silent: true),
             context.read<CartProvider>().fetchCart(force: true, silent: true),
-            context.read<ChildrenProvider>().fetchChildren(force: true, silent: true),
+            context.read<AuthProvider>().refreshMeProfile(
+              silent: true,
+              forceNetwork: NetworkStatusService.instance.isOnline,
+            ),
           ]);
-          if (!mounted) return;
-          await menu.fetchTodayMenu(
-            silent: true,
-            onlyIfSubscribed: true,
-            mealIsSubscribed: meal.isSubscribed,
-          );
           if (!mounted) return;
           await _refreshMealDataBundle();
           if (mounted) _syncDisplayNameFromAuth();
@@ -328,74 +280,16 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<void> _openUpgradeWithFirstProfile(BuildContext context) async {
-    await Future.wait([
-      context.read<ChildrenProvider>().fetchChildren(silent: true),
-      context.read<ProfileProvider>().fetchProfiles(silent: true),
-    ]);
-    if (!context.mounted) return;
-    final children = context.read<ChildrenProvider>().children.where((c) => (c.id ?? '').toString().isNotEmpty).toList();
-    final profiles = context.read<ProfileProvider>();
-    final teacher = profiles.teacherProfile;
-    final professional = profiles.professionalProfile;
-
-    if (children.isNotEmpty) {
-      final c = children.first;
-      Navigator.push(
-        context,
-        CupertinoPageRoute(
-          builder: (_) => SubscriptionScreen(
-            initialEntityType: 'child',
-            initialEntityId: c.id!,
-            initialEntityName: c.name,
-            initialMealSizeId: c.mealSizeId,
-            openPlansStep: false,
-          ),
-        ),
-      );
-      return;
-    }
-    if (teacher != null && (teacher.id ?? '').toString().isNotEmpty) {
-      Navigator.push(
-        context,
-        CupertinoPageRoute(
-          builder: (_) => SubscriptionScreen(
-            initialEntityType: 'teacher',
-            initialEntityId: teacher.id!,
-            initialEntityName: teacher.name,
-            initialMealSizeId: teacher.mealSizeId,
-            openPlansStep: false,
-          ),
-        ),
-      );
-      return;
-    }
-    if (professional != null && (professional.id ?? '').toString().isNotEmpty) {
-      Navigator.push(
-        context,
-        CupertinoPageRoute(
-          builder: (_) => SubscriptionScreen(
-            initialEntityType: 'professional',
-            initialEntityId: professional.id!,
-            initialEntityName: professional.name,
-            initialMealSizeId: professional.mealSizeId,
-            openPlansStep: false,
-          ),
-        ),
-      );
-      return;
-    }
-    Navigator.push(
-      context,
-      CupertinoPageRoute(builder: (_) => const SubscriptionScreen()),
-    );
-  }
-
   Widget _buildSubscribeButton(BuildContext context) {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 10),
       child: GestureDetector(
-        onTap: () => _openUpgradeWithFirstProfile(context),
+        onTap: () {
+          Navigator.push(
+            context,
+            CupertinoPageRoute(builder: (context) => const SubscriptionScreen()),
+          );
+        },
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           decoration: BoxDecoration(
@@ -407,7 +301,7 @@ class _HomeScreenState extends State<HomeScreen> {
             borderRadius: BorderRadius.circular(18),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFFFF4D00).withOpacity(0.3),
+                color: const Color(0xFFFF4D00).withValues(alpha: 0.3),
                 blurRadius: 8,
                 offset: const Offset(0, 3),
               ),
@@ -433,7 +327,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     )
     .animate(onPlay: (controller) => controller.repeat())
-    .shimmer(duration: 2500.ms, color: Colors.white.withOpacity(0.4))
+    .shimmer(duration: 2500.ms, color: Colors.white.withValues(alpha: 0.4))
     .scale(duration: 2000.ms, begin: const Offset(1, 1), end: const Offset(1.02, 1.02), curve: Curves.easeInOut);
   }
 
@@ -447,79 +341,47 @@ class _HomeScreenState extends State<HomeScreen> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: isDark 
-            ? [AppTheme.primaryColor.withOpacity(0.2), Colors.transparent]
-            : [AppTheme.primaryColor.withOpacity(0.05), Colors.transparent],
+            ? [AppTheme.primaryColor.withValues(alpha: 0.2), Colors.transparent]
+            : [AppTheme.primaryColor.withValues(alpha: 0.05), Colors.transparent],
         ),
         borderRadius: BorderRadius.circular(24),
       ),
-      child: Text.rich(
-        TextSpan(
-          children: [
-            TextSpan(
-              text: 'Welcome back, ',
-              style: textTheme.titleMedium?.copyWith(
-                fontSize: 18,
-                color: colorScheme.onSurface.withOpacity(0.8),
-                fontWeight: FontWeight.w600,
-              ),
+      child: Row(
+        children: [
+          Text(
+            'Welcome Back ',
+            style: textTheme.titleMedium?.copyWith(
+              fontSize: 18,
+              color: colorScheme.onSurface.withValues(alpha: 0.8),
+              fontWeight: FontWeight.w600,
             ),
-            TextSpan(
-              text: name,
+          ),
+          Expanded(
+            child: Text(
+              name,
+              maxLines: 2,
+              softWrap: true,
               style: textTheme.titleMedium?.copyWith(
                 fontSize: 18,
                 fontWeight: FontWeight.w900,
                 color: colorScheme.onSurface,
               ),
             ),
-          ],
-        ),
-        maxLines: 3,
-        softWrap: true,
+          ),
+        ],
       ),
     ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0);
   }
 
   /// Today's meal card — ONLY shown when user has active subscription.
-  /// Shows shimmer skeleton while menu is loading; then image + actions.
+  /// Shows today's meal image and a "One Week Meal" button.
+  /// If not subscribed, returns SizedBox.shrink() (no gap).
   Widget _buildTodayMealCard(BuildContext context, bool isDark) {
     final menuProvider = context.watch<MenuProvider>();
 
+    // If loading or not subscribed or no menu, show nothing (no gap)
+    if (menuProvider.isLoading) return const SizedBox.shrink();
     if (!menuProvider.isSubscribed) return const SizedBox.shrink();
-
-    final msg = menuProvider.homeMealMessage?.trim() ?? '';
-    if (menuProvider.isLoading && menuProvider.todayMenu == null && msg.isEmpty) {
-      return TodayMealCardSkeleton(isDark: isDark);
-    }
-
-    if (msg.isNotEmpty) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 16),
-        child: AppleCard(
-          margin: EdgeInsets.zero,
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-          borderRadius: 20,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(CupertinoIcons.info_circle_fill, color: AppTheme.primaryColor, size: 22),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  msg,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                    height: 1.35,
-                    color: isDark ? Colors.white : AppTheme.textPrimaryLight,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.05, end: 0);
-    }
-
     if (menuProvider.todayMenu == null) return const SizedBox.shrink();
 
     final menu = menuProvider.todayMenu!;
@@ -546,13 +408,13 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.primaryColor.withOpacity(0.08),
+              color: AppTheme.primaryColor.withValues(alpha: 0.08),
               blurRadius: 20,
               offset: const Offset(0, 6),
             ),
           ],
           border: Border.all(
-            color: isDark ? Colors.white.withOpacity(0.06) : Colors.grey.withOpacity(0.1),
+            color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.grey.withValues(alpha: 0.1),
           ),
         ),
         child: Column(
@@ -595,7 +457,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: AppTheme.primaryColor.withOpacity(0.1),
+                          color: AppTheme.primaryColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -621,9 +483,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                               decoration: BoxDecoration(
-                                color: AppTheme.primaryColor.withOpacity(0.08),
+                                color: AppTheme.primaryColor.withValues(alpha: 0.08),
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
+                                border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.2)),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -698,12 +560,33 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildMealPlaceholder(double height) {
-    return ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      child: SizedBox(
-        height: height,
-        width: double.infinity,
-        child: SkeletonBone(height: height, width: double.infinity, borderRadius: BorderRadius.zero),
+    return Container(
+      height: height,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppTheme.primaryColor.withValues(alpha: 0.15),
+            AppTheme.primaryColor.withValues(alpha: 0.05),
+          ],
+        ),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(CupertinoIcons.flame_fill, size: 40, color: AppTheme.primaryColor.withValues(alpha: 0.5)),
+            const SizedBox(height: 6),
+            Text(
+              'Today\'s Meal',
+              style: TextStyle(
+                color: AppTheme.primaryColor.withValues(alpha: 0.6),
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -725,9 +608,9 @@ class _HomeScreenState extends State<HomeScreen> {
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.orange.withOpacity(0.1),
+            color: Colors.orange.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.orange.withOpacity(0.3)),
+            border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
           ),
           child: Row(
             children: [
@@ -754,22 +637,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               TextButton(
-                onPressed: () {
-                  final et = (alert['entity_type'] ?? '').toString().trim();
-                  final eid = (alert['entity_id'] ?? '').toString().trim();
-                  final en = (alert['entity_name'] ?? '').toString().trim();
-                  Navigator.push(
-                    context,
-                    CupertinoPageRoute(
-                      builder: (_) => SubscriptionScreen(
-                        initialEntityType: et.isNotEmpty ? et : null,
-                        initialEntityId: eid.isNotEmpty ? eid : null,
-                        initialEntityName: en.isNotEmpty ? en : null,
-                        openPlansStep: false,
-                      ),
-                    ),
-                  );
-                },
+                onPressed: () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const SubscriptionScreen())),
                 child: const Text('Renew', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
               ),
             ],
@@ -816,14 +684,14 @@ class _HomeScreenState extends State<HomeScreen> {
         decoration: BoxDecoration(
           color: isDark ? AppTheme.surfaceDark : Colors.white,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: isDark ? Colors.white10 : Colors.grey.withOpacity(0.1)),
+          border: Border.all(color: isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.1)),
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.12),
+                color: color.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(icon, color: color, size: 18),
@@ -848,20 +716,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildFeatureCards(BuildContext context) {
     final homepageProvider = context.watch<HomepageProvider>();
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final waitingForEntries = homepageProvider.entries.isEmpty &&
-        (homepageProvider.isLoading || homepageProvider.isFetchingHomepageEntries);
-    if (waitingForEntries) {
-      return Column(
-        children: List.generate(
-          3,
-          (_) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: HomeCartSummarySkeleton(isDark: isDark),
-          ),
-        ),
-      );
+    // Show cached data immediately; only show spinner if truly empty and loading.
+    if (homepageProvider.entries.isEmpty && homepageProvider.isLoading) {
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (homepageProvider.entries.isEmpty) {
@@ -917,31 +775,16 @@ class _HomeScreenState extends State<HomeScreen> {
   void _handleCardTap(BuildContext context, HomepageEntry entry) {
     switch (entry.entityId) {
       case 'ENT-1':
-        context.read<ChildrenProvider>().fetchChildren(silent: true).whenComplete(() {
-          if (!context.mounted) return;
-          Navigator.push(
-            context,
-            CupertinoPageRoute(builder: (_) => const ChildrenManagementScreen()),
-          );
-        });
+        Navigator.push(context, CupertinoPageRoute(builder: (_) => const ChildrenManagementScreen()));
+        if (NetworkStatusService.instance.isOnline) context.read<ChildrenProvider>().fetchChildren(silent: true);
         return;
       case 'ENT-2':
-        context.read<ProfileProvider>().fetchProfiles(silent: true).whenComplete(() {
-          if (!context.mounted) return;
-          Navigator.push(
-            context,
-            CupertinoPageRoute(builder: (_) => const TeacherProfileScreen()),
-          );
-        });
+        Navigator.push(context, CupertinoPageRoute(builder: (_) => const TeacherProfileScreen()));
+        if (NetworkStatusService.instance.isOnline) context.read<ProfileProvider>().fetchProfiles(silent: true);
         return;
       case 'ENT-3':
-        context.read<ProfileProvider>().fetchProfiles(silent: true).whenComplete(() {
-          if (!context.mounted) return;
-          Navigator.push(
-            context,
-            CupertinoPageRoute(builder: (_) => const ProfessionalProfileScreen()),
-          );
-        });
+        Navigator.push(context, CupertinoPageRoute(builder: (_) => const ProfessionalProfileScreen()));
+        if (NetworkStatusService.instance.isOnline) context.read<ProfileProvider>().fetchProfiles(silent: true);
         return;
       default:
         ScaffoldMessenger.of(context).showSnackBar(
@@ -962,7 +805,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.15),
+              color: color.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(18),
             ),
             child: Icon(icon, color: color, size: 30),
@@ -1003,12 +846,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildQuickStatus(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final mealProvider = context.watch<MealProvider>();
-    final data = mealProvider.subscriptionStatusData;
-    final hasActive = data?['has_active_subscription'] == true;
-    final hasUpcoming = data?['has_upcoming_subscription'] == true;
-    final childrenProvider = context.watch<ChildrenProvider>();
-    final childrenCount = childrenProvider.children.length;
-    final childrenCountLoading = childrenProvider.isLoading && childrenCount == 0;
+    final isActive = mealProvider.subscriptionStatusData?['has_active_subscription'] == true;
+    final childrenCount = context.watch<ChildrenProvider>().children.length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1023,14 +862,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 12),
         // Compact, production-grade activity row — children count + plan status pill.
-        _buildActivitySummary(
-          context,
-          isDark,
-          childrenCount: childrenCount,
-          childrenCountLoading: childrenCountLoading,
-          hasActive: hasActive,
-          hasUpcoming: hasUpcoming,
-        ),
+        _buildActivitySummary(context, isDark, childrenCount: childrenCount, isActive: isActive),
       ],
     ).animate().fadeIn(delay: 400.ms);
   }
@@ -1042,18 +874,16 @@ class _HomeScreenState extends State<HomeScreen> {
     BuildContext context,
     bool isDark, {
     required int childrenCount,
-    required bool childrenCountLoading,
-    required bool hasActive,
-    required bool hasUpcoming,
+    required bool isActive,
   }) {
     return Container(
       decoration: BoxDecoration(
         color: isDark ? AppTheme.surfaceDark : Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: isDark ? Colors.white10 : Colors.grey.withOpacity(0.1)),
+        border: Border.all(color: isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.1)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -1067,13 +897,11 @@ class _HomeScreenState extends State<HomeScreen> {
             Expanded(
               child: InkWell(
                 onTap: () {
-                  context.read<ChildrenProvider>().fetchChildren(silent: true).whenComplete(() {
-                    if (!context.mounted) return;
-                    Navigator.push(
-                      context,
-                      CupertinoPageRoute(builder: (_) => const ChildrenManagementScreen()),
-                    );
-                  });
+                  Navigator.push(
+                    context,
+                    CupertinoPageRoute(builder: (_) => const ChildrenManagementScreen()),
+                  );
+                  context.read<ChildrenProvider>().fetchChildren(silent: true);
                 },
                 borderRadius: const BorderRadius.horizontal(left: Radius.circular(18)),
                 child: Padding(
@@ -1083,7 +911,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Colors.blue.withOpacity(0.1),
+                          color: Colors.blue.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(CupertinoIcons.person_3_fill, color: Colors.blue, size: 18),
@@ -1094,17 +922,14 @@ class _HomeScreenState extends State<HomeScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            if (childrenCountLoading)
-                              const SkeletonBone(width: 24, height: 18, borderRadius: BorderRadius.all(Radius.circular(6)))
-                            else
-                              Text(
-                                '$childrenCount',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w900,
-                                  color: isDark ? Colors.white : AppTheme.textPrimaryLight,
-                                ),
+                            Text(
+                              '$childrenCount',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                                color: isDark ? Colors.white : AppTheme.textPrimaryLight,
                               ),
+                            ),
                             Text(
                               'Children',
                               style: TextStyle(
@@ -1122,15 +947,10 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             // Vertical divider
-            Container(width: 1, color: isDark ? Colors.white10 : Colors.grey.withOpacity(0.12)),
+            Container(width: 1, color: isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.12)),
             // Right: Plan status pill — compact + tappable
             Expanded(
-              child: _buildPlanStatusPill(
-                context,
-                isDark,
-                hasActive: hasActive,
-                hasUpcoming: hasUpcoming,
-              ),
+              child: _buildPlanStatusPill(context, isDark, isActive: isActive),
             ),
           ],
         ),
@@ -1138,40 +958,24 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildPlanStatusPill(
-    BuildContext context,
-    bool isDark, {
-    required bool hasActive,
-    required bool hasUpcoming,
-  }) {
-    final Color color;
-    final IconData icon;
-    final String subtitle;
-    if (hasActive) {
-      color = Colors.green;
-      icon = CupertinoIcons.checkmark_seal_fill;
-      subtitle = 'Active plan';
-    } else if (hasUpcoming) {
-      color = const Color(0xFFEAB308);
-      icon = CupertinoIcons.clock_fill;
-      subtitle = 'Upcoming plan';
-    } else {
-      color = Colors.red;
-      icon = CupertinoIcons.exclamationmark_circle_fill;
-      subtitle = 'No active plan';
-    }
+  Widget _buildPlanStatusPill(BuildContext context, bool isDark, {required bool isActive}) {
+    final color = isActive ? Colors.green : Colors.red;
+    final icon = isActive ? CupertinoIcons.checkmark_seal_fill : CupertinoIcons.exclamationmark_circle_fill;
     final title = 'My Subscription';
-    final goManagement = hasActive || hasUpcoming;
+    final subtitle = isActive ? 'Active Plan' : 'No Active Plan';
 
     return InkWell(
       onTap: () {
-        if (goManagement) {
+        if (isActive) {
           Navigator.push(
             context,
             CupertinoPageRoute(builder: (_) => const SubscriptionManagementScreen()),
           );
         } else {
-          _openUpgradeWithFirstProfile(context);
+          Navigator.push(
+            context,
+            CupertinoPageRoute(builder: (_) => const SubscriptionScreen()),
+          );
         }
       },
       borderRadius: const BorderRadius.horizontal(right: Radius.circular(18)),
@@ -1182,7 +986,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.12),
+                color: color.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: color, size: 18),

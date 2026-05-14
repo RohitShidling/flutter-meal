@@ -31,8 +31,6 @@ class ProfileProvider with ChangeNotifier {
   ProfessionalProfileModel? get professionalProfile => _professionalProfile;
   Map<String, dynamic>? get profileStatus => _profileStatus;
   bool get isLoading => _isLoading;
-  /// True while a profile fetch is in flight (including silent refreshes).
-  bool get isFetchingProfiles => _inflightRequest != null;
   dynamic get error => _error;
 
   Future<void> _loadFromCache() async {
@@ -77,10 +75,6 @@ class ProfileProvider with ChangeNotifier {
       }
       _error = null;
       notifyListeners();
-    } else if (!hasCachedProfile) {
-      _isLoading = true;
-      _error = null;
-      notifyListeners();
     }
 
     try {
@@ -94,6 +88,22 @@ class ProfileProvider with ChangeNotifier {
       _professionalProfile = results[1] as ProfessionalProfileModel?;
       _profileStatus = results[2] as Map<String, dynamic>?;
       _lastFetchedAt = DateTime.now();
+
+      // Persist to cache so data is available offline
+      if (_teacherProfile != null) {
+        await CacheStore.setJson(
+          'teacher_profile',
+          _teacherProfile!.toJson(),
+          ttl: const Duration(hours: 12),
+        );
+      }
+      if (_professionalProfile != null) {
+        await CacheStore.setJson(
+          'professional_profile',
+          _professionalProfile!.toJson(),
+          ttl: const Duration(hours: 12),
+        );
+      }
     } catch (e) {
       // Keep using cached profile silently in offline mode.
       _error = hasCachedProfile ? null : e;

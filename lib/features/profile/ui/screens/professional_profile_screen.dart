@@ -50,7 +50,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
       await lookup.fetchInitialData();
       // Also fetch corporate locations
       await lookup.fetchCorporateLocations();
-      await profileProvider.fetchProfiles(force: true);
+      await profileProvider.fetchProfiles(silent: true);
 
       final profile = profileProvider.professionalProfile;
       if (profile != null && mounted) {
@@ -170,62 +170,6 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
     }
   }
 
-  bool _professionalHasUnsavedChanges(ProfessionalProfileModel? baseline) {
-    if (!_isEditing) return false;
-    final loc = _selectedCorporateLocation;
-    final draft = ProfessionalProfileModel(
-      name: _nameController.text.trim(),
-      companyName: loc?.name ?? '',
-      corporateLocationId: loc?.id.toString() ?? '',
-      city: (_selectedCity?.name ?? loc?.city ?? '').trim(),
-      state: (_selectedState?.name ?? loc?.state ?? '').trim(),
-      lunchTime: _timeController.text,
-      mealSizeId: _selectedMealSize?.id,
-    );
-    if (baseline == null) {
-      return draft.name.isNotEmpty ||
-          loc != null ||
-          draft.city.isNotEmpty ||
-          draft.state.isNotEmpty ||
-          (draft.mealSizeId != null && draft.mealSizeId != 0) ||
-          TimeUtils.normalizeBackendTime(draft.lunchTime) != '13:30';
-    }
-    return draft.name != baseline.name.trim() ||
-        draft.companyName != baseline.companyName.trim() ||
-        draft.corporateLocationId != baseline.corporateLocationId ||
-        draft.city != baseline.city.trim() ||
-        draft.state != baseline.state.trim() ||
-        draft.mealSizeId != baseline.mealSizeId ||
-        TimeUtils.normalizeBackendTime(draft.lunchTime) !=
-            TimeUtils.normalizeBackendTime(baseline.lunchTime);
-  }
-
-  Future<void> _promptLeaveProfessionalEditor(ProfessionalProfileModel? baseline) async {
-    if (!_professionalHasUnsavedChanges(baseline)) {
-      if (mounted) Navigator.of(context).pop();
-      return;
-    }
-    final choice = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Discard changes?'),
-        content: const Text('You have unsaved changes to your professional profile.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, 'stay'), child: const Text('Stay')),
-          TextButton(onPressed: () => Navigator.pop(ctx, 'discard'), child: const Text('Discard')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, 'save'), child: const Text('Save')),
-        ],
-      ),
-    );
-    if (!mounted || choice == null || choice == 'stay') return;
-    if (choice == 'discard') {
-      Navigator.of(context).pop();
-      return;
-    }
-    await _submitForm();
-    if (mounted && !_isEditing) Navigator.of(context).pop();
-  }
-
   @override
   Widget build(BuildContext context) {
     final profileProvider = context.watch<ProfileProvider>();
@@ -233,13 +177,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final profile = profileProvider.professionalProfile;
 
-    return PopScope(
-      canPop: !_professionalHasUnsavedChanges(profile),
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return;
-        await _promptLeaveProfessionalEditor(profile);
-      },
-      child: Scaffold(
+    return Scaffold(
       appBar: AppBar(
         title: Text(
           'Professional Profile',
@@ -247,7 +185,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
         ),
         leading: IconButton(
           icon: const Icon(CupertinoIcons.back),
-          onPressed: () => _promptLeaveProfessionalEditor(profile),
+          onPressed: () => Navigator.pop(context),
         ),
       ),
       body: (profileProvider.isLoading || _isInitializing)
@@ -433,7 +371,6 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
               ),
             ),
           ),
-    ),
     );
   }
 
@@ -451,12 +388,12 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
               color: isDark ? AppTheme.surfaceDark : Colors.white,
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
-                color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05),
+                color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
                 width: 1,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+                  color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
                   blurRadius: 20,
                   offset: const Offset(0, 10),
                 ),
@@ -471,8 +408,8 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: isDark 
-                          ? [AppTheme.primaryColor.withOpacity(0.2), Colors.transparent]
-                          : [AppTheme.primaryColor.withOpacity(0.05), Colors.transparent],
+                          ? [AppTheme.primaryColor.withValues(alpha: 0.2), Colors.transparent]
+                          : [AppTheme.primaryColor.withValues(alpha: 0.05), Colors.transparent],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
@@ -482,7 +419,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: AppTheme.primaryColor.withOpacity(0.1),
+                            color: AppTheme.primaryColor.withValues(alpha: 0.1),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(CupertinoIcons.briefcase_fill, color: AppTheme.primaryColor),
@@ -558,7 +495,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Icon(icon, color: color, size: 20),
@@ -576,7 +513,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
             text,
             style: TextStyle(
               fontSize: 15,
-              color: isDark ? Colors.white.withOpacity(0.9) : AppTheme.textPrimaryLight,
+              color: isDark ? Colors.white.withValues(alpha: 0.9) : AppTheme.textPrimaryLight,
               fontWeight: FontWeight.w500,
             ),
           ),

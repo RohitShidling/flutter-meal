@@ -103,7 +103,7 @@ class _LoginScreenState extends State<LoginScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              AppTheme.primaryColor.withOpacity(isDark ? 0.2 : 0.05),
+              AppTheme.primaryColor.withValues(alpha: isDark ? 0.2 : 0.05),
               Theme.of(context).scaffoldBackgroundColor,
             ],
           ),

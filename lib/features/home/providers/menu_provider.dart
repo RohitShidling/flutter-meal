@@ -16,12 +16,6 @@ class MenuProvider with ChangeNotifier {
     _loadCachedTodayMenu();
   }
 
-  String? _homeMealMessage;
-  String? get homeMealMessage => _homeMealMessage;
-
-  String _displayMode = 'menu';
-  String get displayMode => _displayMode;
-
   bool _isLoading = false;
   bool get isLoading => _isLoading;
 
@@ -73,8 +67,6 @@ class MenuProvider with ChangeNotifier {
       final cached = await CacheStore.getJson('today_menu');
       if (cached is Map<String, dynamic>) {
         _isSubscribed = cached['is_subscribed'] ?? false;
-        _homeMealMessage = cached['home_meal_message']?.toString();
-        _displayMode = cached['display_mode']?.toString() ?? 'menu';
         if (_isSubscribed) {
           _todayMenu = cached['menu'] != null ? Map<String, dynamic>.from(cached['menu']) : null;
           _subscriptionSummary = cached['subscription_summary'] ?? [];
@@ -87,36 +79,10 @@ class MenuProvider with ChangeNotifier {
     }
   }
 
-  /// When [onlyIfSubscribed] is true, skips the network call if the user is not subscribed
-  /// (uses [mealIsSubscribed] from [MealProvider] after `fetchSubscriptionStatus`).
-  Future<void> fetchTodayMenu({
-    bool silent = false,
-    bool onlyIfSubscribed = false,
-    bool mealIsSubscribed = false,
-  }) async {
-    if (onlyIfSubscribed && !mealIsSubscribed) {
-      _isSubscribed = false;
-      _todayMenu = null;
-      _homeMealMessage = null;
-      _displayMode = 'menu';
-      _subscriptionSummary = [];
-      _hasInitiallyLoaded = true;
-      await CacheStore.remove('today_menu');
-      if (!silent) {
-        _isLoading = false;
-        _error = null;
-      }
-      notifyListeners();
-      return;
-    }
-
+  Future<void> fetchTodayMenu({bool silent = false}) async {
     if (!silent) {
       if (_todayMenu == null) _isLoading = true;
       _error = null;
-      notifyListeners();
-    } else if (_isSubscribed && _todayMenu == null) {
-      // Silent refresh (e.g. pull-to-refresh) while subscribed but menu not yet loaded — drive skeletons on home.
-      _isLoading = true;
       notifyListeners();
     }
 
@@ -124,14 +90,8 @@ class MenuProvider with ChangeNotifier {
       final mealResponse = await _dioClient.dio.get('/api/client/meals/today');
       final data = mealResponse.data;
       _isSubscribed = data['is_subscribed'] ?? false;
-      _homeMealMessage = data['home_meal_message']?.toString();
-      _displayMode = data['display_mode']?.toString() ?? 'menu';
-      if ((_homeMealMessage ?? '').trim().isEmpty && data['menu'] == null) {
-        _homeMealMessage = data['message']?.toString();
-      }
       if (_isSubscribed) {
-        final showMenuCard = _displayMode == 'menu';
-        if (showMenuCard && data['menu'] is Map<String, dynamic>) {
+        if (data['menu'] is Map<String, dynamic>) {
           final menu = Map<String, dynamic>.from(data['menu']);
           List<String> nutritionPoints = [];
           try {
@@ -151,13 +111,9 @@ class MenuProvider with ChangeNotifier {
           'is_subscribed': _isSubscribed,
           'menu': _todayMenu,
           'subscription_summary': _subscriptionSummary,
-          'home_meal_message': _homeMealMessage,
-          'display_mode': _displayMode,
         });
       } else {
         _todayMenu = null;
-        _homeMealMessage = null;
-        _displayMode = 'menu';
         _subscriptionSummary = [];
       }
       // Cache the response structure
@@ -165,16 +121,12 @@ class MenuProvider with ChangeNotifier {
         'is_subscribed': _isSubscribed,
         'menu': _todayMenu,
         'subscription_summary': _subscriptionSummary,
-        'home_meal_message': _homeMealMessage,
-        'display_mode': _displayMode,
       }, ttl: const Duration(hours: 6));
       _hasInitiallyLoaded = true;
     } catch (e) {
       if (e.toString().contains('403')) {
         _isSubscribed = false;
         _todayMenu = null;
-        _homeMealMessage = null;
-        _displayMode = 'menu';
         _subscriptionSummary = [];
         await CacheStore.remove('today_menu');
       } else {
@@ -187,7 +139,10 @@ class MenuProvider with ChangeNotifier {
     }
   }
 
-  Future<void> fetchWeeklyMenu() async {
+  /// Opens instantly from cache, then silently refreshes from network.
+  /// The screen never shows a blocking spinner if cache exists.
+  Future<void> fetchWeeklyMenuSilent() async {
+    // Step 1 — load from cache immediately (no spinner)
     final cached = await _cache.loadJson(_weeklyCacheKey);
     if (cached != null && _weeklyMenu.isEmpty) {
       _isSubscribed = cached['is_subscribed'] == true;
@@ -196,9 +151,24 @@ class MenuProvider with ChangeNotifier {
       notifyListeners();
     }
 
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
+    // Step 2 — network refresh (only show spinner if truly empty)
+    await fetchWeeklyMenu(silent: true);
+  }
+
+  Future<void> fetchWeeklyMenu({bool silent = false}) async {
+    final cached = await _cache.loadJson(_weeklyCacheKey);
+    if (cached != null && _weeklyMenu.isEmpty) {
+      _isSubscribed = cached['is_subscribed'] == true;
+      _weeklyMenu = (cached['menu'] as List? ?? const []).toList();
+      _subscriptionSummary = (cached['subscription_summary'] as List? ?? const []).toList();
+      notifyListeners();
+    }
+
+    if (!silent) {
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
+    }
 
     try {
       final mealResponse = await _dioClient.dio.get('/api/client/meals/weekly');

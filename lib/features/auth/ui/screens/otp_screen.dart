@@ -74,7 +74,7 @@ class _OtpScreenState extends State<OtpScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              AppTheme.primaryColor.withOpacity(isDark ? 0.2 : 0.05),
+              AppTheme.primaryColor.withValues(alpha: isDark ? 0.2 : 0.05),
               Theme.of(context).scaffoldBackgroundColor,
             ],
           ),
@@ -131,7 +131,7 @@ class _OtpScreenState extends State<OtpScreen> {
                         hintText: '------',
                         hintStyle: TextStyle(
                           letterSpacing: 16,
-                          color: AppTheme.primaryColor.withOpacity(0.3),
+                          color: AppTheme.primaryColor.withValues(alpha: 0.3),
                         ),
                       ),
                       validator: (value) {

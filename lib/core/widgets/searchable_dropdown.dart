@@ -334,7 +334,7 @@ class _ReactiveSearchSheetState<T>
                           children: [
                             Icon(Icons.search_off_rounded,
                                 size: 48,
-                                color: Colors.grey.withOpacity(0.4)),
+                                color: Colors.grey.withValues(alpha: 0.4)),
                             const SizedBox(height: 12),
                             const Text(
                               'No items found',

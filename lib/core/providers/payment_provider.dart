@@ -14,7 +14,23 @@ class PaymentProvider with ChangeNotifier {
   static const _historyCacheKey = 'cache_payment_history_v1';
   static const _activeCacheKey = 'cache_active_subscriptions_v1';
 
-  PaymentProvider(this._repository, this._cache);
+  PaymentProvider(this._repository, this._cache) {
+    _loadCachedData();
+  }
+
+  Future<void> _loadCachedData() async {
+    try {
+      final cachedHistory = await _cache.loadJson(_historyCacheKey);
+      if (cachedHistory != null) {
+        _paymentHistory = (cachedHistory['items'] as List? ?? const []).toList();
+      }
+      final cachedActive = await _cache.loadJson(_activeCacheKey);
+      if (cachedActive != null) {
+        _activeSubscriptions = (cachedActive['items'] as List? ?? const []).toList();
+      }
+      notifyListeners();
+    } catch (_) {}
+  }
 
   bool _isLoading = false;
   bool get isLoading => _isLoading;
@@ -36,7 +52,7 @@ class PaymentProvider with ChangeNotifier {
 
   // ─── Payment History ───────────────────────────────────────────────────────
 
-  Future<void> fetchPaymentHistory() async {
+  Future<void> fetchPaymentHistory({bool silent = false}) async {
     bool hasCachedData = false;
     final cached = await _cache.loadJson(_historyCacheKey);
     if (cached != null && _paymentHistory.isEmpty) {
@@ -47,9 +63,12 @@ class PaymentProvider with ChangeNotifier {
       hasCachedData = true;
     }
 
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
+    if (!silent) {
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
+    }
+
     try {
       _paymentHistory = await _repository.getPaymentHistory();
       await _cache.saveJson(_historyCacheKey, {'items': _paymentHistory});
@@ -57,14 +76,16 @@ class PaymentProvider with ChangeNotifier {
       // Keep showing cached history in offline mode; only show hard error if nothing cached.
       _error = hasCachedData ? null : ErrorHandler.getErrorMessage(e);
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      if (!silent) {
+        _isLoading = false;
+        notifyListeners();
+      }
     }
   }
 
   // ─── Active Subscriptions ──────────────────────────────────────────────────
 
-  Future<void> fetchActiveSubscriptions() async {
+  Future<void> fetchActiveSubscriptions({bool silent = false}) async {
     bool hasCachedData = false;
     final cached = await _cache.loadJson(_activeCacheKey);
     if (cached != null && _activeSubscriptions.isEmpty) {
@@ -75,9 +96,12 @@ class PaymentProvider with ChangeNotifier {
       hasCachedData = true;
     }
 
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
+    if (!silent) {
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
+    }
+
     try {
       _activeSubscriptions = await _repository.getActiveSubscriptions();
       await _cache.saveJson(_activeCacheKey, {'items': _activeSubscriptions});
@@ -85,8 +109,10 @@ class PaymentProvider with ChangeNotifier {
       // Keep showing cached plans in offline mode; only show hard error if nothing cached.
       _error = hasCachedData ? null : ErrorHandler.getErrorMessage(e);
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      if (!silent) {
+        _isLoading = false;
+        notifyListeners();
+      }
     }
   }
 

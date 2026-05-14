@@ -22,7 +22,7 @@ class SegmentedPlanPicker extends StatelessWidget {
       decoration: BoxDecoration(
         color: isDark ? AppTheme.surfaceDark : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isDark ? Colors.white10 : Colors.grey.withOpacity(0.15)),
+        border: Border.all(color: isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.15)),
       ),
       child: CupertinoSlidingSegmentedControl<int>(
         groupValue: value,

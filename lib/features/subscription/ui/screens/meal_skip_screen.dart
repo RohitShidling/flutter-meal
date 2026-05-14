@@ -7,8 +7,22 @@ import 'package:meal_app/core/theme/app_theme.dart';
 import 'package:meal_app/core/providers/meal_provider.dart';
 import 'package:meal_app/core/widgets/apple_card.dart';
 import 'package:meal_app/core/utils/error_handler.dart';
+import 'package:meal_app/core/services/network_status_service.dart';
 import 'package:meal_app/features/children/providers/children_provider.dart';
 import 'package:meal_app/features/profile/providers/profile_provider.dart';
+
+/// Keys are `${entityType}_${entityId}` where type is child, teacher, or professional (G8).
+({String type, String id})? parseMealSkipEntityKey(String key) {
+  const prefixes = <String>['child_', 'teacher_', 'professional_'];
+  for (final p in prefixes) {
+    if (key.startsWith(p)) {
+      final id = key.substring(p.length);
+      if (id.isEmpty) return null;
+      return (type: p.substring(0, p.length - 1), id: id);
+    }
+  }
+  return null;
+}
 
 class MealSkipScreen extends StatefulWidget {
   const MealSkipScreen({super.key});
@@ -22,18 +36,35 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<MealProvider>().fetchSkips();
-      context.read<MealProvider>().fetchMealStatus();
-      context.read<MealProvider>().fetchSkipPolicy();
-      context.read<ChildrenProvider>().fetchChildren();
-      context.read<ProfileProvider>().fetchProfiles();
+      _fetchAll();
+      // Re-fetch when coming back online
+      NetworkStatusService.instance.addBecameOnlineListener(_fetchAll);
     });
+  }
+
+  @override
+  void dispose() {
+    NetworkStatusService.instance.removeBecameOnlineListener(_fetchAll);
+    super.dispose();
+  }
+
+  void _fetchAll() {
+    if (!mounted) return;
+    context.read<MealProvider>().fetchSkips();
+    context.read<MealProvider>().fetchMealStatus();
+    context.read<MealProvider>().fetchSkipPolicy();
+    context.read<ChildrenProvider>().fetchChildren();
+    context.read<ProfileProvider>().fetchProfiles();
   }
 
   @override
   Widget build(BuildContext context) {
     final mealProvider = context.watch<MealProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final bool showSpinner = mealProvider.isLoading &&
+        mealProvider.mealStatus.isEmpty &&
+        mealProvider.skips.isEmpty;
 
     return Scaffold(
       appBar: AppBar(
@@ -55,7 +86,7 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
         icon: const Icon(CupertinoIcons.calendar_badge_plus, color: Colors.white),
         label: const Text('New Skip', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
       ),
-      body: mealProvider.isLoading
+      body: showSpinner
           ? const Center(child: CupertinoActivityIndicator())
           : Column(
               children: [
@@ -182,27 +213,35 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
                               itemCount: sortedSkips.length,
                               itemBuilder: (context, index) {
                                 final skip = sortedSkips[index];
-                                return Dismissible(
-                                  key: ValueKey('skip_${skip['id']}'),
-                                  direction: DismissDirection.endToStart,
-                                  background: Container(
-                                    margin: const EdgeInsets.only(bottom: 14),
-                                    padding: const EdgeInsets.only(right: 22),
-                                    alignment: Alignment.centerRight,
-                                    decoration: BoxDecoration(
-                                      color: Colors.red.shade400,
-                                      borderRadius: BorderRadius.circular(20),
+                                final isCancelled = skip['status']?.toString().toLowerCase() == 'cancelled';
+                                final card = _buildSkipCard(context, skip, isDark, mealProvider);
+                                
+                                Widget item = card;
+                                if (isCancelled) {
+                                  item = Dismissible(
+                                    key: ValueKey('skip_${skip['id']}'),
+                                    direction: DismissDirection.endToStart,
+                                    background: Container(
+                                      margin: const EdgeInsets.only(bottom: 14),
+                                      padding: const EdgeInsets.only(right: 22),
+                                      alignment: Alignment.centerRight,
+                                      decoration: BoxDecoration(
+                                        color: Colors.red.shade400,
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: const Icon(CupertinoIcons.delete_solid, color: Colors.white),
                                     ),
-                                    child: const Icon(CupertinoIcons.delete_solid, color: Colors.white),
-                                  ),
-                                  confirmDismiss: (_) async {
-                                    final id = skip['id'];
-                                    if (id == null) return false;
-                                    final skipId = id is int ? id : int.tryParse(id.toString()) ?? 0;
-                                    return _confirmDeleteSkip(context, skipId, mealProvider);
-                                  },
-                                  child: _buildSkipCard(context, skip, isDark, mealProvider),
-                                )
+                                    confirmDismiss: (_) async {
+                                      final id = skip['id'];
+                                      if (id == null) return false;
+                                      final skipId = id is int ? id : int.tryParse(id.toString()) ?? 0;
+                                      return _confirmDeleteSkip(context, skipId, mealProvider);
+                                    },
+                                    child: card,
+                                  );
+                                }
+
+                                return item
                                     .animate()
                                     .fadeIn(delay: (index * 80).ms)
                                     .slideX(begin: 0.1, end: 0);
@@ -347,12 +386,11 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
               final id = skip['id'];
               if (id != null) {
                 final success = await mealProvider.cancelSkip(id is int ? id : int.tryParse(id.toString()) ?? 0);
-                if (mounted) {
-                  if (success) {
-                    ErrorHandler.showSuccess(context, 'Skip cancelled successfully');
-                  } else {
-                    ErrorHandler.showError(context, mealProvider.error);
-                  }
+                if (!context.mounted) return;
+                if (success) {
+                  ErrorHandler.showSuccess(context, 'Skip cancelled successfully');
+                } else {
+                  ErrorHandler.showError(context, mealProvider.error);
                 }
               }
             },
@@ -426,13 +464,11 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
     final minNoticeDays = (mealProvider.skipPolicy['min_notice_days'] as num?)?.toInt() ?? 1;
 
     // Helper: get subscription end_date for the selected entity from mealStatus
-    DateTime? _getEntityExpiry(String entityKey) {
-      final parts = entityKey.split('_');
-      if (parts.length < 2) return null;
-      final type = parts[0];
-      final id = parts.sublist(1).join('_');
+    DateTime? resolveEntityExpiry(String entityKey) {
+      final parsed = parseMealSkipEntityKey(entityKey);
+      if (parsed == null) return null;
       final match = mealProvider.mealStatus.firstWhere(
-        (s) => s['entity_type'] == type && s['entity_id']?.toString() == id,
+        (s) => s['entity_type'] == parsed.type && s['entity_id']?.toString() == parsed.id,
         orElse: () => null,
       );
       if (match == null) return null;
@@ -502,7 +538,7 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
                   onTap: () async {
                     final tomorrow = DateTime.now().add(Duration(days: minNoticeDays));
                     // Cap lastDate to subscription expiry for the selected entity
-                    final expiry = selectedEntity != null ? _getEntityExpiry(selectedEntity!) : null;
+                    final expiry = selectedEntity != null ? resolveEntityExpiry(selectedEntity!) : null;
                     final lastDate = expiry != null
                         ? (expiry.isBefore(tomorrow.add(const Duration(days: 90))) ? expiry : tomorrow.add(const Duration(days: 90)))
                         : tomorrow.add(const Duration(days: 90));
@@ -569,9 +605,9 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.1),
+                      color: Colors.red.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.red.withOpacity(0.3)),
+                      border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       children: [
@@ -589,19 +625,22 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
                   child: ElevatedButton(
                     onPressed: (selectedEntity != null && selectedRange != null)
                         ? () async {
-                            final parts = selectedEntity!.split('_');
-                            final entityType = parts[0];
-                            final entityId = parts.sublist(1).join('_');
+                            final parsed = parseMealSkipEntityKey(selectedEntity!);
+                            if (parsed == null) {
+                              setSheetState(() => sheetError = 'Invalid profile selection.');
+                              return;
+                            }
                             final fmt = DateFormat('yyyy-MM-dd');
 
                             // Make API call FIRST — pop only on success
                             final success = await mealProvider.skipMeal(
-                              entityType: entityType,
-                              entityId: entityId,
+                              entityType: parsed.type,
+                              entityId: parsed.id,
                               startDate: fmt.format(selectedRange!.start),
                               endDate: fmt.format(selectedRange!.end),
                             );
 
+                            if (!sheetCtx.mounted) return;
                             if (success) {
                               if (sheetCtx.mounted) Navigator.pop(sheetCtx);
                               messenger.showSnackBar(SnackBar(

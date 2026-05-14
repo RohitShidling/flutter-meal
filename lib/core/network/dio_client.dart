@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -25,14 +27,7 @@ class DioClient {
 
     // Never emit full HTTP logs in release builds to avoid leaking tokens/PII.
     if (!kReleaseMode) {
-      _dio.interceptors.add(LogInterceptor(
-        request: true,
-        requestHeader: false, // hides Authorization bearer token
-        requestBody: true,
-        responseHeader: false,
-        responseBody: true,
-        error: true,
-      ));
+      _dio.interceptors.add(_RedactingLogInterceptor());
     }
 
     _dio.interceptors.add(InterceptorsWrapper(
@@ -173,4 +168,82 @@ class DioClient {
   }
 
   Dio get dio => _dio;
+}
+
+bool _sensitiveLogKey(String key) {
+  final l = key.toLowerCase();
+  const fragments = [
+    'password',
+    'token',
+    'authorization',
+    'secret',
+    'code',
+    'otp',
+    'phone',
+    'credit',
+    'card',
+    'cvv',
+    'pin',
+  ];
+  for (final f in fragments) {
+    if (l.contains(f)) return true;
+  }
+  return false;
+}
+
+dynamic _redactForLogs(dynamic value) {
+  if (value is Map) {
+    return value.map((k, v) {
+      final key = k.toString();
+      if (_sensitiveLogKey(key)) {
+        return MapEntry(key, '[redacted]');
+      }
+      return MapEntry(key, _redactForLogs(v));
+    });
+  }
+  if (value is List) {
+    return value.map(_redactForLogs).toList();
+  }
+  return value;
+}
+
+String _safeLogEncode(dynamic data) {
+  try {
+    return jsonEncode(_redactForLogs(data));
+  } catch (_) {
+    return '[unloggable]';
+  }
+}
+
+/// Debug-only: logs method/URL and redacted bodies (headers omitted — bearer lives in headers).
+class _RedactingLogInterceptor extends Interceptor {
+  @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    debugPrint('--> ${options.method} ${options.uri}');
+    final data = options.data;
+    if (data != null) {
+      debugPrint('body: ${_safeLogEncode(data)}');
+    }
+    handler.next(options);
+  }
+
+  @override
+  void onResponse(Response response, ResponseInterceptorHandler handler) {
+    debugPrint('<-- ${response.statusCode} ${response.requestOptions.uri}');
+    final data = response.data;
+    if (data != null) {
+      debugPrint('body: ${_safeLogEncode(data)}');
+    }
+    handler.next(response);
+  }
+
+  @override
+  void onError(DioException err, ErrorInterceptorHandler handler) {
+    debugPrint('*** DioException ${err.requestOptions.uri} ${err.message}');
+    final data = err.response?.data;
+    if (data != null) {
+      debugPrint('body: ${_safeLogEncode(data)}');
+    }
+    handler.next(err);
+  }
 }

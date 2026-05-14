@@ -21,7 +21,6 @@ class AuthProvider with ChangeNotifier {
   String _username = '';
   bool _isProfileLoading = false;
   bool _pendingDashboardRefresh = false;
-  Future<void>? _meProfileRefreshInFlight;
 
   AuthProvider(this._authRepository) {
     _checkAuthStatus();
@@ -215,22 +214,7 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> refreshMeProfile({bool silent = false, bool forceNetwork = false}) {
-    final inFlight = _meProfileRefreshInFlight;
-    if (inFlight != null) {
-      return inFlight;
-    }
-    final run = _refreshMeProfileImpl(silent: silent, forceNetwork: forceNetwork);
-    _meProfileRefreshInFlight = run;
-    run.whenComplete(() {
-      if (identical(_meProfileRefreshInFlight, run)) {
-        _meProfileRefreshInFlight = null;
-      }
-    });
-    return run;
-  }
-
-  Future<void> _refreshMeProfileImpl({bool silent = false, bool forceNetwork = false}) async {
+  Future<void> refreshMeProfile({bool silent = false, bool forceNetwork = false}) async {
     if (!silent) {
       _isProfileLoading = true;
       notifyListeners();

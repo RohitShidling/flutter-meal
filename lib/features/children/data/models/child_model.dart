@@ -40,7 +40,6 @@ class ChildModel {
 
   Map<String, dynamic> toJson() {
     return {
-      if (id != null) 'id': id,
       'name': name,
       'rollNumber': rollNumber,
       'schoolId': schoolId,

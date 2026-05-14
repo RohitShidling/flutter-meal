@@ -56,14 +56,8 @@ class ChildrenProvider with ChangeNotifier {
   }
 
   Future<void> _doFetch({bool silent = false}) async {
-    // When the list is still empty, surface loading even for silent refreshes so
-    // the home "Children" count and upgrade screens do not flash 0 during fetch.
     if (!silent) {
       if (_children.isEmpty) _isLoading = true;
-      _error = null;
-      notifyListeners();
-    } else if (_children.isEmpty) {
-      _isLoading = true;
       _error = null;
       notifyListeners();
     }
@@ -71,6 +65,12 @@ class ChildrenProvider with ChangeNotifier {
     try {
       _children = await _repository.getChildren();
       _lastFetchedAt = DateTime.now();
+      // Persist to cache so data is available offline
+      await CacheStore.setJson(
+        'children_list',
+        _children.map((c) => c.toJson()).toList(),
+        ttl: const Duration(hours: 12),
+      );
     } catch (e) {
       _error = e;
     } finally {
@@ -110,11 +110,9 @@ class ChildrenProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final inserted = await _repository.registerChildren([child]);
-      if (inserted.isNotEmpty) {
-        _children = [..._children, ...inserted];
-        _lastFetchedAt = DateTime.now();
-        await _persistChildrenCache();
+      final registeredChildren = await _repository.registerChildren([child]);
+      if (registeredChildren.isNotEmpty) {
+        await fetchChildren(force: true);
         return true;
       }
       return false;
@@ -162,24 +160,7 @@ class ChildrenProvider with ChangeNotifier {
     try {
       final success = await _repository.updateChild(id, child);
       if (success) {
-        _children = _children
-            .map((c) => c.id == id
-                ? ChildModel(
-                    id: id,
-                    name: child.name,
-                    rollNumber: child.rollNumber,
-                    schoolId: child.schoolId,
-                    standardId: child.standardId,
-                    mealSizeId: child.mealSizeId,
-                    mealTime: child.mealTime,
-                    schoolName: child.schoolName ?? c.schoolName,
-                    standardName: child.standardName ?? c.standardName,
-                    mealSizeName: child.mealSizeName ?? c.mealSizeName,
-                  )
-                : c)
-            .toList();
-        _lastFetchedAt = DateTime.now();
-        await _persistChildrenCache();
+        await fetchChildren(force: true);
         return true;
       }
       return false;
@@ -210,9 +191,7 @@ class ChildrenProvider with ChangeNotifier {
     try {
       final success = await _repository.deleteChild(id);
       if (success) {
-        _children = _children.where((c) => c.id != id).toList();
-        _lastFetchedAt = DateTime.now();
-        await _persistChildrenCache();
+        await fetchChildren(force: true);
         return true;
       }
       return false;
@@ -223,11 +202,5 @@ class ChildrenProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
-  }
-
-  Future<void> _persistChildrenCache() async {
-    try {
-      await CacheStore.setJson('children_list', _children.map((c) => c.toJson()).toList());
-    } catch (_) {}
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:meal_app/core/models/lookup_models.dart';
 import 'package:meal_app/core/network/lookup_repository.dart';
+import 'package:meal_app/core/storage/cache_store.dart';
 
 class LookupProvider with ChangeNotifier {
   final LookupRepository _repository;
@@ -30,8 +31,36 @@ class LookupProvider with ChangeNotifier {
   List<CompanyModel> get companies => _companies;
   bool get isLoading => _isLoading;
 
+  LookupProvider(this._repository) {
+    _loadFromCache();
+  }
+
+  Future<void> _loadFromCache() async {
+    try {
+      final cached = await CacheStore.getJson('lookup_initial_data');
+      if (cached is Map<String, dynamic>) {
+        if (cached['schools'] is List) {
+          _schools = (cached['schools'] as List).map((s) => SchoolModel.fromJson(s)).toList();
+        }
+        if (cached['standards'] is List) {
+          _standards = (cached['standards'] as List).map((s) => StandardModel.fromJson(s)).toList();
+        }
+        if (cached['mealSizes'] is List) {
+          _mealSizes = (cached['mealSizes'] as List).map((s) => MealSizeModel.fromJson(s)).toList();
+        }
+        if (cached['corporateLocations'] is List) {
+          _corporateLocations = (cached['corporateLocations'] as List).map((l) => CorporateLocationModel.fromJson(l)).toList();
+        }
+        if (cached['states'] is List) {
+          _states = (cached['states'] as List).map((s) => StateModel.fromJson(s)).toList();
+        }
+        notifyListeners();
+      }
+    } catch (_) {}
+  }
+
   Future<void> fetchInitialData({bool force = false}) async {
-    final isFresh = _lastFetchedAt != null && DateTime.now().difference(_lastFetchedAt!).inMinutes < 10;
+    final isFresh = _lastFetchedAt != null && DateTime.now().difference(_lastFetchedAt!).inMinutes < 60;
     if (!force && _schools.isNotEmpty && _standards.isNotEmpty && isFresh) return;
     if (_inflightInitialRequest != null) return _inflightInitialRequest;
     if (_isLoading) return;
@@ -68,6 +97,14 @@ class LookupProvider with ChangeNotifier {
       _cities = [];
       _companies = [];
       _lastFetchedAt = DateTime.now();
+
+      await CacheStore.setJson('lookup_initial_data', {
+        'schools': _schools.map((e) => e.toJson()).toList(),
+        'standards': _standards.map((e) => e.toJson()).toList(),
+        'mealSizes': _mealSizes.map((e) => e.toJson()).toList(),
+        'corporateLocations': _corporateLocations.map((e) => e.toJson()).toList(),
+        'states': _states.map((e) => e.toJson()).toList(),
+      }, ttl: const Duration(days: 1));
     } catch (e) {
       // keep old cached data for offline fallback
     } finally {

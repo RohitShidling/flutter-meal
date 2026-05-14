@@ -51,7 +51,7 @@ class ImagePreviewDialog extends StatelessWidget {
               builder: (context, value, child) {
                 return BackdropFilter(
                   filter: ColorFilter.mode(
-                    Colors.black.withOpacity(0.6 * value),
+                    Colors.black.withValues(alpha: 0.6 * value),
                     BlendMode.darken,
                   ),
                   child: BackdropFilter(
@@ -120,7 +120,7 @@ class ImagePreviewDialog extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.5),
+                        color: Colors.black.withValues(alpha: 0.5),
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.white24),
                       ),
@@ -138,12 +138,12 @@ class ImagePreviewDialog extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.75),
+                          color: Colors.black.withValues(alpha: 0.75),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: Colors.white12),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.3),
+                              color: Colors.black.withValues(alpha: 0.3),
                               blurRadius: 15,
                               offset: const Offset(0, 8),
                             )

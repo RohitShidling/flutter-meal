@@ -152,9 +152,9 @@ class SettingsScreen extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: isDark ? AppTheme.surfaceDark : Colors.grey.withOpacity(0.05),
+        color: isDark ? AppTheme.surfaceDark : Colors.grey.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isDark ? Colors.white10 : Colors.grey.withOpacity(0.1)),
+        border: Border.all(color: isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.1)),
       ),
       child: Row(
         children: [
@@ -191,9 +191,9 @@ class SettingsScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? AppTheme.surfaceDark : Colors.grey.withOpacity(0.05),
+        color: isDark ? AppTheme.surfaceDark : Colors.grey.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isDark ? Colors.white10 : Colors.grey.withOpacity(0.1)),
+        border: Border.all(color: isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.1)),
       ),
       child: Row(
         children: [
@@ -216,7 +216,7 @@ class SettingsScreen extends StatelessWidget {
           CupertinoSwitch(
             value: themeProvider.isDarkMode,
             onChanged: (value) => themeProvider.toggleTheme(value),
-            activeColor: AppTheme.primaryColor,
+            activeTrackColor: AppTheme.primaryColor,
           ),
         ],
       ),
@@ -239,7 +239,7 @@ class SettingsScreen extends StatelessWidget {
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: isDark ? Colors.white10 : Colors.grey.withOpacity(0.1)),
+        side: BorderSide(color: isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.1)),
       ),
     );
   }
@@ -363,7 +363,7 @@ class SettingsScreen extends StatelessWidget {
         );
       },
       style: ElevatedButton.styleFrom(
-        backgroundColor: AppTheme.accentColor.withOpacity(0.1),
+        backgroundColor: AppTheme.accentColor.withValues(alpha: 0.1),
         foregroundColor: AppTheme.accentColor,
         elevation: 0,
       ),

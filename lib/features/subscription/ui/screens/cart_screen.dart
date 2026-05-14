@@ -7,7 +7,6 @@ import 'package:meal_app/core/providers/cart_provider.dart';
 import 'package:meal_app/core/providers/subscription_provider.dart';
 import 'package:meal_app/core/models/subscription_model.dart';
 import 'package:meal_app/core/widgets/apple_card.dart';
-import 'package:meal_app/core/widgets/app_skeleton.dart';
 import 'package:meal_app/core/utils/meal_date.dart';
 import 'package:meal_app/core/utils/time_utils.dart';
 import 'package:meal_app/core/network/api_endpoints.dart';
@@ -70,52 +69,7 @@ class _CartScreenState extends State<CartScreen> {
         ],
       ),
       body: cartProvider.isLoading && items.isEmpty
-          ? ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                const SkeletonBone(height: 22, width: 120, borderRadius: BorderRadius.all(Radius.circular(8))),
-                const SizedBox(height: 20),
-                ...List.generate(
-                  3,
-                  (_) => Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: isDark ? AppTheme.surfaceDark : Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.12)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const SkeletonBone(width: 48, height: 48, borderRadius: BorderRadius.all(Radius.circular(14))),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    SkeletonBone(width: MediaQuery.sizeOf(context).width * 0.4, height: 16, borderRadius: BorderRadius.circular(6)),
-                                    const SizedBox(height: 8),
-                                    SkeletonBone(width: 80, height: 12, borderRadius: BorderRadius.circular(6)),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          const SkeletonBone(height: 12, borderRadius: BorderRadius.all(Radius.circular(4))),
-                          const SizedBox(height: 8),
-                          const SkeletonBone(height: 12, width: 200, borderRadius: BorderRadius.all(Radius.circular(4))),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            )
+          ? const Center(child: CircularProgressIndicator())
           : items.isEmpty
               ? _buildEmptyCart(isDark)
               : Column(
@@ -152,7 +106,7 @@ class _CartScreenState extends State<CartScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(CupertinoIcons.cart, size: 80, color: isDark ? Colors.white24 : Colors.grey.withOpacity(0.3)),
+          Icon(CupertinoIcons.cart, size: 80, color: isDark ? Colors.white24 : Colors.grey.withValues(alpha: 0.3)),
           const SizedBox(height: 24),
           Text('Your cart is empty', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: isDark ? Colors.white : AppTheme.textPrimaryLight)),
           const SizedBox(height: 8),
@@ -209,7 +163,7 @@ class _CartScreenState extends State<CartScreen> {
               children: [
                 Container(
                   padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: entityColor.withOpacity(0.12), borderRadius: BorderRadius.circular(14)),
+                  decoration: BoxDecoration(color: entityColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(14)),
                   child: Icon(entityIcon, color: entityColor, size: 22),
                 ),
                 const SizedBox(width: 14),
@@ -249,7 +203,7 @@ class _CartScreenState extends State<CartScreen> {
                 label: const Text('Remove', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.red,
-                  side: BorderSide(color: Colors.red.withOpacity(0.3)),
+                  side: BorderSide(color: Colors.red.withValues(alpha: 0.3)),
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
@@ -360,7 +314,7 @@ class _CartScreenState extends State<CartScreen> {
       decoration: BoxDecoration(
         color: isDark ? AppTheme.surfaceDark : Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, -4))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 20, offset: const Offset(0, -4))],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -415,7 +369,7 @@ class _CartScreenState extends State<CartScreen> {
       final sdkStatus = result['sdkStatus']?.toString() ?? 'FAILURE';
       final txnId = result['merchantTransactionId']?.toString() ?? '';
       final orderId = result['orderId']?.toString() ?? '';
-      if (sdkStatus == 'SUCCESS' || sdkStatus == 'INTERRUPTED') {
+      if (txnId.isNotEmpty) {
         Navigator.pushReplacement(
           context,
           CupertinoPageRoute(

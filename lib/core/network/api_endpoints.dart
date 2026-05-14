@@ -64,6 +64,7 @@ class ApiEndpoints {
   static const String mealSizes = '/api/common/lookup/meal-sizes';
   static const String standards = '/api/common/lookup/standards';
   static const String corporateLocations = '/api/common/corporate-locations';
+  /// Client catalog (requires client JWT; server rejects admin tokens on this path).
   static const String subscriptions = '/api/common/subscription-plan-days';
   static const String homepage = '/api/common/homepage';
   static const String states = '/api/common/lookup/states';

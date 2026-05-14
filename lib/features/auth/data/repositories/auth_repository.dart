@@ -8,6 +8,8 @@ class AuthRepository {
   final DioClient _dioClient;
   final SecureStorage _secureStorage;
 
+  static const int _maxUsernameFromJwtChars = 128;
+
   AuthRepository(this._dioClient, this._secureStorage);
 
   // ─── LOGIN FLOW (existing user) ────────────────────────────────────────────
@@ -132,8 +134,16 @@ class AuthRepository {
       final parts = token.split('.');
       if (parts.length != 3) return null;
       final payload = utf8.decode(base64Url.decode(base64Url.normalize(parts[1])));
-      final data = jsonDecode(payload);
-      return data['username'];
+      final decoded = jsonDecode(payload);
+      if (decoded is! Map) return null;
+      final raw = decoded['username'];
+      if (raw is! String) return null;
+      final trimmed = raw.trim();
+      if (trimmed.isEmpty) return null;
+      if (trimmed.length > _maxUsernameFromJwtChars) {
+        return trimmed.substring(0, _maxUsernameFromJwtChars);
+      }
+      return trimmed;
     } catch (e) {
       return null;
     }

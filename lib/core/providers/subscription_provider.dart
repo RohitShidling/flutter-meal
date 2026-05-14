@@ -22,8 +22,6 @@ class SubscriptionProvider with ChangeNotifier {
 
   List<SubscriptionModel> get subscriptions => _subscriptions;
   bool get isLoading => _isLoading;
-  /// True while a catalog request is in flight (including silent fetches).
-  bool get isFetchingSubscriptions => _inflightFetch != null;
   String? get error => _error;
 
   Future<void> _loadFromCache() async {
@@ -58,10 +56,6 @@ class SubscriptionProvider with ChangeNotifier {
       if (_subscriptions.isEmpty) _isLoading = true;
       _error = null;
       notifyListeners();
-    } else if (_subscriptions.isEmpty) {
-      _isLoading = true;
-      _error = null;
-      notifyListeners();
     }
 
     try {
@@ -69,7 +63,7 @@ class SubscriptionProvider with ChangeNotifier {
       await CacheStore.setJson(
         'subscriptions_list',
         _subscriptions.map((e) => e.toJson()).toList(),
-        ttl: const Duration(hours: 12),
+        ttl: const Duration(hours: 4),
       );
       _lastFetchedAt = DateTime.now();
     } catch (e) {

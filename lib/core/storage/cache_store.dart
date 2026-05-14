@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// SharedPreferences-backed cache for non-sensitive app data (lists, cart snapshot).
+/// Do not store tokens, OTPs, or payment payloads here — use secure storage instead.
 class _CacheEntry {
   final dynamic data;
   final int storedAt;

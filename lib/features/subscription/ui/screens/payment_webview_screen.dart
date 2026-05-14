@@ -184,7 +184,7 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
                     value: _loadingProgress > 0
                         ? _loadingProgress / 100
                         : null,
-                    backgroundColor: Colors.grey.withOpacity(0.15),
+                    backgroundColor: Colors.grey.withValues(alpha: 0.15),
                     color: AppTheme.primaryColor,
                     minHeight: 3,
                   )
@@ -221,7 +221,7 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withOpacity(0.08),
+              color: AppTheme.primaryColor.withValues(alpha: 0.08),
               shape: BoxShape.circle,
             ),
             child: Icon(
