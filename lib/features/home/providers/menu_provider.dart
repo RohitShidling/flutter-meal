@@ -10,7 +10,7 @@ class MenuProvider with ChangeNotifier {
   final DioClient _dioClient;
   final LocalCache _cache;
   static const _todayCacheKey = 'cache_today_menu_v1';
-  static const _weeklyCacheKey = 'cache_weekly_menu_v1';
+  static const _weeklyCacheKey = 'cache_weekly_menu_v2';
 
   MenuProvider(this._dioClient, this._cache) {
     _loadCachedTodayMenu();
@@ -34,6 +34,9 @@ class MenuProvider with ChangeNotifier {
   String? _error;
   String? get error => _error;
 
+  String? _homeMealMessage;
+  String? get homeMealMessage => _homeMealMessage;
+
   bool _hasInitiallyLoaded = false;
   bool get hasInitiallyLoaded => _hasInitiallyLoaded;
 
@@ -43,9 +46,31 @@ class MenuProvider with ChangeNotifier {
     return value.contains('T') ? value.split('T').first : value;
   }
 
+  /// Nutrition rows sometimes use alternate column names (`date`, `nutrition_date`, …).
+  String _nutritionRowDateKey(dynamic row) {
+    if (row is! Map) return '';
+    final d = row['menu_date'] ?? row['date'] ?? row['nutrition_date'] ?? row['for_date'] ?? row['target_date'];
+    return _normalizeDateKey(d);
+  }
+
+  /// Menu rows may expose `delivery_date`, etc.—keep keys aligned with nutrition API.
+  String _menuRowDateKey(Map<String, dynamic> menu) {
+    final d = menu['menu_date'] ?? menu['date'] ?? menu['delivery_date'] ?? menu['for_date'];
+    return _normalizeDateKey(d);
+  }
+
   List<String> _extractNutrition(dynamic value) {
     if (value is List) {
-      return value.map((e) => e.toString()).where((e) => e.trim().isNotEmpty).toList();
+      return value
+          .map((e) {
+            if (e is Map) {
+              final text = e['nutrition_text'] ?? e['text'] ?? e['point'] ?? e['label'] ?? e['name'];
+              return text?.toString() ?? '';
+            }
+            return e.toString();
+          })
+          .where((e) => e.trim().isNotEmpty)
+          .toList();
     }
     return [];
   }
@@ -71,6 +96,7 @@ class MenuProvider with ChangeNotifier {
           _todayMenu = cached['menu'] != null ? Map<String, dynamic>.from(cached['menu']) : null;
           _subscriptionSummary = cached['subscription_summary'] ?? [];
         }
+        _homeMealMessage = cached['message']?.toString();
         _hasInitiallyLoaded = true;
         notifyListeners();
       }
@@ -116,11 +142,13 @@ class MenuProvider with ChangeNotifier {
         _todayMenu = null;
         _subscriptionSummary = [];
       }
+      _homeMealMessage = data['message']?.toString();
       // Cache the response structure
       await CacheStore.setJson('today_menu', {
         'is_subscribed': _isSubscribed,
         'menu': _todayMenu,
         'subscription_summary': _subscriptionSummary,
+        'message': _homeMealMessage,
       }, ttl: const Duration(hours: 6));
       _hasInitiallyLoaded = true;
     } catch (e) {
@@ -182,11 +210,11 @@ class MenuProvider with ChangeNotifier {
           final nutritionData = nutritionResponse.data;
           final nutritionRows = (nutritionData['data'] as List?) ?? [];
           for (final row in nutritionRows) {
-            if (row is Map<String, dynamic>) {
-              final menuDate = _normalizeDateKey(row['menu_date']);
-              if (menuDate.isNotEmpty) {
-                nutritionByDate[menuDate] = _extractNutrition(row['nutrition_points']);
-              }
+            if (row is! Map) continue;
+            final rowMap = row is Map<String, dynamic> ? row : Map<String, dynamic>.from(row);
+            final menuDate = _nutritionRowDateKey(rowMap);
+            if (menuDate.isNotEmpty) {
+              nutritionByDate[menuDate] = _extractNutrition(rowMap['nutrition_points']);
             }
           }
         } catch (_) {
@@ -194,13 +222,13 @@ class MenuProvider with ChangeNotifier {
         }
 
         _weeklyMenu = weeklyMenus.map((entry) {
-          if (entry is Map<String, dynamic>) {
-            final menu = Map<String, dynamic>.from(entry);
-            final menuDate = _normalizeDateKey(menu['menu_date']);
-            menu['nutrition_points'] = nutritionByDate[menuDate] ?? <String>[];
-            return menu;
-          }
-          return entry;
+          if (entry is! Map) return entry;
+          final menu = entry is Map<String, dynamic> ? Map<String, dynamic>.from(entry) : Map<String, dynamic>.from(entry);
+          final menuDate = _menuRowDateKey(menu);
+          final embedded = _extractNutrition(menu['nutrition_points']);
+          final merged = nutritionByDate[menuDate] ?? <String>[];
+          menu['nutrition_points'] = embedded.isNotEmpty ? embedded : merged;
+          return menu;
         }).toList();
         _subscriptionSummary = data['subscription_summary'] ?? [];
         await _cache.saveJson(_weeklyCacheKey, {

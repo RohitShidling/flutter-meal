@@ -116,6 +116,36 @@ class PaymentProvider with ChangeNotifier {
     }
   }
 
+  Future<Map<String, dynamic>> fetchMealSizeUpgradeOptionsForEntity({
+    required String entityType,
+    required String entityId,
+  }) async {
+    try {
+      _error = null;
+      notifyListeners();
+      return await _repository.fetchMealSizeUpgradeOptions(
+        entityType: entityType,
+        entityId: entityId,
+      );
+    } catch (e) {
+      _error = ErrorHandler.getErrorMessage(e);
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<List<dynamic>> fetchMealSizeUpgradePriceRows() async {
+    try {
+      _error = null;
+      notifyListeners();
+      return await _repository.fetchMealSizeUpgradePrices();
+    } catch (e) {
+      _error = ErrorHandler.getErrorMessage(e);
+      notifyListeners();
+      rethrow;
+    }
+  }
+
   // ─── Checkout via PhonePe SDK ──────────────────────────────────────────────
 
   /// Full checkout flow:
@@ -192,6 +222,70 @@ class PaymentProvider with ChangeNotifier {
     }
   }
 
+  /// PhonePe checkout for admin-published meal size bumps (see meal_size_upgrade_prices).
+  Future<Map<String, dynamic>?> initiateMealSizeUpgrade({
+    required String entityType,
+    required String entityId,
+    required int toMealSizeId,
+    bool isSandbox = true,
+  }) async {
+    _isLoading = true;
+    _paymentStatus = PaymentStatus.processing;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final paymentData = await _repository.initiateMealSizeUpgrade(
+        entityType: entityType,
+        entityId: entityId,
+        toMealSizeId: toMealSizeId,
+        customRedirectUrl: ApiEndpoints.paymentStatusPage,
+      );
+
+      final String? paymentUrl = paymentData['paymentUrl'];
+      final String orderId = paymentData['orderId'] ?? '';
+      final String txnId = paymentData['merchantTransactionId'] ?? '';
+      final String? backendToken = paymentData['token'] ?? paymentData['orderToken'];
+      final String? backendMerchantId = paymentData['merchantId'];
+
+      if ((paymentUrl == null || paymentUrl.isEmpty) && backendToken == null) {
+        throw Exception('Payment information not received from gateway');
+      }
+
+      _lastTxnId = txnId;
+
+      final sdkResult = await PhonePeService.pay(
+        orderId: orderId,
+        paymentUrl: paymentUrl,
+        backendToken: backendToken,
+        backendMerchantId: backendMerchantId,
+        isSandbox: isSandbox,
+      );
+
+      final status = sdkResult['status'] as String? ?? 'FAILURE';
+      if (status == 'SUCCESS') {
+        _paymentStatus = PaymentStatus.success;
+      } else if (status == 'INTERRUPTED') {
+        _paymentStatus = PaymentStatus.interrupted;
+      } else {
+        _paymentStatus = PaymentStatus.failure;
+      }
+
+      return {
+        ...paymentData,
+        'sdkStatus': status,
+        'sdkError': sdkResult['error'],
+      };
+    } catch (e) {
+      _error = ErrorHandler.getErrorMessage(e);
+      _paymentStatus = PaymentStatus.failure;
+      return null;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   // ─── Status Polling ────────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>?> checkStatus(String txnId) async {
@@ -200,6 +294,15 @@ class PaymentProvider with ChangeNotifier {
     } catch (e) {
       _error = ErrorHandler.getErrorMessage(e);
       return null;
+    }
+  }
+
+  Future<void> forceSyncPayment(String txnId) async {
+    try {
+      await _repository.forceSync(txnId);
+    } catch (e) {
+      _error = ErrorHandler.getErrorMessage(e);
+      rethrow;
     }
   }
 

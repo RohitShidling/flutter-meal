@@ -127,11 +127,53 @@ class SubscriptionStatusNormalizer {
       if (e is! Map) continue;
       final row = Map<String, dynamic>.from(e);
       if (row['entity_type']?.toString() != entityType) continue;
-      if (row['entity_id']?.toString() != entityId) continue;
+      if (row['entity_id']?.toString() != entityId.toString()) continue;
       if (rowIsServingToday(row, today)) return true;
       if (includeUpcoming && rowIsUpcoming(row, today)) return true;
     }
     return false;
+  }
+
+  /// Profile meal size id from subscription status row, if present.
+  static int? profileMealSizeIdForEntity(
+    Map<String, dynamic>? statusMap,
+    String entityType,
+    String entityId,
+  ) {
+    if (statusMap == null) return null;
+    final list = statusMap['entities'] is List
+        ? statusMap['entities'] as List
+        : (statusMap['data'] is List ? statusMap['data'] as List : const []);
+    for (final e in list) {
+      if (e is! Map) continue;
+      final row = Map<String, dynamic>.from(e);
+      if (row['entity_type']?.toString() != entityType) continue;
+      if (row['entity_id']?.toString() != entityId.toString()) continue;
+      final id = row['profile_meal_size_id'] ?? row['meal_size_id'];
+      return int.tryParse('$id');
+    }
+    return null;
+  }
+
+  /// Earliest `start_date` among upcoming (not yet serving) subscription rows.
+  static String? earliestUpcomingStartYmd(Map<String, dynamic>? statusMap) {
+    if (statusMap == null) return null;
+    final list = statusMap['entities'] is List
+        ? statusMap['entities'] as List
+        : (statusMap['data'] is List ? statusMap['data'] as List : const []);
+    final today = MealDate.sessionTodayYmd();
+    String? earliest;
+    for (final e in list) {
+      if (e is! Map) continue;
+      final row = Map<String, dynamic>.from(e);
+      if (!rowIsUpcoming(row, today)) continue;
+      final start = _ymd(row['start_date']);
+      if (start == null) continue;
+      if (earliest == null || start.compareTo(earliest) < 0) {
+        earliest = start;
+      }
+    }
+    return earliest;
   }
 
   /// `'active'` | `'upcoming'` | `'none'`.
@@ -151,7 +193,7 @@ class SubscriptionStatusNormalizer {
       if (e is! Map) continue;
       final row = Map<String, dynamic>.from(e);
       if (row['entity_type']?.toString() != entityType) continue;
-      if (row['entity_id']?.toString() != entityId) continue;
+      if (row['entity_id']?.toString() != entityId.toString()) continue;
       if (rowIsServingToday(row, today)) serving = true;
       if (rowIsUpcoming(row, today)) upcoming = true;
     }

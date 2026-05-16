@@ -167,6 +167,8 @@ class MealVariantCard extends StatelessWidget {
   final bool isDark;
   final VoidCallback onBuy;
   final VoidCallback onAddToCart;
+  /// Short marketing hint (e.g. Popular choice).
+  final String? recommendationLabel;
 
   const MealVariantCard({
     super.key,
@@ -179,6 +181,7 @@ class MealVariantCard extends StatelessWidget {
     required this.isDark,
     required this.onBuy,
     required this.onAddToCart,
+    this.recommendationLabel,
   });
 
   @override
@@ -235,6 +238,27 @@ class MealVariantCard extends StatelessWidget {
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           color: isDark ? Colors.white70 : AppTheme.textPrimaryLight.withValues(alpha: 0.85),
+                        ),
+                      ),
+                    ],
+                    if (recommendationLabel != null && recommendationLabel!.trim().isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF059669).withValues(alpha: 0.14),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            recommendationLabel!.trim(),
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF059669),
+                            ),
+                          ),
                         ),
                       ),
                     ],

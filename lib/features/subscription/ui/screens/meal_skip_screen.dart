@@ -10,6 +10,7 @@ import 'package:meal_app/core/utils/error_handler.dart';
 import 'package:meal_app/core/services/network_status_service.dart';
 import 'package:meal_app/features/children/providers/children_provider.dart';
 import 'package:meal_app/features/profile/providers/profile_provider.dart';
+import 'package:meal_app/core/services/app_route_tracker.dart';
 
 /// Keys are `${entityType}_${entityId}` where type is child, teacher, or professional (G8).
 ({String type, String id})? parseMealSkipEntityKey(String key) {
@@ -32,9 +33,11 @@ class MealSkipScreen extends StatefulWidget {
 }
 
 class _MealSkipScreenState extends State<MealSkipScreen> {
+
   @override
   void initState() {
     super.initState();
+    AppRouteTracker.instance.setCurrent(AppScreen.mealSkip);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchAll();
       // Re-fetch when coming back online
@@ -45,6 +48,7 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
   @override
   void dispose() {
     NetworkStatusService.instance.removeBecameOnlineListener(_fetchAll);
+    AppRouteTracker.instance.clearIfCurrent(AppScreen.mealSkip);
     super.dispose();
   }
 

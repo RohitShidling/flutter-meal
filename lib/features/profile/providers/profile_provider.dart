@@ -84,8 +84,14 @@ class ProfileProvider with ChangeNotifier {
         _repository.getProfileStatus(),
       ]);
 
-      _teacherProfile = results[0] as TeacherProfileModel?;
-      _professionalProfile = results[1] as ProfessionalProfileModel?;
+      final fetchedTeacher = results[0] as TeacherProfileModel?;
+      final fetchedProfessional = results[1] as ProfessionalProfileModel?;
+      if (fetchedTeacher != null) {
+        _teacherProfile = fetchedTeacher;
+      }
+      if (fetchedProfessional != null) {
+        _professionalProfile = fetchedProfessional;
+      }
       _profileStatus = results[2] as Map<String, dynamic>?;
       _lastFetchedAt = DateTime.now();
 
@@ -140,12 +146,15 @@ class ProfileProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final success = await _repository.saveTeacherProfile(
-        profile, 
-        isUpdate: _teacherProfile != null
+      final saved = await _repository.saveTeacherProfile(
+        profile,
+        isUpdate: _teacherProfile != null,
       );
-      if (success) {
-        await fetchProfiles(force: true);
+      if (saved != null) {
+        _teacherProfile = saved;
+        _lastFetchedAt = DateTime.now();
+        notifyListeners();
+        await fetchProfiles(force: true, silent: true);
         return true;
       }
       return false;
@@ -214,12 +223,15 @@ class ProfileProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final success = await _repository.saveProfessionalProfile(
-        profile, 
-        isUpdate: _professionalProfile != null
+      final saved = await _repository.saveProfessionalProfile(
+        profile,
+        isUpdate: _professionalProfile != null,
       );
-      if (success) {
-        await fetchProfiles(force: true);
+      if (saved != null) {
+        _professionalProfile = saved;
+        _lastFetchedAt = DateTime.now();
+        notifyListeners();
+        await fetchProfiles(force: true, silent: true);
         return true;
       }
       return false;

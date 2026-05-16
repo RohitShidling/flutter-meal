@@ -58,11 +58,13 @@ class MealSizeModel {
   final int id;
   final String name;
   final String displayName;
+  final int sortOrder;
 
   MealSizeModel({
     required this.id,
     required this.name,
     required this.displayName,
+    this.sortOrder = 0,
   });
 
   factory MealSizeModel.fromJson(Map<String, dynamic> json) {
@@ -70,7 +72,20 @@ class MealSizeModel {
       id: json['id'],
       name: json['name'],
       displayName: json['display_name'],
+      sortOrder: int.tryParse('${json['sort_order'] ?? 0}') ?? 0,
     );
+  }
+
+  /// Highest tier in the catalog (e.g. Large / Extra Large).
+  static int? largestTierId(List<MealSizeModel> sizes) {
+    if (sizes.isEmpty) return null;
+    MealSizeModel? top;
+    for (final s in sizes) {
+      if (top == null || s.sortOrder > top.sortOrder || (s.sortOrder == top.sortOrder && s.id > top.id)) {
+        top = s;
+      }
+    }
+    return top?.id;
   }
 }
 

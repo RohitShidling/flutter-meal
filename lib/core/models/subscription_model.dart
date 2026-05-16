@@ -1,3 +1,5 @@
+import 'package:meal_app/core/utils/money_format.dart';
+
 class SubscriptionModel {
   final String id;
   final String planName;
@@ -37,9 +39,9 @@ class SubscriptionModel {
     return SubscriptionModel(
       id: json['id'],
       planName: json['plan_name'],
-      price: (json['price'] ?? '').toString(),
-      priceWithSaturday: (json['price_with_saturday'] ?? json['price'] ?? '0').toString(),
-      priceWithoutSaturday: (json['price_without_saturday'] ?? json['price'] ?? '0').toString(),
+      price: MoneyFormat.display(json['price']),
+      priceWithSaturday: MoneyFormat.display(json['price_with_saturday'] ?? json['price'] ?? '0'),
+      priceWithoutSaturday: MoneyFormat.display(json['price_without_saturday'] ?? json['price'] ?? '0'),
       saturdayOptionEnabled: json['saturday_option_enabled'] == null ? true : json['saturday_option_enabled'] == true,
       billingCycle: json['billing_cycle'],
       durationDays: int.tryParse('${json['duration_days'] ?? 0}') ?? 0,

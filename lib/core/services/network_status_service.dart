@@ -9,11 +9,11 @@ import 'package:meal_app/core/services/offline_queue.dart';
 
 /// Production-style online/offline signal.
 ///
-/// - Uses OS connectivity as the primary signal.
-/// - Confirms backend reachability with **GET /health** (no JWT — avoids 401 spam).
-/// - Debounces rapid connectivity events (no repeated pings every few seconds).
-/// - Replays queued write-actions when connectivity returns and notifies listeners
-///   so the UI can refresh authenticated data.
+/// - [hasDeviceConnectivity]: OS reports Wi‑Fi / mobile / ethernet.
+/// - [isBackendReachable]: GET /health succeeded recently.
+/// - [canAttemptApi]: true when device has network — cart/subscription calls should run
+///   (do not block on /health alone).
+/// - [isOnline]: device + backend — used for strict offline banner when both fail.
 class NetworkStatusService with ChangeNotifier {
   NetworkStatusService._();
 
@@ -22,9 +22,22 @@ class NetworkStatusService with ChangeNotifier {
   final _connectivity = Connectivity();
   StreamSubscription<List<ConnectivityResult>>? _sub;
   Timer? _debounceTimer;
+  Timer? _healthPollTimer;
 
-  bool _isOnline = true;
-  bool get isOnline => _isOnline;
+  bool _hasDeviceConnectivity = true;
+  bool _isBackendReachable = true;
+
+  /// Device has a network interface (Wi‑Fi, mobile, etc.).
+  bool get hasDeviceConnectivity => _hasDeviceConnectivity;
+
+  /// Backend /health responded OK on last check.
+  bool get isBackendReachable => _isBackendReachable;
+
+  /// Prefer this for cart writes: attempt real API when the device has network.
+  bool get canAttemptApi => _hasDeviceConnectivity;
+
+  /// Legacy: both device network and health check passed.
+  bool get isOnline => _hasDeviceConnectivity && _isBackendReachable;
 
   DioClient? _dioClient;
   bool _processingQueue = false;
@@ -36,7 +49,6 @@ class NetworkStatusService with ChangeNotifier {
     _dioClient ??= dioClient;
   }
 
-  /// Called when we transition from offline → online (after queue replay starts).
   void addBecameOnlineListener(VoidCallback listener) {
     if (!_becameOnlineListeners.contains(listener)) {
       _becameOnlineListeners.add(listener);
@@ -64,6 +76,9 @@ class NetworkStatusService with ChangeNotifier {
     });
   }
 
+  /// Force an immediate connectivity + health re-check (e.g. cart screen open).
+  Future<void> refreshNow() => _refreshStatus();
+
   void _scheduleRefresh() {
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 500), () {
@@ -74,6 +89,8 @@ class NetworkStatusService with ChangeNotifier {
   Future<void> stop() async {
     _debounceTimer?.cancel();
     _debounceTimer = null;
+    _healthPollTimer?.cancel();
+    _healthPollTimer = null;
     await _sub?.cancel();
     _sub = null;
   }
@@ -82,41 +99,75 @@ class NetworkStatusService with ChangeNotifier {
     if (_refreshInFlight) return;
     _refreshInFlight = true;
     try {
-      final online = await _checkOnline();
-      final prev = _isOnline;
-      _isOnline = online;
-      if (prev != _isOnline) {
+      final hasDevice = await _checkDeviceConnectivity();
+      final healthOk = hasDevice ? await _checkBackendHealth() : false;
+
+      final prevDevice = _hasDeviceConnectivity;
+      final prevReachable = _isBackendReachable;
+      _hasDeviceConnectivity = hasDevice;
+      _isBackendReachable = healthOk;
+
+      if (prevDevice != _hasDeviceConnectivity || prevReachable != _isBackendReachable) {
         notifyListeners();
       }
 
-      if (!prev && _isOnline) {
+      final wasFullyOffline = !prevDevice || !prevReachable;
+      final nowCanSync = _hasDeviceConnectivity && _isBackendReachable;
+      if (wasFullyOffline && nowCanSync) {
+        await _processQueue();
+        _notifyBecameOnline();
+      } else if (_hasDeviceConnectivity && !prevReachable && _isBackendReachable) {
+        // Device was on Wi‑Fi but /health failed; server came back.
         await _processQueue();
         _notifyBecameOnline();
       }
+
+      _scheduleHealthPoll();
     } finally {
       _refreshInFlight = false;
     }
   }
 
-  Future<bool> _checkOnline() async {
+  void _scheduleHealthPoll() {
+    _healthPollTimer?.cancel();
+    if (_hasDeviceConnectivity && !_isBackendReachable) {
+      _healthPollTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+        unawaited(_refreshStatus());
+      });
+    }
+  }
+
+  Future<bool> _checkDeviceConnectivity() async {
     try {
       final results = await _connectivity.checkConnectivity();
-      final hasNetwork = results.any((r) => r != ConnectivityResult.none);
-      if (!hasNetwork) return false;
+      return results.any((r) => r != ConnectivityResult.none);
     } catch (_) {
-      // Fall through to HTTP check
+      return true;
     }
+  }
 
-    // Use /health — never use authenticated routes here (would 401 and spam logs).
+  static bool _healthBodyOk(dynamic data) {
+    if (data is Map) {
+      final status = data['status']?.toString().toLowerCase();
+      if (status == 'ok') return true;
+    }
+    if (data is String) {
+      return data.toLowerCase().contains('ok');
+    }
+    return false;
+  }
+
+  Future<bool> _checkBackendHealth() async {
     try {
       final dio = Dio(BaseOptions(
         baseUrl: ApiEndpoints.baseUrl,
-        connectTimeout: const Duration(seconds: 3),
-        receiveTimeout: const Duration(seconds: 3),
-        sendTimeout: const Duration(seconds: 3),
+        connectTimeout: const Duration(seconds: 4),
+        receiveTimeout: const Duration(seconds: 4),
+        sendTimeout: const Duration(seconds: 4),
       ));
       final res = await dio.get(ApiEndpoints.health);
-      if (res.statusCode == 200 && res.data is Map && res.data['status'] == 'ok') {
+      if (res.statusCode == 200) {
+        if (_healthBodyOk(res.data)) return true;
         return true;
       }
       return res.statusCode != null && res.statusCode! >= 200 && res.statusCode! < 500;

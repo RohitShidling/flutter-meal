@@ -5,6 +5,8 @@ import 'package:meal_app/core/providers/payment_provider.dart';
 import 'package:meal_app/core/providers/cart_provider.dart';
 import 'package:meal_app/core/providers/meal_provider.dart';
 import 'package:meal_app/core/providers/subscription_provider.dart';
+import 'package:meal_app/features/children/providers/children_provider.dart';
+import 'package:meal_app/features/profile/providers/profile_provider.dart';
 import 'package:meal_app/core/theme/app_theme.dart';
 import 'package:meal_app/core/widgets/apple_card.dart';
 import 'package:meal_app/core/utils/meal_date.dart';
@@ -96,6 +98,17 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
     final orderType = (_statusData?['orderType']?.toString() ?? widget.orderType ?? '').toLowerCase();
     final isCartOrder = orderType == 'cart';
 
+    final orderStatus = (_statusData?['orderStatus']?.toString() ?? '').toLowerCase();
+    if (orderStatus == 'pending' && widget.txnId.isNotEmpty) {
+      try {
+        await payment.forceSyncPayment(widget.txnId);
+        final synced = await payment.checkStatus(widget.txnId);
+        if (synced != null && mounted) {
+          setState(() => _statusData = synced);
+        }
+      } catch (_) {/* best-effort */}
+    }
+
     if (isCartOrder) {
       // Backend marks the cart as `checked_out` during finalization, so the
       // active GET /cart will return empty. Still call clearCart server-side
@@ -111,16 +124,20 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
       } catch (_) {/* ignore */}
     }
 
-    // Refresh dashboard-relevant data so Home and Subscription screens show
-    // the new active plan immediately when user navigates back.
+  // Refresh dashboard-relevant data so Home and management screens stay in sync.
     try {
-      await Future.wait([
+      final futures = <Future<void>>[
         meal.fetchSubscriptionStatus(),
         meal.fetchMealStatus(),
         meal.fetchAlerts(),
+        meal.fetchTodayMenu(),
         payment.fetchActiveSubscriptions(),
+        payment.fetchPaymentHistory(),
         subscriptions.fetchSubscriptions(force: true),
-      ]);
+        context.read<ProfileProvider>().fetchProfiles(force: true),
+        context.read<ChildrenProvider>().fetchChildren(),
+      ];
+      await Future.wait(futures);
     } catch (_) {/* ignore — these are best-effort refreshes */}
   }
 

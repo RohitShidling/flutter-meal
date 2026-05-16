@@ -4,9 +4,14 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:meal_app/core/theme/app_theme.dart';
 import 'package:meal_app/core/providers/payment_provider.dart';
+import 'package:meal_app/core/providers/meal_provider.dart';
 import 'package:meal_app/core/widgets/apple_card.dart';
 import 'package:meal_app/core/utils/time_utils.dart';
+import 'package:meal_app/core/utils/meal_date.dart';
 import 'package:meal_app/core/services/connectivity_service.dart';
+import 'package:meal_app/features/children/providers/children_provider.dart';
+import 'package:meal_app/features/profile/providers/profile_provider.dart';
+import 'package:meal_app/core/services/app_route_tracker.dart';
 
 class SubscriptionManagementScreen extends StatefulWidget {
   const SubscriptionManagementScreen({super.key});
@@ -23,10 +28,14 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
   @override
   void initState() {
     super.initState();
+    AppRouteTracker.instance.setCurrent(AppScreen.subscriptionManagement);
     _tabController = TabController(length: 2, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<PaymentProvider>().fetchActiveSubscriptions(silent: true);
-      context.read<PaymentProvider>().fetchPaymentHistory(silent: true);
+      Future.wait([
+        context.read<PaymentProvider>().fetchActiveSubscriptions(),
+        context.read<PaymentProvider>().fetchPaymentHistory(silent: true),
+        context.read<MealProvider>().fetchSubscriptionStatus(silent: true),
+      ]);
     });
   }
 
@@ -43,6 +52,7 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
 
   @override
   void dispose() {
+    AppRouteTracker.instance.clearIfCurrent(AppScreen.subscriptionManagement);
     _connectivityService?.removeListener(_handleConnectivityChange);
     _tabController.dispose();
     super.dispose();
@@ -145,11 +155,24 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
       );
     }
 
+    final sessionToday = MealDate.parseYmdLocal(MealDate.sessionTodayYmd());
+    final sortedSubs = [...provider.activeSubscriptions];
+    sortedSubs.sort((a, b) {
+      final aStart = MealDate.parseYmdLocal(a['start_date']?.toString());
+      final bStart = MealDate.parseYmdLocal(b['start_date']?.toString());
+      final aUpcoming = sessionToday != null && aStart != null && aStart.isAfter(sessionToday);
+      final bUpcoming = sessionToday != null && bStart != null && bStart.isAfter(sessionToday);
+      if (aUpcoming != bUpcoming) return aUpcoming ? -1 : 1;
+      final aStartStr = a['start_date']?.toString() ?? '';
+      final bStartStr = b['start_date']?.toString() ?? '';
+      return aStartStr.compareTo(bStartStr);
+    });
+
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-      itemCount: provider.activeSubscriptions.length,
+      itemCount: sortedSubs.length,
       itemBuilder: (context, index) {
-        final sub = provider.activeSubscriptions[index];
+        final sub = sortedSubs[index];
         
         // Safe type conversion for all fields
         final planName = _safeString(sub['plan_name'], 'PLAN');
@@ -157,22 +180,15 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
         final entityType = _safeString(sub['entity_type'], '');
         final amountPaid = _safeString(sub['amount_paid'], '');
         final remainingMeals = sub['remaining_meals'];
-        final status = _safeString(sub['status'] ?? sub['subscription_status'], 'ACTIVE');
         final includeSaturday = sub['include_saturday'] == null ? true : sub['include_saturday'] == true;
         final mealSizeName = _safeString(sub['meal_size_name'], '');
         final mealTimingRaw = _safeString(sub['meal_timing'], '');
         final mealTiming = mealTimingRaw.isEmpty ? '' : TimeUtils.formatToDisplay(mealTimingRaw);
         final startDateStr = _safeString(sub['start_date'], '');
-        DateTime? startDate;
-        if (startDateStr.isNotEmpty) {
-          startDate = DateTime.tryParse(startDateStr);
-        }
+        final startDate = startDateStr.isNotEmpty ? MealDate.parseYmdLocal(startDateStr) : null;
 
         final expiryStr = _safeString(sub['end_date'] ?? sub['expiry_date'], '');
-        DateTime? expiry;
-        if (expiryStr.isNotEmpty) {
-          expiry = DateTime.tryParse(expiryStr);
-        }
+        final expiry = expiryStr.isNotEmpty ? MealDate.parseYmdLocal(expiryStr) : null;
         
         return AppleCard(
           margin: const EdgeInsets.only(bottom: 12),
@@ -257,15 +273,16 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
                         ),
                       Builder(
                         builder: (context) {
-                          final now = DateTime.now();
-                          final today = DateTime(now.year, now.month, now.day);
-                          final isUpcoming = startDate != null && startDate.isAfter(today);
-                          
+                          final sessionToday = MealDate.parseYmdLocal(MealDate.sessionTodayYmd());
+                          final isUpcoming = startDate != null &&
+                              sessionToday != null &&
+                              startDate.isAfter(sessionToday);
+
                           return Text(
-                            (isUpcoming ? 'UPCOMING' : status).toUpperCase(),
+                            (isUpcoming ? 'UPCOMING' : 'ACTIVE').toUpperCase(),
                             style: TextStyle(
-                              color: isUpcoming ? Colors.orange : Colors.green, 
-                              fontWeight: FontWeight.w800
+                              color: isUpcoming ? const Color(0xFFEAB308) : const Color(0xFF22C55E),
+                              fontWeight: FontWeight.w800,
                             ),
                           );
                         }

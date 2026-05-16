@@ -37,6 +37,60 @@ class PaymentRepository {
     }
   }
 
+  Future<Map<String, dynamic>> fetchMealSizeUpgradeOptions({
+    required String entityType,
+    required String entityId,
+  }) async {
+    final response = await _dioClient.dio.get(
+      ApiEndpoints.mealSizeUpgradeOptions,
+      queryParameters: {
+        'entityType': entityType,
+        'entityId': entityId,
+      },
+    );
+    if (response.data['success'] == true) {
+      return Map<String, dynamic>.from(response.data as Map);
+    }
+    throw response.data['message']?.toString() ?? 'Failed to load upgrade options';
+  }
+
+  Future<List<dynamic>> fetchMealSizeUpgradePrices() async {
+    try {
+      final response = await _dioClient.dio.get(ApiEndpoints.mealSizeUpgradePrices);
+      if (response.data['success'] == true) {
+        return response.data['data'] ?? [];
+      }
+      throw response.data['message']?.toString() ?? 'Failed to load upgrade prices';
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> initiateMealSizeUpgrade({
+    required String entityType,
+    required String entityId,
+    required int toMealSizeId,
+    String? customRedirectUrl,
+  }) async {
+    try {
+      final response = await _dioClient.dio.post(
+        ApiEndpoints.initiateMealSizeUpgrade,
+        data: {
+          'entityType': entityType,
+          'entityId': entityId,
+          'toMealSizeId': toMealSizeId,
+          if (customRedirectUrl != null) 'redirectUrl': customRedirectUrl,
+        },
+      );
+      if (response.data['success'] == true) {
+        return response.data['data'];
+      }
+      throw response.data['message']?.toString() ?? 'Failed to initiate upgrade payment';
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<Map<String, dynamic>> checkoutCart({String? redirectUrl}) async {
     try {
       final response = await _dioClient.dio.post(

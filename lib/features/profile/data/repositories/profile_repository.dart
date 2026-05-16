@@ -28,12 +28,17 @@ class ProfileRepository {
     }
   }
 
-  Future<bool> saveTeacherProfile(TeacherProfileModel profile, {bool isUpdate = false}) async {
+  Future<TeacherProfileModel?> saveTeacherProfile(TeacherProfileModel profile, {bool isUpdate = false}) async {
     try {
       final response = isUpdate 
         ? await _dioClient.dio.put(ApiEndpoints.teacherProfile, data: profile.toJson())
         : await _dioClient.dio.post(ApiEndpoints.teacherProfile, data: profile.toJson());
-      return response.data['success'] == true;
+      if (response.data['success'] == true && response.data['data'] != null) {
+        final data = Map<String, dynamic>.from(response.data['data'] as Map);
+        await CacheStore.setJson('teacher_profile', data);
+        return TeacherProfileModel.fromJson(data);
+      }
+      return null;
     } catch (e) {
       rethrow;
     }
@@ -67,12 +72,17 @@ class ProfileRepository {
     }
   }
 
-  Future<bool> saveProfessionalProfile(ProfessionalProfileModel profile, {bool isUpdate = false}) async {
+  Future<ProfessionalProfileModel?> saveProfessionalProfile(ProfessionalProfileModel profile, {bool isUpdate = false}) async {
     try {
       final response = isUpdate 
         ? await _dioClient.dio.put(ApiEndpoints.professionalProfile, data: profile.toJson())
         : await _dioClient.dio.post(ApiEndpoints.professionalProfile, data: profile.toJson());
-      return response.data['success'] == true;
+      if (response.data['success'] == true && response.data['data'] != null) {
+        final data = Map<String, dynamic>.from(response.data['data'] as Map);
+        await CacheStore.setJson('professional_profile', data);
+        return ProfessionalProfileModel.fromJson(data);
+      }
+      return null;
     } catch (e) {
       rethrow;
     }

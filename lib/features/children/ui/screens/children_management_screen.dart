@@ -10,6 +10,13 @@ import 'package:meal_app/core/models/lookup_models.dart';
 import 'package:meal_app/core/utils/error_handler.dart';
 import 'package:meal_app/core/utils/time_utils.dart';
 import 'package:meal_app/core/utils/validators.dart';
+import 'package:meal_app/core/providers/meal_provider.dart';
+import 'package:meal_app/core/widgets/entity_subscription_badge.dart';
+import 'package:meal_app/core/widgets/entity_plan_actions_row.dart';
+import 'package:meal_app/core/utils/meal_size_recommendations.dart';
+import 'package:meal_app/core/providers/cart_provider.dart';
+import 'package:meal_app/core/widgets/cart_overlay_body.dart';
+import 'package:meal_app/core/services/app_route_tracker.dart';
 
 class ChildrenManagementScreen extends StatefulWidget {
   const ChildrenManagementScreen({super.key});
@@ -22,9 +29,19 @@ class _ChildrenManagementScreenState extends State<ChildrenManagementScreen> {
   @override
   void initState() {
     super.initState();
+    AppRouteTracker.instance.setCurrent(AppScreen.children);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ChildrenProvider>().fetchChildren(silent: true);
+      context.read<LookupProvider>().fetchInitialData();
+      context.read<ChildrenProvider>().fetchChildren();
+      context.read<MealProvider>().fetchSubscriptionStatus(silent: true);
+      context.read<CartProvider>().fetchCart(silent: true);
     });
+  }
+
+  @override
+  void dispose() {
+    AppRouteTracker.instance.clearIfCurrent(AppScreen.children);
+    super.dispose();
   }
 
   @override
@@ -41,7 +58,8 @@ class _ChildrenManagementScreenState extends State<ChildrenManagementScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: RefreshIndicator(
+      body: CartOverlayBody(
+        child: RefreshIndicator(
         onRefresh: () => childrenProvider.fetchChildren(),
         child: childrenProvider.isLoading && children.isEmpty
           ? const Center(child: CircularProgressIndicator())
@@ -65,6 +83,7 @@ class _ChildrenManagementScreenState extends State<ChildrenManagementScreen> {
                       minimumSize: const Size(double.infinity, 60),
                     ),
                   ),
+                const SizedBox(height: 72),
                 if (children.length >= 3)
                   Padding(
                     padding: const EdgeInsets.only(top: 20),
@@ -80,6 +99,7 @@ class _ChildrenManagementScreenState extends State<ChildrenManagementScreen> {
                 const SizedBox(height: 80),
               ],
             ),
+          ),
       ),
     );
   }
@@ -110,6 +130,8 @@ class _ChildrenManagementScreenState extends State<ChildrenManagementScreen> {
 
   Widget _buildChildCard(BuildContext context, ChildModel child) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final statusMap = context.watch<MealProvider>().subscriptionStatusData;
+    final childId = child.id ?? '';
     
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
@@ -158,13 +180,28 @@ class _ChildrenManagementScreenState extends State<ChildrenManagementScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          child.name,
-                          style: TextStyle(
-                            fontSize: 20, 
-                            fontWeight: FontWeight.w900,
-                            color: isDark ? Colors.white : AppTheme.textPrimaryLight,
-                          ),
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                child.name,
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w900,
+                                  color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (childId.isNotEmpty) ...[
+                              const SizedBox(width: 6),
+                              EntitySubscriptionBadge(
+                                statusMap: statusMap,
+                                entityType: 'child',
+                                entityId: childId,
+                              ),
+                            ],
+                          ],
                         ),
                         Text(
                           'Roll No: ${child.rollNumber}',
@@ -194,6 +231,19 @@ class _ChildrenManagementScreenState extends State<ChildrenManagementScreen> {
                   _buildInfoRow(CupertinoIcons.book_fill, child.standardName ?? 'Standard ID: ${child.standardId}', isDark),
                   const SizedBox(height: 10),
                   _buildInfoRow(CupertinoIcons.clock_fill, 'Meal Delivery: ${TimeUtils.formatToDisplay(child.mealTime)}', isDark),
+                  if (child.mealSizeName != null && child.mealSizeName!.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    _buildInfoRow(CupertinoIcons.square_grid_2x2_fill, 'Meal Size: ${child.mealSizeName}', isDark),
+                  ],
+                  if (childId.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    EntityPlanActionsRow(
+                      entityType: 'child',
+                      entityId: childId,
+                      entityName: child.name,
+                      mealSizeId: child.mealSizeId,
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -562,7 +612,19 @@ class _ChildFormState extends State<_ChildForm> {
                   FocusScope.of(context).unfocus();
                   lookup.fetchInitialData();
                 },
-                onChanged: (v) => setState(() => _selectedStandard = v),
+                onChanged: (v) {
+                  setState(() {
+                    _selectedStandard = v;
+                    if (v != null) {
+                      final band = MealSizeRecommendations.recommendedBandForChild(
+                        v.displayName,
+                        v.id,
+                      );
+                      final pick = MealSizeRecommendations.pickForBand(lookup.mealSizes, band);
+                      if (pick != null) _selectedMealSize = pick;
+                    }
+                  });
+                },
               ),
               const SizedBox(height: 16),
               // 5. State (auto-filled from school, but user can also select)
@@ -622,7 +684,17 @@ class _ChildFormState extends State<_ChildForm> {
               SearchableDropdown<MealSizeModel>(
                 label: 'Meal Size',
                 items: lookup.mealSizes,
-                itemLabel: (s) => s.displayName,
+                itemLabel: (s) {
+                  final band = MealSizeRecommendations.recommendedBandForChild(
+                    _selectedStandard?.displayName ?? _selectedStandard?.name,
+                    _selectedStandard?.id ?? 0,
+                  );
+                  return MealSizeRecommendations.mealSizeLabel(
+                    s,
+                    showRecommended: _selectedStandard != null,
+                    band: band,
+                  );
+                },
                 value: _selectedMealSize,
                 isLoading: lookup.isLoading,
                 listenable: lookup,
@@ -635,6 +707,14 @@ class _ChildFormState extends State<_ChildForm> {
                 },
                 onChanged: (v) => setState(() => _selectedMealSize = v),
               ),
+              if (_selectedStandard != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    'Recommended: ${MealSizeRecommendations.recommendedBandForChild(_selectedStandard!.displayName, _selectedStandard!.id).toUpperCase()} pack for this standard',
+                    style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w600),
+                  ),
+                ),
               const SizedBox(height: 16),
               // 8. Meal Time
               InkWell(

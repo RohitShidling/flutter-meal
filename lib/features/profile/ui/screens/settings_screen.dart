@@ -7,6 +7,7 @@ import 'package:meal_app/features/auth/providers/auth_provider.dart';
 import 'package:meal_app/features/subscription/ui/screens/subscription_management_screen.dart';
 import 'package:meal_app/features/subscription/ui/screens/meal_skip_screen.dart';
 import 'package:meal_app/features/subscription/ui/screens/cart_screen.dart';
+import 'package:meal_app/features/subscription/ui/screens/meal_size_upgrade_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -63,6 +64,14 @@ class SettingsScreen extends StatelessWidget {
             'Meal Skips',
             isDark,
             () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const MealSkipScreen())),
+          ),
+          const SizedBox(height: 8),
+          _buildNavigationTile(
+            context,
+            CupertinoIcons.arrow_up_circle_fill,
+            'Upgrade your meal size',
+            isDark,
+            () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const MealSizeUpgradeScreen())),
           ),
           const SizedBox(height: 8),
           _buildNavigationTile(
@@ -280,6 +289,15 @@ class SettingsScreen extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 14,
                   color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'When one of your active plans reaches four meals left, the app shows a gentle in-app reminder (once per day) so you can renew in time.',
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.35,
+                  color: isDark ? Colors.white70 : AppTheme.textSecondaryLight,
                 ),
               ),
             ],

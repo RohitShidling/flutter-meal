@@ -3,6 +3,7 @@ import 'package:meal_app/core/network/meal_repository.dart';
 import 'package:meal_app/core/storage/cache_store.dart';
 import 'package:meal_app/core/storage/local_cache.dart';
 import 'package:meal_app/core/utils/error_handler.dart';
+import 'package:meal_app/core/utils/subscription_status_normalize.dart';
 
 /// Centralized provider for meals, skips, subscription alerts,
 /// and remaining-meal status tracking.
@@ -73,8 +74,8 @@ class MealProvider with ChangeNotifier {
       }
       final subStatusCache = await CacheStore.getJson('subscription_status');
       if (subStatusCache is Map<String, dynamic>) {
-        _subscriptionStatusData = subStatusCache;
-        _syncSubscribedFromStatusMap(subStatusCache);
+        _subscriptionStatusData = SubscriptionStatusNormalizer.normalize(subStatusCache);
+        _syncSubscribedFromStatusMap(_subscriptionStatusData!);
       }
       _hasInitiallyLoaded = true;
       notifyListeners();
@@ -280,11 +281,9 @@ class MealProvider with ChangeNotifier {
       notifyListeners();
     }
     try {
-      _subscriptionStatusData = await _repository.fetchSubscriptionStatus();
-      final statusMap = _subscriptionStatusData;
-      if (statusMap is Map<String, dynamic>) {
-        _syncSubscribedFromStatusMap(statusMap);
-      }
+      final raw = await _repository.fetchSubscriptionStatus();
+      _subscriptionStatusData = SubscriptionStatusNormalizer.normalize(raw);
+      _syncSubscribedFromStatusMap(_subscriptionStatusData!);
       await CacheStore.setJson('subscription_status', _subscriptionStatusData, ttl: const Duration(hours: 6));
     } catch (e) {
       _error = ErrorHandler.getErrorMessage(e);

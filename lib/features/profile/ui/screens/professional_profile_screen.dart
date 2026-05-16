@@ -10,6 +10,13 @@ import 'package:meal_app/core/models/lookup_models.dart';
 import 'package:meal_app/core/utils/error_handler.dart';
 import 'package:meal_app/core/utils/time_utils.dart';
 import 'package:meal_app/core/utils/validators.dart';
+import 'package:meal_app/core/providers/meal_provider.dart';
+import 'package:meal_app/core/utils/meal_size_recommendations.dart';
+import 'package:meal_app/core/widgets/entity_subscription_badge.dart';
+import 'package:meal_app/core/widgets/entity_plan_actions_row.dart';
+import 'package:meal_app/core/providers/cart_provider.dart';
+import 'package:meal_app/core/widgets/cart_overlay_body.dart';
+import 'package:meal_app/core/services/app_route_tracker.dart';
 
 
 class ProfessionalProfileScreen extends StatefulWidget {
@@ -42,6 +49,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
     _nameController = TextEditingController();
     _timeController = TextEditingController(text: '13:30');
 
+    AppRouteTracker.instance.setCurrent(AppScreen.professionalProfile);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final lookup = context.read<LookupProvider>();
       final profileProvider = context.read<ProfileProvider>();
@@ -50,7 +58,11 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
       await lookup.fetchInitialData();
       // Also fetch corporate locations
       await lookup.fetchCorporateLocations();
-      await profileProvider.fetchProfiles(silent: true);
+      await profileProvider.fetchProfiles(force: true);
+      if (mounted) {
+        context.read<MealProvider>().fetchSubscriptionStatus(silent: true);
+        context.read<CartProvider>().fetchCart(silent: true);
+      }
 
       final profile = profileProvider.professionalProfile;
       if (profile != null && mounted) {
@@ -81,9 +93,11 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
           _isInitializing = false;
         });
       } else if (mounted) {
+        final band = MealSizeRecommendations.recommendedBandForTeacherOrProfessional();
         setState(() {
           _isEditing = true;
           _isInitializing = false;
+          _selectedMealSize = MealSizeRecommendations.pickForBand(lookup.mealSizes, band);
         });
       }
     });
@@ -91,6 +105,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
 
   @override
   void dispose() {
+    AppRouteTracker.instance.clearIfCurrent(AppScreen.professionalProfile);
     _nameController.dispose();
     _timeController.dispose();
     super.dispose();
@@ -162,9 +177,17 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
 
     if (success) {
       ErrorHandler.showSuccess(context, 'Professional profile saved successfully');
-      setState(() => _isEditing = false);
-      // Ensure we have latest data
-      profileProvider.fetchProfiles(force: true);
+      await profileProvider.fetchProfiles(force: true);
+      if (!mounted) return;
+      final saved = profileProvider.professionalProfile;
+      setState(() {
+        _isEditing = false;
+        if (saved != null) {
+          _nameController.text = saved.name;
+          _timeController.text = saved.lunchTime;
+          _selectedMealSize = context.read<LookupProvider>().mealSizes.where((m) => m.id == saved.mealSizeId).firstOrNull;
+        }
+      });
     } else {
       ErrorHandler.showError(context, profileProvider.error);
     }
@@ -188,11 +211,12 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: (profileProvider.isLoading || _isInitializing)
-        ? const Center(child: CircularProgressIndicator())
-        : (profile != null && !_isEditing)
-          ? _buildProfileCard(context, profile)
-          : SingleChildScrollView(
+      body: CartOverlayBody(
+        child: (profileProvider.isLoading || _isInitializing)
+              ? const Center(child: CircularProgressIndicator())
+              : (profile != null && !_isEditing)
+                  ? _buildProfileCard(context, profile)
+                  : SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: Form(
               key: _formKey,
@@ -313,7 +337,11 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                   SearchableDropdown<MealSizeModel>(
                     label: 'Meal Size',
                     items: lookup.mealSizes,
-                    itemLabel: (m) => m.displayName,
+                    itemLabel: (m) => MealSizeRecommendations.mealSizeLabel(
+                      m,
+                      showRecommended: true,
+                      band: MealSizeRecommendations.recommendedBandForTeacherOrProfessional(),
+                    ),
                     value: _selectedMealSize,
                     isLoading: lookup.isLoading,
                     listenable: lookup,
@@ -328,6 +356,14 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                       setState(() => _selectedMealSize = v);
                     },
                   ),
+                  if (_selectedMealSize != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        'Recommended: ${MealSizeRecommendations.mealSizeLabel(_selectedMealSize!, showRecommended: false)} pack for professionals',
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                      ),
+                    ),
                   const SizedBox(height: 20),
                   // 6. Lunch Time
                   InkWell(
@@ -371,6 +407,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
               ),
             ),
           ),
+        ),
     );
   }
 
@@ -378,6 +415,8 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final lookup = context.read<LookupProvider>();
     final mealSizeName = lookup.mealSizes.where((m) => m.id == profile.mealSizeId).firstOrNull?.displayName ?? 'Default';
+    final statusMap = context.watch<MealProvider>().subscriptionStatusData;
+    final profileId = profile.id ?? '';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -429,13 +468,28 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                profile.name,
-                                style: TextStyle(
-                                  fontSize: 20, 
-                                  fontWeight: FontWeight.w900,
-                                  color: isDark ? Colors.white : AppTheme.textPrimaryLight,
-                                ),
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      profile.name,
+                                      style: TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w900,
+                                        color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  if (profileId.isNotEmpty) ...[
+                                    const SizedBox(width: 6),
+                                    EntitySubscriptionBadge(
+                                      statusMap: statusMap,
+                                      entityType: 'professional',
+                                      entityId: profileId,
+                                    ),
+                                  ],
+                                ],
                               ),
                               Text(
                                 'Professional Profile',
@@ -467,6 +521,15 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                         _buildInfoRow(CupertinoIcons.clock_fill, 'Lunch Time: ${TimeUtils.formatToDisplay(profile.lunchTime)}', isDark),
                         const SizedBox(height: 14),
                         _buildInfoRow(CupertinoIcons.square_grid_2x2_fill, 'Meal Size: $mealSizeName', isDark),
+                        if (profileId.isNotEmpty) ...[
+                          const SizedBox(height: 20),
+                          EntityPlanActionsRow(
+                            entityType: 'professional',
+                            entityId: profileId,
+                            entityName: profile.name,
+                            mealSizeId: profile.mealSizeId,
+                          ),
+                        ],
                       ],
                     ),
                   ),

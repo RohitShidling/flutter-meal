@@ -22,6 +22,8 @@ class _OfflineBannerState extends State<OfflineBanner>
   late final AnimationController _controller;
   late final Animation<double> _fade;
   late final Animation<Offset> _slide;
+  bool _dismissed = false;
+  bool _wasOffline = false;
 
   @override
   void initState() {
@@ -76,16 +78,27 @@ class _OfflineBannerState extends State<OfflineBanner>
 
   void _onNetworkChange() {
     if (!mounted) return;
-    final isOnline = NetworkStatusService.instance.isOnline;
-    _autoDismissTimer?.cancel();
+    final isOffline = !NetworkStatusService.instance.isOnline;
 
-    if (!isOnline) {
-      // Went offline — show offline banner
-      _show(_BannerMode.offline);
-    } else {
-      // Came back online — show "Back Online!" for 4.5 seconds, then auto-hide
-      _show(_BannerMode.backOnline);
-      _autoDismissTimer = Timer(const Duration(milliseconds: 4500), _hide);
+    if (isOffline && !_wasOffline) {
+      _autoDismissTimer?.cancel();
+      setState(() {
+        _dismissed = false;
+        _wasOffline = true;
+      });
+      _controller.forward();
+    } else if (!isOffline && _wasOffline) {
+      _wasOffline = false;
+      _autoDismissTimer?.cancel();
+      // Smooth dismiss as soon as we are reachable again (no lingering “offline” copy).
+      if (!_dismissed) {
+        _controller.reverse();
+      }
+      // After a short beat, clear manual dismiss so the next offline spell shows again.
+      _autoDismissTimer = Timer(const Duration(milliseconds: 2400), () {
+        if (!mounted) return;
+        setState(() => _dismissed = false);
+      });
     }
   }
 
@@ -95,6 +108,9 @@ class _OfflineBannerState extends State<OfflineBanner>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final net = NetworkStatusService.instance;
+    final isOffline = !net.isOnline;
+    final visible = isOffline && !_dismissed;
 
     if (_mode == _BannerMode.hidden && !_controller.isAnimating) {
       return widget.child;
@@ -164,12 +180,14 @@ class _OfflineBannerState extends State<OfflineBanner>
                                 color: iconBg,
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: Icon(icon, color: iconColor, size: 18),
+                              child: Icon(icon, color: iconColor, size: 20),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
-                                message,
+                                net.hasDeviceConnectivity
+                                    ? 'Cannot reach the server. We will reconnect automatically.'
+                                    : 'No internet connection. Check your Wi‑Fi or mobile data.',
                                 style: TextStyle(
                                   color: textColor.withValues(alpha: 0.94),
                                   fontWeight: FontWeight.w600,
@@ -184,8 +202,7 @@ class _OfflineBannerState extends State<OfflineBanner>
                             IconButton(
                               visualDensity: VisualDensity.compact,
                               padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(
-                                  minWidth: 32, minHeight: 32),
+                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                               onPressed: _userDismiss,
                               icon: Icon(
                                 CupertinoIcons.xmark_circle_fill,

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:meal_app/core/services/network_status_service.dart';
 import 'package:meal_app/core/utils/error_handler.dart';
 import 'package:meal_app/features/auth/data/repositories/auth_repository.dart';
+import 'package:meal_app/core/services/offline_cache_bootstrap.dart';
 
 enum AuthState { initial, loading, authenticated, unauthenticated, error }
 enum AuthMode { login, register }
@@ -207,6 +208,7 @@ class AuthProvider with ChangeNotifier {
       // Still clear local session even if server is unreachable.
     }
     
+    OfflineCacheBootstrap.resetSession();
     _state = AuthState.unauthenticated;
     _phoneNumber = '';
     _username = '';

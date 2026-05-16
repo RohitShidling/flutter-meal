@@ -198,7 +198,8 @@ class CartProvider with ChangeNotifier {
   Future<void> fetchCart({bool force = false, bool silent = false}) async {
     final isFresh = _lastFetchedAt != null &&
         DateTime.now().difference(_lastFetchedAt!).inSeconds < 90;
-    if (!force && _items.isNotEmpty && isFresh) return;
+    // Always reconcile with server when the cart may have changed (checkout, reconnect).
+    if (!force && silent && _items.isNotEmpty && isFresh) return;
     if (_inflightFetch != null) return _inflightFetch;
 
     final request = _doFetchCart(silent: silent);
@@ -300,7 +301,7 @@ class CartProvider with ChangeNotifier {
     String? mealSizeName,
     String? mealTiming,
   }) async {
-    if (!NetworkStatusService.instance.isOnline) {
+    if (!NetworkStatusService.instance.canAttemptApi) {
       final safeStart = MealDate.isValidFutureStartDate(startDate)
           ? startDate
           : MealDate.tomorrowYmd();
@@ -384,7 +385,7 @@ class CartProvider with ChangeNotifier {
   // ─── Update cart line start date ────────────────────────────────────────────
 
   Future<bool> updateItemStartDate(int cartItemId, String startDate) async {
-    if (!NetworkStatusService.instance.isOnline) {
+    if (!NetworkStatusService.instance.canAttemptApi) {
       final safeStart = MealDate.isValidFutureStartDate(startDate)
           ? startDate
           : MealDate.tomorrowYmd();
@@ -444,7 +445,7 @@ class CartProvider with ChangeNotifier {
   // ─── Remove item from server cart ───────────────────────────────────────────
 
   Future<bool> removeItem(int cartItemId) async {
-    if (!NetworkStatusService.instance.isOnline) {
+    if (!NetworkStatusService.instance.canAttemptApi) {
       await OfflineQueue.enqueue(
         method: 'DELETE',
         path: ApiEndpoints.removeCartItem(cartItemId),
@@ -462,19 +463,33 @@ class CartProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      if (cartItemId <= 0) {
-        _items.removeWhere((i) => i.id == cartItemId);
-        _totalAmount = _items.fold(0, (sum, i) => sum + i.unitPrice);
-        await _persistLocalCart();
-        _isLoading = false;
-        notifyListeners();
-        return true;
+      var idToRemove = cartItemId;
+      if (idToRemove <= 0) {
+        await fetchCart(force: true, silent: true);
+        final match = _items.where((i) => i.id == cartItemId).firstOrNull;
+        if (match != null && match.id > 0) {
+          idToRemove = match.id;
+        } else if (_items.length == 1 && _items.first.id > 0) {
+          idToRemove = _items.first.id;
+        } else {
+          _error = 'Could not remove item — refresh the cart and try again.';
+          _isLoading = false;
+          notifyListeners();
+          return false;
+        }
       }
-      await _repository.removeCartItem(cartItemId);
-      // Refresh cart from server
+      await _repository.removeCartItem(idToRemove);
       await fetchCart(force: true, silent: true);
+      _isLoading = false;
+      notifyListeners();
       return true;
     } catch (e) {
+      if (_isLikelyNetworkError(e) && NetworkStatusService.instance.canAttemptApi) {
+        await OfflineQueue.enqueue(
+          method: 'DELETE',
+          path: ApiEndpoints.removeCartItem(cartItemId > 0 ? cartItemId : 0),
+        );
+      }
       _error = _extractErrorMessage(e);
       _isLoading = false;
       notifyListeners();
@@ -485,7 +500,7 @@ class CartProvider with ChangeNotifier {
   // ─── Clear entire cart on server ────────────────────────────────────────────
 
   Future<bool> clearCart() async {
-    if (!NetworkStatusService.instance.isOnline) {
+    if (!NetworkStatusService.instance.canAttemptApi) {
       await OfflineQueue.enqueue(method: 'DELETE', path: ApiEndpoints.clearCart);
       _bumpLocalCartMutation();
       _items = [];
@@ -562,10 +577,23 @@ class CartProvider with ChangeNotifier {
     return _items.any((i) => i.entityId == entityId);
   }
 
+  bool hasExactCartItem({
+    required String entityType,
+    required String entityId,
+    required String subscriptionId,
+    required bool includeSaturday,
+  }) {
+    return _items.any((i) =>
+        i.entityType == entityType &&
+        i.entityId == entityId &&
+        i.subscriptionId == subscriptionId &&
+        i.includeSaturday == includeSaturday);
+  }
+
   // ─── Cart Checkout via PhonePe SDK ──────────────────────────────────────────
 
   Future<Map<String, dynamic>?> checkoutAll({bool isSandbox = true}) async {
-    if (!NetworkStatusService.instance.isOnline) {
+    if (!NetworkStatusService.instance.canAttemptApi) {
       _error = 'No internet connection. Connect to the internet to complete payment.';
       notifyListeners();
       return null;

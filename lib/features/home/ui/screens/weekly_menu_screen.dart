@@ -7,6 +7,7 @@ import 'package:meal_app/core/theme/app_theme.dart';
 import 'package:meal_app/features/home/providers/menu_provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:meal_app/core/widgets/image_preview_dialog.dart';
+import 'package:meal_app/core/services/app_route_tracker.dart';
 
 class WeeklyMenuScreen extends StatefulWidget {
   const WeeklyMenuScreen({super.key});
@@ -16,13 +17,34 @@ class WeeklyMenuScreen extends StatefulWidget {
 }
 
 class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
+  List<String> _nutritionPointsFrom(dynamic menu) {
+    final raw = menu is Map ? menu['nutrition_points'] : null;
+    if (raw is! List) return [];
+    return raw
+        .map((e) {
+          if (e is Map) {
+            final text = e['nutrition_text'] ?? e['text'] ?? e['point'] ?? e['label'];
+            return text?.toString() ?? '';
+          }
+          return e.toString();
+        })
+        .where((e) => e.trim().isNotEmpty)
+        .toList();
+  }
+
   @override
   void initState() {
     super.initState();
-    // Fetch silently so cached data shows immediately; spinner only on empty
+    AppRouteTracker.instance.setCurrent(AppScreen.weeklyMenu);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<MenuProvider>().fetchWeeklyMenuSilent();
     });
+  }
+
+  @override
+  void dispose() {
+    AppRouteTracker.instance.clearIfCurrent(AppScreen.weeklyMenu);
+    super.dispose();
   }
 
   @override
@@ -38,56 +60,102 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: menuProvider.isLoading && menuProvider.weeklyMenu.isEmpty
-          ? const Center(child: CupertinoActivityIndicator())
-          : menuProvider.error != null && menuProvider.weeklyMenu.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(CupertinoIcons.exclamationmark_triangle, size: 48, color: Colors.orange.withValues(alpha: 0.6)),
-                      const SizedBox(height: 16),
-                      Text('Could not load menu', style: TextStyle(fontWeight: FontWeight.w700, color: isDark ? Colors.white : AppTheme.textPrimaryLight)),
-                      const SizedBox(height: 8),
-                      TextButton(
-                        onPressed: () => context.read<MenuProvider>().fetchWeeklyMenu(),
-                        child: const Text('Retry'),
-                      ),
-                    ],
+      body: RefreshIndicator(
+        onRefresh: () => context.read<MenuProvider>().fetchWeeklyMenu(),
+        child: _buildBody(context, menuProvider, isDark),
+      ),
+    );
+  }
+
+  Widget _buildBody(BuildContext context, MenuProvider menuProvider, bool isDark) {
+    if (menuProvider.isLoading && menuProvider.weeklyMenu.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: const [
+          SizedBox(height: 200),
+          Center(child: CupertinoActivityIndicator()),
+        ],
+      );
+    }
+
+    if (menuProvider.error != null && menuProvider.weeklyMenu.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(
+            height: MediaQuery.sizeOf(context).height * 0.45,
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(CupertinoIcons.exclamationmark_triangle, size: 48, color: Colors.orange.withValues(alpha: 0.6)),
+                  const SizedBox(height: 16),
+                  Text('Could not load menu', style: TextStyle(fontWeight: FontWeight.w700, color: isDark ? Colors.white : AppTheme.textPrimaryLight)),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () => context.read<MenuProvider>().fetchWeeklyMenu(),
+                    child: const Text('Retry'),
                   ),
-                )
-              : !menuProvider.isSubscribed
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(CupertinoIcons.lock_fill, size: 48, color: isDark ? Colors.white24 : Colors.grey.withValues(alpha: 0.4)),
-                          const SizedBox(height: 16),
-                          Text('Subscription Required', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: isDark ? Colors.white : AppTheme.textPrimaryLight)),
-                          const SizedBox(height: 8),
-                          Text('Subscribe to view the weekly meal plan.', style: TextStyle(color: isDark ? Colors.white54 : AppTheme.textSecondaryLight)),
-                        ],
-                      ),
-                    )
-                  : menuProvider.weeklyMenu.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(CupertinoIcons.calendar, size: 48, color: isDark ? Colors.white24 : Colors.grey.withValues(alpha: 0.4)),
-                              const SizedBox(height: 16),
-                              Text('No weekly menu available', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: isDark ? Colors.white : AppTheme.textPrimaryLight)),
-                            ],
-                          ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          itemCount: menuProvider.weeklyMenu.length,
-                          itemBuilder: (context, index) {
-                            final menu = menuProvider.weeklyMenu[index];
-                            return _buildWeeklyMealCard(context, menu, index, isDark);
-                          },
-                        ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (!menuProvider.isSubscribed) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(
+            height: MediaQuery.sizeOf(context).height * 0.45,
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(CupertinoIcons.lock_fill, size: 48, color: isDark ? Colors.white24 : Colors.grey.withValues(alpha: 0.4)),
+                  const SizedBox(height: 16),
+                  Text('Subscription Required', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: isDark ? Colors.white : AppTheme.textPrimaryLight)),
+                  const SizedBox(height: 8),
+                  Text('Subscribe to view the weekly meal plan.', style: TextStyle(color: isDark ? Colors.white54 : AppTheme.textSecondaryLight)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (menuProvider.weeklyMenu.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(
+            height: MediaQuery.sizeOf(context).height * 0.45,
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(CupertinoIcons.calendar, size: 48, color: isDark ? Colors.white24 : Colors.grey.withValues(alpha: 0.4)),
+                  const SizedBox(height: 16),
+                  Text('No weekly menu available', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: isDark ? Colors.white : AppTheme.textPrimaryLight)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      itemCount: menuProvider.weeklyMenu.length,
+      itemBuilder: (context, index) {
+        final menu = menuProvider.weeklyMenu[index];
+        return _buildWeeklyMealCard(context, menu, index, isDark);
+      },
     );
   }
 
@@ -95,11 +163,7 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
     final imageUrl = menu['image_url']?.toString();
     final items = menu['items']?.toString() ?? menu['item_name']?.toString() ?? 'Meal';
     final menuDateRaw = menu['menu_date']?.toString() ?? '';
-    final nutritionPoints = (menu['nutrition_points'] as List?)
-            ?.map((e) => e.toString())
-            .where((e) => e.trim().isNotEmpty)
-            .toList() ??
-        [];
+    final nutritionPoints = _nutritionPointsFrom(menu);
     String formattedDate = menuDateRaw;
 
     // Parse date to get day name

@@ -28,14 +28,18 @@ class TeacherProfileModel {
         json['entity_id'];
     return TeacherProfileModel(
       id: parsedId?.toString(),
-      name: json['name'],
-      schoolCollegeName: json['school_college_name'],
-      city: json['city'],
-      state: json['state'],
-      location: json['location'],
-      status: json['status'] ?? 'active',
-      mealSizeId: json['meal_size_id'],
-      mealTime: json['meal_time'],
+      name: json['name']?.toString() ?? '',
+      schoolCollegeName: json['school_college_name']?.toString() ??
+          json['schoolCollegeName']?.toString() ??
+          '',
+      city: json['city']?.toString() ?? '',
+      state: json['state']?.toString() ?? '',
+      location: json['location']?.toString() ?? '',
+      status: json['status']?.toString() ?? 'active',
+      mealSizeId: json['meal_size_id'] is int
+          ? json['meal_size_id'] as int
+          : int.tryParse('${json['meal_size_id'] ?? json['mealSizeId'] ?? ''}'),
+      mealTime: json['meal_time']?.toString() ?? json['mealTiming']?.toString(),
     );
   }
 
