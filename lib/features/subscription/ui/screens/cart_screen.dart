@@ -14,6 +14,7 @@ import 'package:meal_app/core/network/api_endpoints.dart';
 import 'package:meal_app/core/utils/error_handler.dart';
 import 'package:meal_app/features/subscription/ui/screens/payment_status_screen.dart';
 import 'package:meal_app/core/services/network_status_service.dart';
+import 'package:meal_app/core/services/app_route_tracker.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -24,8 +25,15 @@ class CartScreen extends StatefulWidget {
 
 class _CartScreenState extends State<CartScreen> {
   @override
+  void dispose() {
+    AppRouteTracker.instance.clearIfCurrent(AppScreen.cart);
+    super.dispose();
+  }
+
+  @override
   void initState() {
     super.initState();
+    AppRouteTracker.instance.setCurrent(AppScreen.cart);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await NetworkStatusService.instance.refreshNow();
       if (!mounted) return;

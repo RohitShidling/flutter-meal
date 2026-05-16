@@ -7,6 +7,7 @@ import 'package:meal_app/core/theme/app_theme.dart';
 import 'package:meal_app/features/home/providers/menu_provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:meal_app/core/widgets/image_preview_dialog.dart';
+import 'package:meal_app/core/services/app_route_tracker.dart';
 
 class WeeklyMenuScreen extends StatefulWidget {
   const WeeklyMenuScreen({super.key});
@@ -34,9 +35,16 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
   @override
   void initState() {
     super.initState();
+    AppRouteTracker.instance.setCurrent(AppScreen.weeklyMenu);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<MenuProvider>().fetchWeeklyMenu();
     });
+  }
+
+  @override
+  void dispose() {
+    AppRouteTracker.instance.clearIfCurrent(AppScreen.weeklyMenu);
+    super.dispose();
   }
 
   @override

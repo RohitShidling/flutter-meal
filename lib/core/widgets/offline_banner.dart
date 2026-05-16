@@ -24,7 +24,7 @@ class _OfflineBannerState extends State<OfflineBanner> with SingleTickerProvider
   @override
   void initState() {
     super.initState();
-    _wasOffline = !NetworkStatusService.instance.hasDeviceConnectivity;
+    _wasOffline = !NetworkStatusService.instance.isOnline;
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 380),
@@ -45,7 +45,7 @@ class _OfflineBannerState extends State<OfflineBanner> with SingleTickerProvider
     NetworkStatusService.instance.addListener(_onNetworkChange);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (!NetworkStatusService.instance.hasDeviceConnectivity && !_dismissed) {
+      if (!NetworkStatusService.instance.isOnline && !_dismissed) {
         _controller.forward();
       }
     });
@@ -61,7 +61,7 @@ class _OfflineBannerState extends State<OfflineBanner> with SingleTickerProvider
 
   void _onNetworkChange() {
     if (!mounted) return;
-    final isOffline = !NetworkStatusService.instance.hasDeviceConnectivity;
+    final isOffline = !NetworkStatusService.instance.isOnline;
 
     if (isOffline && !_wasOffline) {
       _autoDismissTimer?.cancel();
@@ -97,7 +97,8 @@ class _OfflineBannerState extends State<OfflineBanner> with SingleTickerProvider
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    final isOffline = !NetworkStatusService.instance.hasDeviceConnectivity;
+    final net = NetworkStatusService.instance;
+    final isOffline = !net.isOnline;
     final visible = isOffline && !_dismissed;
 
     final bannerColor = Color.alphaBlend(
@@ -159,7 +160,9 @@ class _OfflineBannerState extends State<OfflineBanner> with SingleTickerProvider
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
-                                  'No internet connection. Check your Wi‑Fi or mobile data.',
+                                  net.hasDeviceConnectivity
+                                      ? 'Cannot reach the server. We will reconnect automatically.'
+                                      : 'No internet connection. Check your Wi‑Fi or mobile data.',
                                   style: TextStyle(
                                     color: textColor.withValues(alpha: 0.94),
                                     fontWeight: FontWeight.w600,

@@ -200,7 +200,8 @@ class CartProvider with ChangeNotifier {
   Future<void> fetchCart({bool force = false, bool silent = false}) async {
     final isFresh = _lastFetchedAt != null &&
         DateTime.now().difference(_lastFetchedAt!).inSeconds < 90;
-    if (!force && _items.isNotEmpty && isFresh) return;
+    // Always reconcile with server when the cart may have changed (checkout, reconnect).
+    if (!force && silent && _items.isNotEmpty && isFresh) return;
     if (_inflightFetch != null) return _inflightFetch;
 
     final request = _doFetchCart(silent: silent);

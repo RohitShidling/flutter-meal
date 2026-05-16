@@ -271,6 +271,15 @@ class PaymentProvider with ChangeNotifier {
     }
   }
 
+  Future<void> forceSyncPayment(String txnId) async {
+    try {
+      await _repository.forceSync(txnId);
+    } catch (e) {
+      _error = ErrorHandler.getErrorMessage(e);
+      rethrow;
+    }
+  }
+
   void resetStatus() {
     _paymentStatus = PaymentStatus.none;
     _error = null;

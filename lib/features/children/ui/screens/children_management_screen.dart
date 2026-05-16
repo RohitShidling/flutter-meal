@@ -16,6 +16,7 @@ import 'package:meal_app/core/widgets/entity_plan_actions_row.dart';
 import 'package:meal_app/core/utils/meal_size_recommendations.dart';
 import 'package:meal_app/core/providers/cart_provider.dart';
 import 'package:meal_app/core/widgets/cart_overlay_body.dart';
+import 'package:meal_app/core/services/app_route_tracker.dart';
 
 class ChildrenManagementScreen extends StatefulWidget {
   const ChildrenManagementScreen({super.key});
@@ -28,12 +29,19 @@ class _ChildrenManagementScreenState extends State<ChildrenManagementScreen> {
   @override
   void initState() {
     super.initState();
+    AppRouteTracker.instance.setCurrent(AppScreen.children);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<LookupProvider>().fetchInitialData();
       context.read<ChildrenProvider>().fetchChildren();
       context.read<MealProvider>().fetchSubscriptionStatus(silent: true);
       context.read<CartProvider>().fetchCart(silent: true);
     });
+  }
+
+  @override
+  void dispose() {
+    AppRouteTracker.instance.clearIfCurrent(AppScreen.children);
+    super.dispose();
   }
 
   @override

@@ -16,6 +16,7 @@ import 'package:meal_app/core/widgets/entity_subscription_badge.dart';
 import 'package:meal_app/core/widgets/entity_plan_actions_row.dart';
 import 'package:meal_app/core/providers/cart_provider.dart';
 import 'package:meal_app/core/widgets/cart_overlay_body.dart';
+import 'package:meal_app/core/services/app_route_tracker.dart';
 
 
 class ProfessionalProfileScreen extends StatefulWidget {
@@ -48,6 +49,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
     _nameController = TextEditingController();
     _timeController = TextEditingController(text: '13:30');
 
+    AppRouteTracker.instance.setCurrent(AppScreen.professionalProfile);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final lookup = context.read<LookupProvider>();
       final profileProvider = context.read<ProfileProvider>();
@@ -91,9 +93,11 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
           _isInitializing = false;
         });
       } else if (mounted) {
+        final band = MealSizeRecommendations.recommendedBandForTeacherOrProfessional();
         setState(() {
           _isEditing = true;
           _isInitializing = false;
+          _selectedMealSize = MealSizeRecommendations.pickForBand(lookup.mealSizes, band);
         });
       }
     });
@@ -101,6 +105,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
 
   @override
   void dispose() {
+    AppRouteTracker.instance.clearIfCurrent(AppScreen.professionalProfile);
     _nameController.dispose();
     _timeController.dispose();
     super.dispose();
@@ -413,6 +418,14 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                       setState(() => _selectedMealSize = v);
                     },
                   ),
+                  if (_selectedMealSize != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        'Recommended: ${MealSizeRecommendations.mealSizeLabel(_selectedMealSize!, showRecommended: false)} pack for professionals',
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                      ),
+                    ),
                   const SizedBox(height: 20),
                   // 6. Lunch Time
                   InkWell(

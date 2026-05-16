@@ -97,7 +97,17 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
 
     final orderType = (_statusData?['orderType']?.toString() ?? widget.orderType ?? '').toLowerCase();
     final isCartOrder = orderType == 'cart';
-    final isMealSizeUpgrade = orderType == 'meal_size_upgrade';
+
+    final orderStatus = (_statusData?['orderStatus']?.toString() ?? '').toLowerCase();
+    if (orderStatus == 'pending' && widget.txnId.isNotEmpty) {
+      try {
+        await payment.forceSyncPayment(widget.txnId);
+        final synced = await payment.checkStatus(widget.txnId);
+        if (synced != null && mounted) {
+          setState(() => _statusData = synced);
+        }
+      } catch (_) {/* best-effort */}
+    }
 
     if (isCartOrder) {
       // Backend marks the cart as `checked_out` during finalization, so the
@@ -120,14 +130,13 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
         meal.fetchSubscriptionStatus(),
         meal.fetchMealStatus(),
         meal.fetchAlerts(),
+        meal.fetchTodayMenu(),
         payment.fetchActiveSubscriptions(),
         payment.fetchPaymentHistory(),
         subscriptions.fetchSubscriptions(force: true),
+        context.read<ProfileProvider>().fetchProfiles(force: true),
+        context.read<ChildrenProvider>().fetchChildren(),
       ];
-      if (isMealSizeUpgrade) {
-        futures.add(context.read<ChildrenProvider>().fetchChildren());
-        futures.add(context.read<ProfileProvider>().fetchProfiles(force: true));
-      }
       await Future.wait(futures);
     } catch (_) {/* ignore — these are best-effort refreshes */}
   }

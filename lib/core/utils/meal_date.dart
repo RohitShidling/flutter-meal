@@ -44,10 +44,24 @@ class MealDate {
     return s.substring(0, 10);
   }
 
-  /// Tomorrow at local midnight — the earliest valid meal start date.
+  /// Tomorrow in session calendar (Asia/Kolkata) — matches backend eligibility.
   static DateTime firstSelectableStartDate() {
-    final now = DateTime.now().add(const Duration(days: 1));
-    return DateTime(now.year, now.month, now.day);
+    final today = parseYmdLocal(sessionTodayYmd()) ?? DateTime.now();
+    final tomorrow = today.add(const Duration(days: 1));
+    return DateTime(tomorrow.year, tomorrow.month, tomorrow.day);
+  }
+
+  /// Parse `yyyy-MM-dd` as a timezone-neutral calendar date (no UTC shift).
+  static DateTime? parseYmdLocal(String? iso) {
+    final ymd = _toYmd(iso);
+    if (ymd == null) return null;
+    final parts = ymd.split('-');
+    if (parts.length != 3) return null;
+    final y = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    final d = int.tryParse(parts[2]);
+    if (y == null || m == null || d == null) return null;
+    return DateTime(y, m, d);
   }
 
   /// Default duration window the user can pick from (60 days from tomorrow).
@@ -69,27 +83,25 @@ class MealDate {
   /// Returns false for null / unparseable / today / past dates.
   static bool isValidFutureStartDate(String? iso) {
     if (iso == null || iso.trim().isEmpty) return false;
-    final parsed = DateTime.tryParse(_toYmd(iso) ?? iso);
+    final parsed = parseYmdLocal(iso);
     if (parsed == null) return false;
-    final p = DateTime(parsed.year, parsed.month, parsed.day);
-    return !p.isBefore(firstSelectableStartDate());
+    return !parsed.isBefore(firstSelectableStartDate());
   }
 
   /// Parses [iso] (yyyy-MM-dd) into a normalized DateTime,
   /// clamping to tomorrow if missing/past.
   static DateTime parseOrTomorrow(String? iso) {
     if (iso == null || iso.trim().isEmpty) return firstSelectableStartDate();
-    final parsed = DateTime.tryParse(_toYmd(iso) ?? iso);
+    final parsed = parseYmdLocal(iso);
     if (parsed == null) return firstSelectableStartDate();
-    final p = DateTime(parsed.year, parsed.month, parsed.day);
-    if (p.isBefore(firstSelectableStartDate())) return firstSelectableStartDate();
-    return p;
+    if (parsed.isBefore(firstSelectableStartDate())) return firstSelectableStartDate();
+    return parsed;
   }
 
   /// Display format: `dd MMM yyyy` (e.g. 08 May 2026) without intl dependency.
   static String formatDisplay(String? iso) {
     if (iso == null || iso.trim().isEmpty) return '—';
-    final parsed = DateTime.tryParse(_toYmd(iso) ?? iso);
+    final parsed = parseYmdLocal(iso);
     if (parsed == null) return iso;
     const months = [
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',

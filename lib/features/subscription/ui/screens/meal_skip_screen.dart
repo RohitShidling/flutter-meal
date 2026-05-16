@@ -9,6 +9,7 @@ import 'package:meal_app/core/widgets/apple_card.dart';
 import 'package:meal_app/core/utils/error_handler.dart';
 import 'package:meal_app/features/children/providers/children_provider.dart';
 import 'package:meal_app/features/profile/providers/profile_provider.dart';
+import 'package:meal_app/core/services/app_route_tracker.dart';
 
 class MealSkipScreen extends StatefulWidget {
   const MealSkipScreen({super.key});
@@ -19,8 +20,15 @@ class MealSkipScreen extends StatefulWidget {
 
 class _MealSkipScreenState extends State<MealSkipScreen> {
   @override
+  void dispose() {
+    AppRouteTracker.instance.clearIfCurrent(AppScreen.mealSkip);
+    super.dispose();
+  }
+
+  @override
   void initState() {
     super.initState();
+    AppRouteTracker.instance.setCurrent(AppScreen.mealSkip);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<MealProvider>().fetchSkips();
       context.read<MealProvider>().fetchMealStatus();

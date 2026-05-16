@@ -1,11 +1,77 @@
 import 'package:flutter/material.dart';
 import 'package:meal_app/core/models/lookup_models.dart';
 import 'package:meal_app/core/network/lookup_repository.dart';
+import 'package:meal_app/core/storage/cache_store.dart';
 
 class LookupProvider with ChangeNotifier {
   final LookupRepository _repository;
+  static const _cacheKey = 'cache_lookup_initial_v1';
 
-  LookupProvider(this._repository);
+  LookupProvider(this._repository) {
+    _loadFromCache();
+  }
+
+  Future<void> _loadFromCache() async {
+    try {
+      final raw = await CacheStore.getJson(_cacheKey);
+      if (raw is! Map<String, dynamic>) return;
+      final schools = raw['schools'];
+      if (schools is List) {
+        _schools = schools.map((e) => SchoolModel.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+      }
+      final standards = raw['standards'];
+      if (standards is List) {
+        _standards = standards.map((e) => StandardModel.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+      }
+      final mealSizes = raw['mealSizes'];
+      if (mealSizes is List) {
+        _mealSizes = mealSizes.map((e) => MealSizeModel.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+      }
+      final corps = raw['corporateLocations'];
+      if (corps is List) {
+        _corporateLocations = corps.map((e) => CorporateLocationModel.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+      }
+      final subs = raw['subscriptions'];
+      if (subs is List) {
+        _subscriptions = subs.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      }
+      final states = raw['states'];
+      if (states is List) {
+        _states = states.map((e) => StateModel.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+      }
+      notifyListeners();
+    } catch (_) {
+      // ignore cache parse errors
+    }
+  }
+
+  Future<void> _persistCache() async {
+    await CacheStore.setJson(_cacheKey, {
+      'schools': _schools.map((e) => e.toJson()).toList(),
+      'standards': _standards
+          .map((e) => {'id': e.id, 'name': e.name, 'display_name': e.displayName})
+          .toList(),
+      'mealSizes': _mealSizes
+          .map((e) => {
+                'id': e.id,
+                'name': e.name,
+                'display_name': e.displayName,
+                'sort_order': e.sortOrder,
+              })
+          .toList(),
+      'corporateLocations': _corporateLocations
+          .map((e) => {
+                'id': e.id,
+                'name': e.name,
+                'address': e.address,
+                'city': e.city,
+                'state': e.state,
+              })
+          .toList(),
+      'subscriptions': _subscriptions,
+      'states': _states.map((e) => {'id': e.id, 'name': e.name}).toList(),
+    }, ttl: const Duration(days: 7));
+  }
 
   List<SchoolModel> _schools = [];
   List<StandardModel> _standards = [];
@@ -68,6 +134,7 @@ class LookupProvider with ChangeNotifier {
       _cities = [];
       _companies = [];
       _lastFetchedAt = DateTime.now();
+      await _persistCache();
     } catch (e) {
       // keep old cached data for offline fallback
     } finally {

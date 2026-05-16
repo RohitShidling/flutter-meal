@@ -31,6 +31,9 @@ import 'package:meal_app/core/services/network_status_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:meal_app/core/utils/meal_date.dart';
+import 'package:meal_app/core/utils/subscription_status_normalize.dart';
+import 'package:meal_app/core/services/app_route_tracker.dart';
+import 'package:meal_app/core/services/offline_cache_bootstrap.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -47,50 +50,20 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    NetworkStatusService.instance.addBecameOnlineListener(_onBecameOnline);
+    AppRouteTracker.instance.setCurrent(AppScreen.home);
     WidgetsBinding.instance.addPostFrameCallback((_) => _bootstrapHome());
   }
 
   @override
   void dispose() {
-    NetworkStatusService.instance.removeBecameOnlineListener(_onBecameOnline);
+    AppRouteTracker.instance.clearIfCurrent(AppScreen.home);
     super.dispose();
-  }
-
-  /// Refresh home-critical data when connectivity returns (realtime UX).
-  void _onBecameOnline() {
-    if (!mounted) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
-      final auth = context.read<AuthProvider>();
-      final meal = context.read<MealProvider>();
-      final menu = context.read<MenuProvider>();
-      // Ordered sync: identity → subscription gate → parallel lists → today menu → alerts/status.
-      await auth.refreshMeProfile(silent: true);
-      if (!mounted) return;
-      await meal.fetchSubscriptionStatus(silent: true);
-      if (!mounted) return;
-      await Future.wait([
-        context.read<HomepageProvider>().fetchHomepageEntries(force: true, silent: true),
-        context.read<CartProvider>().fetchCart(force: true, silent: true),
-        context.read<ChildrenProvider>().fetchChildren(force: true, silent: true),
-      ]);
-      if (!mounted) return;
-      await menu.fetchTodayMenu(
-        silent: true,
-        onlyIfSubscribed: true,
-        mealIsSubscribed: meal.isSubscribed,
-      );
-      if (!mounted) return;
-      await _refreshMealDataBundle();
-      if (!mounted) return;
-      await _maybePromptFourMealsLeftDialog();
-      if (mounted) _syncDisplayNameFromAuth();
-    });
   }
 
   /// Cold start / return-to-home: cache-first essentials, then meal bundle only when online.
   Future<void> _bootstrapHome() async {
+    if (!mounted) return;
+    await OfflineCacheBootstrap.warmIfNeeded(context);
     if (!mounted) return;
     final auth = context.read<AuthProvider>();
     final forceFresh = auth.consumePendingDashboardRefresh();
@@ -268,8 +241,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                   sliver: SliverList(
                     delegate: SliverChildListDelegate([
-                      _buildWelcomeSection(isDark),
-                      // Today's meal section — only visible for subscribed users
+                      _buildWelcomeSection(context, isDark),
+                      _buildUpcomingPlanCard(context, isDark),
                       _buildTodayMealCard(context, isDark),
                       _buildAlertsBanner(context, isDark),
                       _buildFeatureCards(context),
@@ -486,18 +459,19 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildWelcomeSection(bool isDark) {
+  Widget _buildWelcomeSection(BuildContext context, bool isDark) {
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
     final name = _displayName.isNotEmpty ? _displayName.trim() : 'User';
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: isDark 
-            ? [AppTheme.primaryColor.withOpacity(0.2), Colors.transparent]
-            : [AppTheme.primaryColor.withOpacity(0.05), Colors.transparent],
+          colors: isDark
+              ? [AppTheme.primaryColor.withOpacity(0.2), Colors.transparent]
+              : [AppTheme.primaryColor.withOpacity(0.05), Colors.transparent],
         ),
         borderRadius: BorderRadius.circular(24),
       ),
@@ -528,12 +502,73 @@ class _HomeScreenState extends State<HomeScreen> {
     ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0);
   }
 
+  /// Separate card below welcome — upcoming plan start date (industry-style status card).
+  Widget _buildUpcomingPlanCard(BuildContext context, bool isDark) {
+    final statusData = context.watch<MealProvider>().subscriptionStatusData;
+    final hasActive = statusData?['has_active_subscription'] == true;
+    final hasUpcoming = statusData?['has_upcoming_subscription'] == true;
+    if (!hasUpcoming || hasActive) return const SizedBox.shrink();
+
+    final upcomingStart = SubscriptionStatusNormalizer.earliestUpcomingStartYmd(statusData);
+    final upcomingLabel = upcomingStart != null ? MealDate.formatDisplay(upcomingStart) : null;
+    if (upcomingLabel == null) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: AppleCard(
+        margin: EdgeInsets.zero,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        borderRadius: 20,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEAB308).withOpacity(0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(CupertinoIcons.calendar_badge_plus, color: Color(0xFFEAB308), size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Upcoming plan',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'You\'ll start receiving meals on $upcomingLabel',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      height: 1.35,
+                      color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    ).animate().fadeIn(duration: 350.ms).slideY(begin: 0.06, end: 0);
+  }
+
   /// Today's meal card — ONLY shown when user has active subscription.
   /// Shows shimmer skeleton while menu is loading; then image + actions.
   Widget _buildTodayMealCard(BuildContext context, bool isDark) {
     final menuProvider = context.watch<MenuProvider>();
+    final mealProvider = context.watch<MealProvider>();
 
-    if (!menuProvider.isSubscribed) return const SizedBox.shrink();
+    if (!mealProvider.isSubscribed) return const SizedBox.shrink();
 
     final msg = menuProvider.homeMealMessage?.trim() ?? '';
     if (menuProvider.isLoading && menuProvider.todayMenu == null && msg.isEmpty) {
@@ -1180,6 +1215,7 @@ class _HomeScreenState extends State<HomeScreen> {
           childrenCountLoading: childrenCountLoading,
           hasActive: hasActive,
           hasUpcoming: hasUpcoming,
+          statusData: data,
         ),
       ],
     ).animate().fadeIn(delay: 400.ms);
@@ -1195,6 +1231,7 @@ class _HomeScreenState extends State<HomeScreen> {
     required bool childrenCountLoading,
     required bool hasActive,
     required bool hasUpcoming,
+    Map<String, dynamic>? statusData,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -1280,6 +1317,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 isDark,
                 hasActive: hasActive,
                 hasUpcoming: hasUpcoming,
+                statusData: statusData,
               ),
             ),
           ],
@@ -1293,10 +1331,13 @@ class _HomeScreenState extends State<HomeScreen> {
     bool isDark, {
     required bool hasActive,
     required bool hasUpcoming,
+    Map<String, dynamic>? statusData,
   }) {
     final Color color;
     final IconData icon;
     final String subtitle;
+    final upcomingStart = SubscriptionStatusNormalizer.earliestUpcomingStartYmd(statusData);
+    final upcomingLabel = upcomingStart != null ? MealDate.formatDisplay(upcomingStart) : null;
     if (hasActive) {
       color = Colors.green;
       icon = CupertinoIcons.checkmark_seal_fill;
@@ -1304,7 +1345,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } else if (hasUpcoming) {
       color = const Color(0xFFEAB308);
       icon = CupertinoIcons.clock_fill;
-      subtitle = 'Upcoming plan';
+      subtitle = upcomingLabel != null ? 'Starts $upcomingLabel' : 'Upcoming plan';
     } else {
       color = Colors.red;
       icon = CupertinoIcons.exclamationmark_circle_fill;

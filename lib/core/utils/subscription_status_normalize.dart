@@ -155,6 +155,27 @@ class SubscriptionStatusNormalizer {
     return null;
   }
 
+  /// Earliest `start_date` among upcoming (not yet serving) subscription rows.
+  static String? earliestUpcomingStartYmd(Map<String, dynamic>? statusMap) {
+    if (statusMap == null) return null;
+    final list = statusMap['entities'] is List
+        ? statusMap['entities'] as List
+        : (statusMap['data'] is List ? statusMap['data'] as List : const []);
+    final today = MealDate.sessionTodayYmd();
+    String? earliest;
+    for (final e in list) {
+      if (e is! Map) continue;
+      final row = Map<String, dynamic>.from(e);
+      if (!rowIsUpcoming(row, today)) continue;
+      final start = _ymd(row['start_date']);
+      if (start == null) continue;
+      if (earliest == null || start.compareTo(earliest) < 0) {
+        earliest = start;
+      }
+    }
+    return earliest;
+  }
+
   /// `'active'` | `'upcoming'` | `'none'`.
   static String entityPlanState(
     Map<String, dynamic>? statusMap,

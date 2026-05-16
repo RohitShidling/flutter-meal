@@ -20,6 +20,7 @@ import 'package:meal_app/core/utils/meal_date.dart';
 import 'package:meal_app/core/utils/subscription_status_normalize.dart';
 import 'package:meal_app/core/providers/meal_provider.dart';
 import 'package:meal_app/core/services/connectivity_service.dart';
+import 'package:meal_app/core/services/app_route_tracker.dart';
 import 'package:meal_app/core/widgets/badges/subscription_badge.dart';
 import 'package:meal_app/features/subscription/ui/widgets/meal_size_segmented_control.dart';
 import 'package:meal_app/core/widgets/app_skeleton.dart';
@@ -67,6 +68,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   @override
   void initState() {
     super.initState();
+    AppRouteTracker.instance.setCurrent(AppScreen.subscriptionBuy);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final w = widget;
@@ -100,6 +102,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
   @override
   void dispose() {
+    AppRouteTracker.instance.clearIfCurrent(AppScreen.subscriptionBuy);
     _connectivityService?.removeListener(_handleConnectivityChange);
     super.dispose();
   }
@@ -636,10 +639,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     );
 
     if (mounted) {
-      if (success) {
-        final variant = includeSaturday ? 'With Saturday' : 'Without Saturday';
-        ErrorHandler.showSuccess(context, '${plan.planName} ($variant) added to cart — tap Cart to change start date');
-      } else {
+      if (!success) {
         ErrorHandler.showError(context, cartProvider.error ?? 'Failed to add to cart');
       }
     }

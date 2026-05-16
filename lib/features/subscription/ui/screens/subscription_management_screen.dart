@@ -6,9 +6,11 @@ import 'package:meal_app/core/theme/app_theme.dart';
 import 'package:meal_app/core/providers/payment_provider.dart';
 import 'package:meal_app/core/widgets/apple_card.dart';
 import 'package:meal_app/core/utils/time_utils.dart';
+import 'package:meal_app/core/utils/meal_date.dart';
 import 'package:meal_app/core/services/connectivity_service.dart';
 import 'package:meal_app/features/children/providers/children_provider.dart';
 import 'package:meal_app/features/profile/providers/profile_provider.dart';
+import 'package:meal_app/core/services/app_route_tracker.dart';
 
 class SubscriptionManagementScreen extends StatefulWidget {
   const SubscriptionManagementScreen({super.key});
@@ -25,6 +27,7 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
   @override
   void initState() {
     super.initState();
+    AppRouteTracker.instance.setCurrent(AppScreen.subscriptionManagement);
     _tabController = TabController(length: 2, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<PaymentProvider>().fetchActiveSubscriptions();
@@ -47,6 +50,7 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
 
   @override
   void dispose() {
+    AppRouteTracker.instance.clearIfCurrent(AppScreen.subscriptionManagement);
     _connectivityService?.removeListener(_handleConnectivityChange);
     _tabController.dispose();
     super.dispose();
@@ -163,10 +167,7 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
         final mealTimingRaw = _safeString(sub['meal_timing'], '');
         final mealTiming = mealTimingRaw.isEmpty ? '' : TimeUtils.formatToDisplay(mealTimingRaw);
         final startDateStr = _safeString(sub['start_date'], '');
-        DateTime? startDate;
-        if (startDateStr.isNotEmpty) {
-          startDate = DateTime.tryParse(startDateStr);
-        }
+        final startDate = startDateStr.isNotEmpty ? MealDate.parseYmdLocal(startDateStr) : null;
 
         return AppleCard(
           margin: const EdgeInsets.only(bottom: 12),
@@ -249,9 +250,10 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
                         ),
                       Builder(
                         builder: (context) {
-                          final now = DateTime.now();
-                          final today = DateTime(now.year, now.month, now.day);
-                          final isUpcoming = startDate != null && startDate.isAfter(today);
+                          final sessionToday = MealDate.parseYmdLocal(MealDate.sessionTodayYmd());
+                          final isUpcoming = startDate != null &&
+                              sessionToday != null &&
+                              startDate.isAfter(sessionToday);
                           
                           return Text(
                             (isUpcoming ? 'UPCOMING' : status).toUpperCase(),

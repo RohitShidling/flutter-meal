@@ -16,6 +16,7 @@ import 'package:meal_app/core/widgets/entity_subscription_badge.dart';
 import 'package:meal_app/core/widgets/entity_plan_actions_row.dart';
 import 'package:meal_app/core/providers/cart_provider.dart';
 import 'package:meal_app/core/widgets/cart_overlay_body.dart';
+import 'package:meal_app/core/services/app_route_tracker.dart';
 
 class TeacherProfileScreen extends StatefulWidget {
   const TeacherProfileScreen({super.key});
@@ -54,6 +55,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
     _stateController = TextEditingController();
     _timeController = TextEditingController(text: '13:30');
     
+    AppRouteTracker.instance.setCurrent(AppScreen.teacherProfile);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final provider = context.read<ProfileProvider>();
       final lookupProvider = context.read<LookupProvider>();
@@ -94,9 +96,11 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
           });
         }
       } else if (mounted) {
+        final band = MealSizeRecommendations.recommendedBandForTeacherOrProfessional();
         setState(() {
           _isEditing = true;
           _isInitializing = false;
+          _selectedMealSize = MealSizeRecommendations.pickForBand(lookupProvider.mealSizes, band);
         });
       }
     });
@@ -104,6 +108,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
 
   @override
   void dispose() {
+    AppRouteTracker.instance.clearIfCurrent(AppScreen.teacherProfile);
     _nameController.dispose();
     _schoolController.dispose();
     _cityController.dispose();
@@ -430,6 +435,14 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
                       setState(() => _selectedMealSize = v);
                     },
                   ),
+                  if (_selectedMealSize != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        'Recommended: ${MealSizeRecommendations.mealSizeLabel(_selectedMealSize!, showRecommended: false)} pack for teachers',
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                      ),
+                    ),
 
                   const SizedBox(height: 20),
 

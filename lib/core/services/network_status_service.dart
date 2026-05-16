@@ -22,6 +22,7 @@ class NetworkStatusService with ChangeNotifier {
   final _connectivity = Connectivity();
   StreamSubscription<List<ConnectivityResult>>? _sub;
   Timer? _debounceTimer;
+  Timer? _healthPollTimer;
 
   bool _hasDeviceConnectivity = true;
   bool _isBackendReachable = true;
@@ -88,6 +89,8 @@ class NetworkStatusService with ChangeNotifier {
   Future<void> stop() async {
     _debounceTimer?.cancel();
     _debounceTimer = null;
+    _healthPollTimer?.cancel();
+    _healthPollTimer = null;
     await _sub?.cancel();
     _sub = null;
   }
@@ -113,11 +116,24 @@ class NetworkStatusService with ChangeNotifier {
       if (wasFullyOffline && nowCanSync) {
         await _processQueue();
         _notifyBecameOnline();
-      } else if (!prevDevice && _hasDeviceConnectivity) {
+      } else if (_hasDeviceConnectivity && !prevReachable && _isBackendReachable) {
+        // Device was on Wi‑Fi but /health failed; server came back.
+        await _processQueue();
         _notifyBecameOnline();
       }
+
+      _scheduleHealthPoll();
     } finally {
       _refreshInFlight = false;
+    }
+  }
+
+  void _scheduleHealthPoll() {
+    _healthPollTimer?.cancel();
+    if (_hasDeviceConnectivity && !_isBackendReachable) {
+      _healthPollTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+        unawaited(_refreshStatus());
+      });
     }
   }
 

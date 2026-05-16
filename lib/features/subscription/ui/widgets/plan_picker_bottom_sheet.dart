@@ -9,7 +9,6 @@ import 'package:meal_app/core/theme/app_theme.dart';
 import 'package:meal_app/core/utils/error_handler.dart';
 import 'package:meal_app/core/utils/meal_date.dart';
 import 'package:meal_app/core/utils/money_format.dart';
-import 'package:meal_app/features/subscription/ui/screens/cart_screen.dart';
 import 'package:meal_app/core/widgets/app_skeleton.dart';
 
 /// Bottom-sheet plan picker: regular plans first, then trial; with/without Saturday per plan.
@@ -96,21 +95,6 @@ class _PlanPickerSheetState extends State<_PlanPickerSheet> {
       await cart.fetchCart(silent: true);
       if (!mounted) return;
       Navigator.pop(context);
-      final variant = includeSaturday ? 'With Saturday' : 'Without Saturday';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${plan.planName} ($variant) added to cart'),
-          action: SnackBarAction(
-            label: 'View cart',
-            onPressed: () {
-              Navigator.push(
-                context,
-                CupertinoPageRoute(builder: (_) => const CartScreen()),
-              );
-            },
-          ),
-        ),
-      );
     } else {
       ErrorHandler.showError(context, cart.error ?? 'Could not add to cart');
     }
