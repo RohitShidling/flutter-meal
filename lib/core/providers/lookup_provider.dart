@@ -6,8 +6,6 @@ import 'package:meal_app/core/storage/cache_store.dart';
 class LookupProvider with ChangeNotifier {
   final LookupRepository _repository;
 
-  LookupProvider(this._repository);
-
   List<SchoolModel> _schools = [];
   List<StandardModel> _standards = [];
   List<MealSizeModel> _mealSizes = [];
