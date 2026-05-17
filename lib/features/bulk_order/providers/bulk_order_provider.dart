@@ -4,6 +4,7 @@ import 'package:meal_app/core/services/network_status_service.dart';
 import 'package:meal_app/core/services/phonepe_service.dart';
 import 'package:meal_app/core/utils/error_handler.dart';
 import 'package:meal_app/features/bulk_order/data/models/bulk_order_config.dart';
+import 'package:meal_app/features/bulk_order/data/models/bulk_variety_category.dart';
 import 'package:meal_app/features/bulk_order/data/repositories/bulk_order_repository.dart';
 
 class BulkOrderProvider with ChangeNotifier {
@@ -26,6 +27,18 @@ class BulkOrderProvider with ChangeNotifier {
   List<BulkMenuOption> _varietyMenus = [];
   List<BulkMenuOption> get varietyMenus => _varietyMenus;
 
+  List<BulkVarietyCategory> _varietyCategories = [];
+  List<BulkVarietyCategory> get varietyCategories => _varietyCategories;
+
+  List<BulkMenuOption> _categoryMeals = [];
+  List<BulkMenuOption> get categoryMeals => _categoryMeals;
+
+  final Map<String, int> _varietyQty = {};
+  final Map<String, BulkMenuOption> _varietyMealCatalog = {};
+  Map<String, int> get varietyQty => Map.unmodifiable(_varietyQty);
+
+  int get varietyLineSum => _varietyQty.values.fold(0, (a, b) => a + b);
+
   Map<String, dynamic>? _lastQuote;
   Map<String, dynamic>? get lastQuote => _lastQuote;
 
@@ -35,6 +48,102 @@ class BulkOrderProvider with ChangeNotifier {
     notifyListeners();
     try {
       _config = await _repository.fetchConfig();
+    } catch (e) {
+      _error = ErrorHandler.getErrorMessage(e);
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
+  void clearVarietyCart() {
+    _varietyQty.clear();
+    _varietyMealCatalog.clear();
+    notifyListeners();
+  }
+
+  BulkMenuOption? mealById(String id) => _varietyMealCatalog[id];
+
+  int get varietyMealTypeCount =>
+      _varietyQty.entries.where((e) => e.value > 0).length;
+
+  static const int varietyCartMaxTotal = 5000;
+
+  /// Returns null when the variety cart can proceed to quote/pay.
+  String? validateVarietyCart(BulkOrderConfig cfg) {
+    final lineSum = varietyLineSum;
+    if (lineSum == 0) return 'Add portions for at least one meal.';
+    if (lineSum < cfg.tierThreshold) {
+      return 'Minimum order for large bulk is ${cfg.tierThreshold} meals (you have $lineSum).';
+    }
+    if (lineSum > varietyCartMaxTotal) {
+      return 'Total cannot exceed $varietyCartMaxTotal meals.';
+    }
+
+    final typeCount = varietyMealTypeCount;
+    if (!cfg.allowMultipleVarietyMeals) {
+      if (typeCount != 1) return 'Select exactly one meal type for this order.';
+      return null;
+    }
+    if (typeCount > cfg.maxVarietyTypes) {
+      return 'You can select at most ${cfg.maxVarietyTypes} different meal types.';
+    }
+    if (typeCount > 1) {
+      var minSum = 0;
+      for (final e in _varietyQty.entries.where((e) => e.value > 0)) {
+        final meal = mealById(e.key);
+        if (meal == null) {
+          return 'Some selected meals need to be refreshed. Re-open each category, then try again.';
+        }
+        final min = meal.minOrderQuantity < 1 ? 1 : meal.minOrderQuantity;
+        minSum += min;
+        if (e.value < min) {
+          return '${meal.items} needs at least $min portions when ordering multiple meals.';
+        }
+      }
+      if (minSum > lineSum) {
+        return 'Your meal minimums require at least $minSum portions total for the types selected.';
+      }
+    }
+    return null;
+  }
+
+  bool varietyCartCanPay(BulkOrderConfig cfg) => validateVarietyCart(cfg) == null;
+
+  void setVarietyQty(String mealId, int qty) {
+    if (qty <= 0) {
+      _varietyQty.remove(mealId);
+    } else {
+      _varietyQty[mealId] = qty;
+    }
+    notifyListeners();
+  }
+
+  int varietyQtyFor(String mealId) => _varietyQty[mealId] ?? 0;
+
+  Future<void> loadVarietyCategories() async {
+    _loading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      _varietyCategories = await _repository.fetchVarietyCategories();
+    } catch (e) {
+      _error = ErrorHandler.getErrorMessage(e);
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadMealsForCategory(String categoryId) async {
+    _loading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      _categoryMeals = await _repository.fetchMealsByCategory(categoryId);
+      for (final m in _categoryMeals) {
+        _varietyMealCatalog[m.id] = m;
+      }
     } catch (e) {
       _error = ErrorHandler.getErrorMessage(e);
     } finally {
@@ -53,12 +162,21 @@ class BulkOrderProvider with ChangeNotifier {
       _deliveryMenu = dm != null
           ? BulkMenuOption.fromJson(Map<String, dynamic>.from(dm as Map))
           : null;
-      final list = data['variety_menus'];
-      _varietyMenus = list is List
-          ? list
+      final list = data['variety_categories'] ?? data['variety_menus'];
+      if (list is List && list.isNotEmpty && list.first is Map) {
+        final first = list.first as Map;
+        if (first.containsKey('meal_count')) {
+          _varietyCategories = list
+              .map((e) => BulkVarietyCategory.fromJson(Map<String, dynamic>.from(e as Map)))
+              .toList();
+        } else {
+          _varietyMenus = list
               .map((e) => BulkMenuOption.fromJson(Map<String, dynamic>.from(e as Map)))
-              .toList()
-          : [];
+              .toList();
+        }
+      } else {
+        _varietyMenus = [];
+      }
     } catch (e) {
       _error = ErrorHandler.getErrorMessage(e);
     } finally {

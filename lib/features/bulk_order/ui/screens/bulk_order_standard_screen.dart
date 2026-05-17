@@ -41,7 +41,7 @@ class _BulkOrderStandardScreenState extends State<BulkOrderStandardScreen> {
 
   int get _qty => int.tryParse(_qtyController.text.trim()) ?? 0;
 
-  int _maxQty(BulkOrderConfig cfg) => cfg.tierThreshold - 1;
+  int _maxQty(BulkOrderConfig cfg) => cfg.standardMaxQuantity;
 
   Future<void> _pickDate(BulkOrderConfig cfg) async {
     final ymd = await pickBulkDeliveryDate(context, cfg, _deliveryDate);
@@ -59,10 +59,17 @@ class _BulkOrderStandardScreenState extends State<BulkOrderStandardScreen> {
       ErrorHandler.showError(context, 'Minimum order is ${cfg.minQuantity} meals');
       return;
     }
+    if (_qty > cfg.standardMaxQuantity) {
+      ErrorHandler.showError(
+        context,
+        'Maximum for standard bulk is ${cfg.standardMaxQuantity} meals.',
+      );
+      return;
+    }
     if (_qty >= cfg.tierThreshold) {
       ErrorHandler.showError(
         context,
-        'For ${cfg.tierThreshold} or more meals, use Large event bulk from the previous screen.',
+        'For ${cfg.tierThreshold} or more meals, use the large event bulk option.',
       );
       return;
     }

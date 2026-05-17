@@ -1,5 +1,6 @@
 class BulkOrderConfig {
   final int minQuantity;
+  final int standardMaxQuantity;
   final int minLeadDays;
   final int tierThreshold;
   final double pricePerMealUnderThreshold;
@@ -10,9 +11,17 @@ class BulkOrderConfig {
   final bool isActive;
   final String earliestDeliveryDate;
   final List<BulkVarietyPrice> varietyPrices;
+  final String? hubIntroText;
+  final String? standardTierTitle;
+  final String? standardTierSubtitle;
+  final String? standardTierDescription;
+  final String? varietyTierTitle;
+  final String? varietyTierSubtitle;
+  final String? varietyTierDescription;
 
   BulkOrderConfig({
     required this.minQuantity,
+    required this.standardMaxQuantity,
     required this.minLeadDays,
     required this.tierThreshold,
     required this.pricePerMealUnderThreshold,
@@ -23,14 +32,24 @@ class BulkOrderConfig {
     required this.isActive,
     required this.earliestDeliveryDate,
     required this.varietyPrices,
+    this.hubIntroText,
+    this.standardTierTitle,
+    this.standardTierSubtitle,
+    this.standardTierDescription,
+    this.varietyTierTitle,
+    this.varietyTierSubtitle,
+    this.varietyTierDescription,
   });
 
   factory BulkOrderConfig.fromJson(Map<String, dynamic> json) {
     final prices = json['variety_prices'];
+    final minQ = int.tryParse('${json['min_quantity'] ?? 10}') ?? 10;
+    final tier = int.tryParse('${json['tier_threshold'] ?? 50}') ?? 50;
     return BulkOrderConfig(
-      minQuantity: int.tryParse('${json['min_quantity'] ?? 10}') ?? 10,
+      minQuantity: minQ,
+      standardMaxQuantity: int.tryParse('${json['standard_max_quantity'] ?? (tier - 1)}') ?? (tier - 1),
       minLeadDays: int.tryParse('${json['min_lead_days'] ?? 3}') ?? 3,
-      tierThreshold: int.tryParse('${json['tier_threshold'] ?? 50}') ?? 50,
+      tierThreshold: tier,
       pricePerMealUnderThreshold:
           double.tryParse('${json['price_per_meal_under_threshold'] ?? 0}') ?? 0,
       varietyMenuLookaheadDays:
@@ -41,6 +60,13 @@ class BulkOrderConfig {
           int.tryParse('${json['min_quantity_per_variety_meal'] ?? 1}') ?? 1,
       isActive: json['is_active'] != false,
       earliestDeliveryDate: '${json['earliest_delivery_date'] ?? ''}',
+      hubIntroText: json['hub_intro_text'] as String?,
+      standardTierTitle: json['standard_tier_title'] as String?,
+      standardTierSubtitle: json['standard_tier_subtitle'] as String?,
+      standardTierDescription: json['standard_tier_description'] as String?,
+      varietyTierTitle: json['variety_tier_title'] as String?,
+      varietyTierSubtitle: json['variety_tier_subtitle'] as String?,
+      varietyTierDescription: json['variety_tier_description'] as String?,
       varietyPrices: prices is List
           ? prices
               .map((e) => BulkVarietyPrice.fromJson(Map<String, dynamic>.from(e as Map)))

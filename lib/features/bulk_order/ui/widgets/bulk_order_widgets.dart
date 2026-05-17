@@ -9,21 +9,18 @@ Widget bulkMenuImage(String? imageUrl) {
   if (imageUrl == null || imageUrl.isEmpty) return const SizedBox.shrink();
   return ClipRRect(
     borderRadius: BorderRadius.circular(12),
-    child: Container(
-      width: double.infinity,
-      constraints: const BoxConstraints(minHeight: 140, maxHeight: 260),
+    child: ColoredBox(
       color: AppTheme.primaryColor.withValues(alpha: 0.05),
-      alignment: Alignment.center,
       child: CachedNetworkImage(
         imageUrl: imageUrl,
         width: double.infinity,
         fit: BoxFit.contain,
-        placeholder: (_, __) => const SizedBox(
-          height: 140,
+        placeholder: (_, __) => const Padding(
+          padding: EdgeInsets.symmetric(vertical: 48),
           child: Center(child: CupertinoActivityIndicator()),
         ),
-        errorWidget: (_, __, ___) => SizedBox(
-          height: 120,
+        errorWidget: (_, __, ___) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 40),
           child: Center(
             child: Icon(CupertinoIcons.photo, color: Colors.grey.withValues(alpha: 0.4)),
           ),

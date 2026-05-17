@@ -16,6 +16,15 @@ class BulkOrderCheckout {
     required int totalMeals,
     String? summaryLines,
   }) async {
+    final cfg = provider.config;
+    if (cfg != null) {
+      final cartErr = provider.validateVarietyCart(cfg);
+      if (cartErr != null) {
+        ErrorHandler.showError(context, cartErr);
+        return;
+      }
+    }
+
     final quote = await provider.fetchQuote(deliveryDate: deliveryDate, items: items);
     if (!context.mounted) return;
     if (quote == null) {

@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:meal_app/core/theme/app_theme.dart';
 import 'package:meal_app/features/bulk_order/providers/bulk_order_provider.dart';
 import 'package:meal_app/features/bulk_order/ui/screens/bulk_order_standard_screen.dart';
-import 'package:meal_app/features/bulk_order/ui/screens/bulk_order_variety_screen.dart';
+import 'package:meal_app/features/bulk_order/ui/screens/bulk_order_variety_categories_screen.dart';
 import 'package:meal_app/features/bulk_order/ui/widgets/bulk_order_widgets.dart';
 
 /// Entry point: user picks standard (< threshold) or large variety (50+) flow.
@@ -52,7 +52,9 @@ class _BulkOrderHubScreenState extends State<BulkOrderHubScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(
-                        'Choose the type of bulk order that fits your group size.',
+                        cfg.hubIntroText?.isNotEmpty == true
+                            ? cfg.hubIntroText!
+                            : 'Choose the type of bulk order that fits your group size.',
                         style: TextStyle(
                           fontSize: 15,
                           height: 1.45,
@@ -61,11 +63,15 @@ class _BulkOrderHubScreenState extends State<BulkOrderHubScreen> {
                       ),
                       const SizedBox(height: 24),
                       BulkOrderTypeCard(
-                        title: 'Standard bulk',
-                        subtitle:
-                            '${cfg.minQuantity}–${cfg.tierThreshold - 1} meals',
-                        detail:
-                            'One meal for your delivery date — the same dish for everyone. Enter how many meals you need.',
+                        title: cfg.standardTierTitle?.isNotEmpty == true
+                            ? cfg.standardTierTitle!
+                            : 'Standard bulk',
+                        subtitle: cfg.standardTierSubtitle?.isNotEmpty == true
+                            ? cfg.standardTierSubtitle!
+                            : '${cfg.minQuantity}–${cfg.standardMaxQuantity} meals',
+                        detail: cfg.standardTierDescription?.isNotEmpty == true
+                            ? cfg.standardTierDescription!
+                            : 'One meal for your delivery date — the same dish for everyone.',
                         icon: CupertinoIcons.person_3_fill,
                         color: AppTheme.primaryColor,
                         onTap: () => Navigator.push(
@@ -77,17 +83,21 @@ class _BulkOrderHubScreenState extends State<BulkOrderHubScreen> {
                       ),
                       const SizedBox(height: 16),
                       BulkOrderTypeCard(
-                        title: 'Large event bulk',
-                        subtitle: '${cfg.tierThreshold}+ meals',
-                        detail: cfg.allowMultipleVarietyMeals
-                            ? 'Pick from our bulk meal catalog. Set portions for each dish — no need to plan a total upfront.'
-                            : 'Pick one meal from our bulk catalog and set how many portions you need (minimum ${cfg.tierThreshold}).',
+                        title: cfg.varietyTierTitle?.isNotEmpty == true
+                            ? cfg.varietyTierTitle!
+                            : 'Large event bulk',
+                        subtitle: cfg.varietyTierSubtitle?.isNotEmpty == true
+                            ? cfg.varietyTierSubtitle!
+                            : '${cfg.tierThreshold}+ meals',
+                        detail: cfg.varietyTierDescription?.isNotEmpty == true
+                            ? cfg.varietyTierDescription!
+                            : 'Browse meal categories and set portions for each dish.',
                         icon: CupertinoIcons.square_stack_3d_up_fill,
                         color: Colors.deepOrange,
                         onTap: () => Navigator.push(
                           context,
                           CupertinoPageRoute(
-                            builder: (_) => const BulkOrderVarietyScreen(),
+                            builder: (_) => const BulkOrderVarietyCategoriesScreen(),
                           ),
                         ),
                       ),

@@ -1,6 +1,7 @@
 import 'package:meal_app/core/network/api_endpoints.dart';
 import 'package:meal_app/core/network/dio_client.dart';
 import 'package:meal_app/features/bulk_order/data/models/bulk_order_config.dart';
+import 'package:meal_app/features/bulk_order/data/models/bulk_variety_category.dart';
 
 class BulkOrderRepository {
   final DioClient _dioClient;
@@ -21,6 +22,30 @@ class BulkOrderRepository {
       return Map<String, dynamic>.from(response.data['data'] as Map);
     }
     throw response.data['message']?.toString() ?? 'Failed to load menus';
+  }
+
+  Future<List<BulkVarietyCategory>> fetchVarietyCategories() async {
+    final response = await _dioClient.dio.get(ApiEndpoints.bulkOrderVarietyCategories);
+    if (response.data['success'] == true) {
+      final list = response.data['data'];
+      if (list is! List) return [];
+      return list
+          .map((e) => BulkVarietyCategory.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    }
+    throw response.data['message']?.toString() ?? 'Failed to load categories';
+  }
+
+  Future<List<BulkMenuOption>> fetchMealsByCategory(String categoryId) async {
+    final response = await _dioClient.dio.get(ApiEndpoints.bulkOrderCategoryMeals(categoryId));
+    if (response.data['success'] == true) {
+      final list = response.data['data'];
+      if (list is! List) return [];
+      return list
+          .map((e) => BulkMenuOption.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    }
+    throw response.data['message']?.toString() ?? 'Failed to load meals';
   }
 
   Future<Map<String, dynamic>> quote({
