@@ -6,6 +6,7 @@ import 'package:meal_app/core/theme/app_theme.dart';
 import 'package:meal_app/features/bulk_order/data/models/bulk_variety_category.dart';
 import 'package:meal_app/features/bulk_order/providers/bulk_order_provider.dart';
 import 'package:meal_app/features/bulk_order/ui/screens/bulk_order_category_meals_screen.dart';
+import 'package:meal_app/features/bulk_order/ui/widgets/bulk_order_address_section.dart';
 import 'package:meal_app/features/bulk_order/ui/widgets/bulk_order_widgets.dart';
 
 /// Large-event bulk: pick delivery date, browse categories, then meals per category.
@@ -82,6 +83,8 @@ class _BulkOrderVarietyCategoriesScreenState extends State<BulkOrderVarietyCateg
                           deliveryDate: _deliveryDate,
                           onTap: _pickDate,
                         ),
+                        const SizedBox(height: 16),
+                        const BulkOrderAddressSection(),
                         const SizedBox(height: 8),
                         Text(
                           'Choose a category to add meals',

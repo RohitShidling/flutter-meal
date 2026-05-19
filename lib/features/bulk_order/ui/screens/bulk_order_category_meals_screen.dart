@@ -106,6 +106,11 @@ class _BulkOrderCategoryMealsScreenState extends State<BulkOrderCategoryMealsScr
 
   Future<void> _pay(BulkOrderProvider p, BulkOrderConfig cfg) async {
     _commitAll();
+    final addrErr = p.validateDeliveryAddress();
+    if (addrErr != null) {
+      ErrorHandler.showError(context, addrErr);
+      return;
+    }
     final err = p.validateVarietyCart(cfg);
     if (err != null) {
       ErrorHandler.showError(context, err);

@@ -7,6 +7,7 @@ import 'package:meal_app/core/widgets/apple_card.dart';
 import 'package:meal_app/features/bulk_order/data/models/bulk_order_config.dart';
 import 'package:meal_app/features/bulk_order/providers/bulk_order_provider.dart';
 import 'package:meal_app/features/bulk_order/ui/widgets/bulk_order_checkout.dart';
+import 'package:meal_app/features/bulk_order/ui/widgets/bulk_order_address_section.dart';
 import 'package:meal_app/features/bulk_order/ui/widgets/bulk_order_widgets.dart';
 
 /// Orders below tier threshold: delivery date + quantity + single daily menu.
@@ -77,6 +78,11 @@ class _BulkOrderStandardScreenState extends State<BulkOrderStandardScreen> {
       ErrorHandler.showError(context, 'No menu available for this delivery date');
       return;
     }
+    final addrErr = p.validateDeliveryAddress();
+    if (addrErr != null) {
+      ErrorHandler.showError(context, addrErr);
+      return;
+    }
 
     final items = [
       {'dailyMenuId': p.deliveryMenu!.id, 'quantity': _qty},
@@ -138,6 +144,8 @@ class _BulkOrderStandardScreenState extends State<BulkOrderStandardScreen> {
               deliveryDate: _deliveryDate,
               onTap: () => _pickDate(cfg),
             ),
+            const SizedBox(height: 16),
+            const BulkOrderAddressSection(),
             const SizedBox(height: 12),
             TextField(
               controller: _qtyController,

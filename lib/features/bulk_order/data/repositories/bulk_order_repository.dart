@@ -51,10 +51,15 @@ class BulkOrderRepository {
   Future<Map<String, dynamic>> quote({
     required String deliveryDate,
     required List<Map<String, dynamic>> items,
+    required Map<String, dynamic> deliveryAddress,
   }) async {
     final response = await _dioClient.dio.post(
       ApiEndpoints.bulkOrderQuote,
-      data: {'deliveryDate': deliveryDate, 'items': items},
+      data: {
+        'deliveryDate': deliveryDate,
+        'items': items,
+        'deliveryAddress': deliveryAddress,
+      },
     );
     if (response.data['success'] == true) {
       return Map<String, dynamic>.from(response.data['data'] as Map);
@@ -65,6 +70,7 @@ class BulkOrderRepository {
   Future<Map<String, dynamic>> initiatePayment({
     required String deliveryDate,
     required List<Map<String, dynamic>> items,
+    required Map<String, dynamic> deliveryAddress,
     String? redirectUrl,
   }) async {
     final response = await _dioClient.dio.post(
@@ -72,6 +78,7 @@ class BulkOrderRepository {
       data: {
         'deliveryDate': deliveryDate,
         'items': items,
+        'deliveryAddress': deliveryAddress,
         if (redirectUrl != null) 'redirectUrl': redirectUrl,
       },
     );

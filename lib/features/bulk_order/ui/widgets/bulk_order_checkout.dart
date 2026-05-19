@@ -16,8 +16,16 @@ class BulkOrderCheckout {
     required int totalMeals,
     String? summaryLines,
   }) async {
+    final addrErr = provider.validateDeliveryAddress();
+    if (addrErr != null) {
+      ErrorHandler.showError(context, addrErr);
+      return;
+    }
+    final addressPayload = provider.deliveryAddress!.toApiPayload();
+
     final cfg = provider.config;
-    if (cfg != null) {
+    final isVarietyOrder = items.any((e) => e['bulkMealId'] != null);
+    if (cfg != null && isVarietyOrder) {
       final cartErr = provider.validateVarietyCart(cfg);
       if (cartErr != null) {
         ErrorHandler.showError(context, cartErr);
@@ -25,15 +33,21 @@ class BulkOrderCheckout {
       }
     }
 
-    final quote = await provider.fetchQuote(deliveryDate: deliveryDate, items: items);
+    final quote = await provider.fetchQuote(
+      deliveryDate: deliveryDate,
+      items: items,
+      deliveryAddress: addressPayload,
+    );
     if (!context.mounted) return;
     if (quote == null) {
       if (provider.error != null) ErrorHandler.showError(context, provider.error);
       return;
     }
 
+    final addr = provider.deliveryAddress;
     final body = StringBuffer()
       ..writeln('Delivery: $deliveryDate')
+      ..writeln('Address: ${addr?.formatted ?? '—'}')
       ..writeln('Total meals: $totalMeals');
     if (summaryLines != null && summaryLines.isNotEmpty) {
       body.writeln(summaryLines);
@@ -63,6 +77,7 @@ class BulkOrderCheckout {
     final result = await provider.checkout(
       deliveryDate: deliveryDate,
       items: items,
+      deliveryAddress: addressPayload,
       isSandbox: ApiEndpoints.isSandboxPayment,
     );
     if (!context.mounted) return;

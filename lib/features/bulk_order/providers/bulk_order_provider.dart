@@ -3,6 +3,7 @@ import 'package:meal_app/core/network/api_endpoints.dart';
 import 'package:meal_app/core/services/network_status_service.dart';
 import 'package:meal_app/core/services/phonepe_service.dart';
 import 'package:meal_app/core/utils/error_handler.dart';
+import 'package:meal_app/features/bulk_order/data/models/bulk_delivery_address.dart';
 import 'package:meal_app/features/bulk_order/data/models/bulk_order_config.dart';
 import 'package:meal_app/features/bulk_order/data/models/bulk_variety_category.dart';
 import 'package:meal_app/features/bulk_order/data/repositories/bulk_order_repository.dart';
@@ -35,6 +36,8 @@ class BulkOrderProvider with ChangeNotifier {
 
   final Map<String, int> _varietyQty = {};
   final Map<String, BulkMenuOption> _varietyMealCatalog = {};
+  BulkDeliveryAddress? _deliveryAddress;
+  BulkDeliveryAddress? get deliveryAddress => _deliveryAddress;
   Map<String, int> get varietyQty => Map.unmodifiable(_varietyQty);
 
   int get varietyLineSum => _varietyQty.values.fold(0, (a, b) => a + b);
@@ -60,6 +63,23 @@ class BulkOrderProvider with ChangeNotifier {
     _varietyQty.clear();
     _varietyMealCatalog.clear();
     notifyListeners();
+  }
+
+  void setDeliveryAddress(BulkDeliveryAddress? address) {
+    _deliveryAddress = address;
+    notifyListeners();
+  }
+
+  String? validateDeliveryAddress() {
+    final a = _deliveryAddress;
+    if (a == null || !a.isComplete) {
+      return 'Select state, city, and enter delivery address (min 5 characters).';
+    }
+    final pin = a.pincode?.trim() ?? '';
+    if (pin.isNotEmpty && !RegExp(r'^\d{6}$').hasMatch(pin)) {
+      return 'Pincode must be 6 digits.';
+    }
+    return null;
   }
 
   BulkMenuOption? mealById(String id) => _varietyMealCatalog[id];
@@ -188,12 +208,17 @@ class BulkOrderProvider with ChangeNotifier {
   Future<Map<String, dynamic>?> fetchQuote({
     required String deliveryDate,
     required List<Map<String, dynamic>> items,
+    required Map<String, dynamic> deliveryAddress,
   }) async {
     _loading = true;
     _error = null;
     notifyListeners();
     try {
-      _lastQuote = await _repository.quote(deliveryDate: deliveryDate, items: items);
+      _lastQuote = await _repository.quote(
+        deliveryDate: deliveryDate,
+        items: items,
+        deliveryAddress: deliveryAddress,
+      );
       return _lastQuote;
     } catch (e) {
       _error = ErrorHandler.getErrorMessage(e);
@@ -207,6 +232,7 @@ class BulkOrderProvider with ChangeNotifier {
   Future<Map<String, dynamic>?> checkout({
     required String deliveryDate,
     required List<Map<String, dynamic>> items,
+    required Map<String, dynamic> deliveryAddress,
     bool isSandbox = true,
   }) async {
     if (!NetworkStatusService.instance.canAttemptApi) {
@@ -221,6 +247,7 @@ class BulkOrderProvider with ChangeNotifier {
       final paymentData = await _repository.initiatePayment(
         deliveryDate: deliveryDate,
         items: items,
+        deliveryAddress: deliveryAddress,
         redirectUrl: ApiEndpoints.paymentStatusPage,
       );
       final paymentUrl = paymentData['paymentUrl']?.toString();
