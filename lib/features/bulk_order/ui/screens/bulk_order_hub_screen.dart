@@ -101,12 +101,6 @@ class _BulkOrderHubScreenState extends State<BulkOrderHubScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 20),
-                      bulkInfoBanner(
-                        isDark: isDark,
-                        message:
-                            'Not sure? Under ${cfg.tierThreshold} meals uses the school menu for your date. ${cfg.tierThreshold} or more uses our large-event meal list.',
-                      ),
                     ],
                   ),
                 ),

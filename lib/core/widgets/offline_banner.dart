@@ -60,6 +60,7 @@ class _OfflineBannerState extends State<OfflineBanner>
   void dispose() {
     NetworkStatusService.instance.removeListener(_onNetworkChange);
     _autoDismissTimer?.cancel();
+    _reconnectPoll?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -80,26 +81,53 @@ class _OfflineBannerState extends State<OfflineBanner>
     if (!mounted) return;
     final isOffline = !NetworkStatusService.instance.isOnline;
 
-    if (isOffline && !_wasOffline) {
+    if (isOffline) {
       _autoDismissTimer?.cancel();
-      setState(() {
-        _dismissed = false;
-        _wasOffline = true;
-      });
-      _controller.forward();
-    } else if (!isOffline && _wasOffline) {
-      _wasOffline = false;
-      _autoDismissTimer?.cancel();
-      // Smooth dismiss as soon as we are reachable again (no lingering “offline” copy).
-      if (!_dismissed) {
-        _controller.reverse();
+      if (!_wasOffline) {
+        setState(() {
+          _dismissed = false;
+          _wasOffline = true;
+        });
       }
-      // After a short beat, clear manual dismiss so the next offline spell shows again.
-      _autoDismissTimer = Timer(const Duration(milliseconds: 2400), () {
-        if (!mounted) return;
-        setState(() => _dismissed = false);
-      });
+      _controller.forward();
+      _startReconnectPoll();
+    } else {
+      _stopReconnectPoll();
+      if (_wasOffline || _controller.isAnimating || _mode != _BannerMode.hidden) {
+        _wasOffline = false;
+        _autoDismissTimer?.cancel();
+        if (!_dismissed) {
+          _controller.reverse().then((_) {
+            if (mounted) setState(() => _mode = _BannerMode.hidden);
+          });
+        }
+        _autoDismissTimer = Timer(const Duration(milliseconds: 2400), () {
+          if (!mounted) return;
+          setState(() => _dismissed = false);
+        });
+      }
     }
+  }
+
+  Timer? _reconnectPoll;
+
+  void _startReconnectPoll() {
+    _reconnectPoll?.cancel();
+    _reconnectPoll = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!mounted) {
+        _reconnectPoll?.cancel();
+        return;
+      }
+      // Re-check: if network came back but listener didn't fire, dismiss manually
+      if (NetworkStatusService.instance.isOnline) {
+        _onNetworkChange();
+      }
+    });
+  }
+
+  void _stopReconnectPoll() {
+    _reconnectPoll?.cancel();
+    _reconnectPoll = null;
   }
 
   void _userDismiss() => _hide();

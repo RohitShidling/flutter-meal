@@ -26,7 +26,7 @@ class BulkOrderCheckout {
     final cfg = provider.config;
     final isVarietyOrder = items.any((e) => e['bulkMealId'] != null);
     if (cfg != null && isVarietyOrder) {
-      final cartErr = provider.validateVarietyCart(cfg);
+      final cartErr = provider.validateVarietyCartForCheckout(cfg);
       if (cartErr != null) {
         ErrorHandler.showError(context, cartErr);
         return;

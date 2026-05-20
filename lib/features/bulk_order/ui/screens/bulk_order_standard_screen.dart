@@ -133,11 +133,13 @@ class _BulkOrderStandardScreenState extends State<BulkOrderStandardScreen> {
                 color: isDark ? Colors.white70 : AppTheme.textSecondaryLight,
               ),
             ),
-            const SizedBox(height: 16),
-            bulkInfoBanner(
-              isDark: isDark,
-              message:
-                  'Order between ${cfg.minQuantity} and $maxQty meals. Need ${cfg.tierThreshold}+? Go back and choose Large event bulk.',
+            const SizedBox(height: 8),
+            Text(
+              'Order between ${cfg.minQuantity} and $maxQty meals for this flow.',
+              style: TextStyle(
+                fontSize: 13,
+                color: isDark ? Colors.white60 : AppTheme.textSecondaryLight,
+              ),
             ),
             const SizedBox(height: 16),
             BulkDeliveryDateTile(
@@ -153,7 +155,14 @@ class _BulkOrderStandardScreenState extends State<BulkOrderStandardScreen> {
               decoration: InputDecoration(
                 labelText: 'Number of meals',
                 hintText: '${cfg.minQuantity}–$maxQty',
+                helperText: 'Min ${cfg.minQuantity}, Max $maxQty meals',
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                suffixIcon: _qty > maxQty
+                    ? const Icon(Icons.warning_amber_rounded, color: Colors.orange)
+                    : null,
+                errorText: _qty > maxQty
+                    ? 'Maximum is $maxQty meals'
+                    : null,
               ),
               onChanged: (_) => setState(() {}),
             ),

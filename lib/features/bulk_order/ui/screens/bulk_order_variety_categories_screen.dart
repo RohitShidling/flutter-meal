@@ -3,13 +3,17 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:meal_app/core/theme/app_theme.dart';
+import 'package:meal_app/core/utils/error_handler.dart';
+import 'package:meal_app/features/bulk_order/data/models/bulk_order_config.dart';
 import 'package:meal_app/features/bulk_order/data/models/bulk_variety_category.dart';
 import 'package:meal_app/features/bulk_order/providers/bulk_order_provider.dart';
 import 'package:meal_app/features/bulk_order/ui/screens/bulk_order_category_meals_screen.dart';
 import 'package:meal_app/features/bulk_order/ui/widgets/bulk_order_address_section.dart';
+import 'package:meal_app/features/bulk_order/ui/widgets/bulk_order_checkout.dart';
 import 'package:meal_app/features/bulk_order/ui/widgets/bulk_order_widgets.dart';
+import 'package:meal_app/features/bulk_order/ui/widgets/bulk_variety_cart_summary.dart';
 
-/// Large-event bulk: pick delivery date, browse categories, then meals per category.
+/// Large-event bulk: delivery date, address, categories, cart, then checkout.
 class BulkOrderVarietyCategoriesScreen extends StatefulWidget {
   const BulkOrderVarietyCategoriesScreen({super.key});
 
@@ -42,15 +46,46 @@ class _BulkOrderVarietyCategoriesScreenState extends State<BulkOrderVarietyCateg
     setState(() => _deliveryDate = ymd);
   }
 
+  Future<void> _checkout(BulkOrderProvider p, BulkOrderConfig cfg) async {
+    if (_deliveryDate == null) {
+      ErrorHandler.showError(context, 'Select a delivery date');
+      return;
+    }
+    final addrErr = p.validateDeliveryAddress();
+    if (addrErr != null) {
+      ErrorHandler.showError(context, addrErr);
+      return;
+    }
+    final err = p.validateVarietyCartForCheckout(cfg);
+    if (err != null) {
+      ErrorHandler.showError(context, err);
+      return;
+    }
+    final items = p.varietyCartLines
+        .map((e) => {'bulkMealId': e.key, 'quantity': e.value})
+        .toList();
+    final summary = p.varietyCartLines
+        .map((e) => '${p.mealById(e.key)?.items ?? e.key} × ${e.value}')
+        .join('\n');
+
+    await BulkOrderCheckout.pay(
+      context: context,
+      provider: p,
+      deliveryDate: _deliveryDate!,
+      items: items,
+      totalMeals: p.varietyLineSum,
+      summaryLines: summary,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = context.watch<BulkOrderProvider>();
     final cfg = p.config;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final threshold = cfg?.tierThreshold ?? 50;
     final sum = p.varietyLineSum;
-    final validationErr = cfg != null ? p.validateVarietyCart(cfg) : null;
-    final cartOk = validationErr == null && sum > 0;
+    final statusMsg = cfg != null ? p.varietyCartStatusMessage(cfg) : '';
+    final canCheckout = cfg != null && p.varietyCartCanCheckout(cfg);
 
     return Scaffold(
       appBar: AppBar(
@@ -85,9 +120,11 @@ class _BulkOrderVarietyCategoriesScreenState extends State<BulkOrderVarietyCateg
                         ),
                         const SizedBox(height: 16),
                         const BulkOrderAddressSection(),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 16),
+                        const BulkVarietyCartSummary(),
+                        if (sum > 0) const SizedBox(height: 16),
                         Text(
-                          'Choose a category to add meals',
+                          'Categories',
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         const SizedBox(height: 12),
@@ -117,37 +154,45 @@ class _BulkOrderVarietyCategoriesScreenState extends State<BulkOrderVarietyCateg
                     ),
                   ),
                 ),
-                Material(
-                  elevation: 8,
-                  color: isDark ? AppTheme.surfaceDark : Colors.white,
-                  child: SafeArea(
-                    top: false,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-                      child: Row(
-                        children: [
-                          Icon(
-                            cartOk ? CupertinoIcons.checkmark_circle_fill : CupertinoIcons.exclamationmark_triangle_fill,
-                            color: cartOk ? Colors.green : Colors.orange.shade700,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              cartOk
-                                  ? 'Order total: $sum meals — ready to pay in a category'
-                                  : (validationErr ??
-                                      '$sum meals — need ${threshold - sum} more (min $threshold)'),
+                if (cfg != null)
+                  Material(
+                    elevation: 8,
+                    color: isDark ? AppTheme.surfaceDark : Colors.white,
+                    child: SafeArea(
+                      top: false,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              statusMsg,
                               style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                color: cartOk ? null : Colors.orange.shade800,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                                color: canCheckout ? null : Colors.orange.shade800,
                               ),
+                              textAlign: TextAlign.center,
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 12),
+                            FilledButton(
+                              onPressed: (p.isLoading || !canCheckout) ? null : () => _checkout(p, cfg),
+                              child: p.isLoading
+                                  ? const SizedBox(
+                                      height: 22,
+                                      width: 22,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Text('Review & pay'),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
               ],
             ),
     );
