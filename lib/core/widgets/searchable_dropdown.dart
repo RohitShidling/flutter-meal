@@ -20,6 +20,7 @@ class SearchableDropdown<T> extends StatefulWidget {
   final bool Function()? loadingGetter;
   final FormFieldSetter<T> onChanged;
   final FormFieldValidator<T>? validator;
+  final bool enabled;
 
   const SearchableDropdown({
     super.key,
@@ -35,6 +36,7 @@ class SearchableDropdown<T> extends StatefulWidget {
     this.listenable,
     this.itemsGetter,
     this.loadingGetter,
+    this.enabled = true,
   });
 
   @override
@@ -81,15 +83,19 @@ class _SearchableDropdownState<T> extends State<SearchableDropdown<T>> {
             ),
             const SizedBox(height: 8),
             GestureDetector(
-              onTap: () {
-                FocusScope.of(context).unfocus();
-                if (widget.onInteraction != null) widget.onInteraction!();
-                _openSheet(
-                  context: context,
-                  state: state,
-                );
-              },
-              child: Container(
+              onTap: widget.enabled
+                  ? () {
+                      FocusScope.of(context).unfocus();
+                      if (widget.onInteraction != null) widget.onInteraction!();
+                      _openSheet(
+                        context: context,
+                        state: state,
+                      );
+                    }
+                  : null,
+              child: Opacity(
+                opacity: widget.enabled ? 1 : 0.55,
+                child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 decoration: BoxDecoration(
                   color: isDark ? AppTheme.surfaceDark : Colors.white,
@@ -128,6 +134,7 @@ class _SearchableDropdownState<T> extends State<SearchableDropdown<T>> {
                       ),
                   ],
                 ),
+              ),
               ),
             ),
             if (hasError)

@@ -13,6 +13,7 @@ import 'package:meal_app/core/theme/app_theme.dart';
 import 'package:meal_app/core/utils/error_handler.dart';
 
 import 'package:meal_app/core/utils/money_format.dart';
+import 'package:meal_app/core/utils/upgrade_payment_history.dart';
 import 'package:meal_app/features/subscription/ui/screens/payment_status_screen.dart';
 
 
@@ -217,27 +218,73 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
 
 
 
-  List<Map<String, dynamic>> _upgradeHistory(PaymentProvider pay) {
+  List<Map<String, dynamic>> _upgradeHistory(PaymentProvider pay) =>
+      filterMealSizeUpgradePayments(pay.paymentHistory);
 
-    final out = <Map<String, dynamic>>[];
-
-    for (final raw in pay.paymentHistory) {
-
-      if (raw is! Map) continue;
-
-      final m = Map<String, dynamic>.from(raw);
-
-      final type = _trim(m['order_type'] ?? m['orderType']).toLowerCase();
-
-      if (type == 'meal_size_upgrade') out.add(m);
-
-    }
-
-    return out;
-
+  Future<void> _pickSubscriber(List<dynamic> subs, bool isDark) async {
+    final picked = await showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: isDark ? AppTheme.surfaceDark : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Who is upgrading?',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(CupertinoIcons.xmark_circle_fill),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+              ),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: subs.length,
+                  itemBuilder: (_, i) {
+                    final sub = subs[i] as Map;
+                    final name = _trim(sub['entity_name']).isNotEmpty
+                        ? _trim(sub['entity_name'])
+                        : widget.initialEntityName ?? 'Subscriber';
+                    final plan = _trim(sub['plan_name']);
+                    final selected = i == _selectedSubIndex;
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+                        child: Icon(CupertinoIcons.person_fill, color: AppTheme.primaryColor, size: 20),
+                      ),
+                      title: Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
+                      subtitle: plan.isNotEmpty ? Text(plan) : null,
+                      trailing: selected
+                          ? const Icon(CupertinoIcons.checkmark_circle_fill, color: AppTheme.primaryColor)
+                          : null,
+                      onTap: () => Navigator.pop(ctx, i),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _selectedSubIndex = picked);
+    await _loadOptionsForSelected();
   }
-
-
 
   Future<void> _runPayment() async {
 
@@ -444,47 +491,54 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
 
                     const SizedBox(height: 8),
 
-                    Container(
-                      decoration: BoxDecoration(
-                        color: isDark ? AppTheme.surfaceDark : Colors.white,
+                    Material(
+                      color: isDark ? AppTheme.surfaceDark : Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      child: InkWell(
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: isDark ? Colors.white12 : Colors.grey.shade300,
-                        ),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<int>(
-                          isExpanded: true,
-                          value: _selectedSubIndex.clamp(0, subs.length - 1),
-                          icon: Icon(CupertinoIcons.chevron_down, color: isDark ? Colors.white70 : AppTheme.textSecondaryLight),
-                          borderRadius: BorderRadius.circular(12),
-                          items: [
-                            for (var i = 0; i < subs.length; i++)
-                              DropdownMenuItem(
-                                value: i,
-                                child: Row(
+                        onTap: () => _pickSubscriber(subs, isDark),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: isDark ? Colors.white12 : Colors.grey.shade300,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 20,
+                                backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+                                child: const Icon(CupertinoIcons.person_fill, color: AppTheme.primaryColor, size: 22),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Icon(CupertinoIcons.person_crop_circle, size: 20, color: AppTheme.primaryColor),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Text(
-                                        _trim((subs[i] as Map)['entity_name']).isNotEmpty
-                                            ? _trim((subs[i] as Map)['entity_name'])
-                                            : widget.initialEntityName ?? 'Subscriber',
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(fontWeight: FontWeight.w700),
-                                      ),
+                                    Text(
+                                      _trim((subs[_selectedSubIndex.clamp(0, subs.length - 1)] as Map)['entity_name'])
+                                              .isNotEmpty
+                                          ? _trim((subs[_selectedSubIndex.clamp(0, subs.length - 1)] as Map)['entity_name'])
+                                          : widget.initialEntityName ?? 'Subscriber',
+                                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
                                     ),
+                                    if (_trim((subs[_selectedSubIndex.clamp(0, subs.length - 1)] as Map)['plan_name']).isNotEmpty)
+                                      Text(
+                                        _trim((subs[_selectedSubIndex.clamp(0, subs.length - 1)] as Map)['plan_name']),
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: isDark ? Colors.white54 : AppTheme.textSecondaryLight,
+                                        ),
+                                      ),
                                   ],
                                 ),
                               ),
-                          ],
-                          onChanged: (v) async {
-                            if (v == null) return;
-                            setState(() => _selectedSubIndex = v);
-                            await _loadOptionsForSelected();
-                          },
+                              Icon(CupertinoIcons.chevron_down, color: isDark ? Colors.white54 : AppTheme.textSecondaryLight),
+                            ],
+                          ),
                         ),
                       ),
                     ),

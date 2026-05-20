@@ -42,6 +42,18 @@ class TimeUtils {
     return '$hour:$minute';
   }
 
+  /// Parses API / form values into `HH:mm` for storage and PUT payloads.
+  static String tryParseToBackend(String? raw, {String fallback = '13:30'}) {
+    if (raw == null || raw.trim().isEmpty) return fallback;
+    final norm = normalizeBackendTime(raw);
+    if (norm.isNotEmpty && RegExp(r'^\d{2}:\d{2}$').hasMatch(norm)) return norm;
+    final ampm = _parseAmPm(formatToDisplay(raw));
+    if (ampm != null) {
+      return toBackendFormat(TimeOfDay(hour: ampm.hour, minute: ampm.minute));
+    }
+    return fallback;
+  }
+
   /// Normalizes `HH:mm` / `HH:mm:ss` to `HH:mm` for equality checks.
   static String normalizeBackendTime(String? raw) {
     if (raw == null) return '';

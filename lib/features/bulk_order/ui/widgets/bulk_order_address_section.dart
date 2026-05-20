@@ -68,7 +68,7 @@ class _BulkOrderAddressSectionState extends State<BulkOrderAddressSection> {
     final pin = _pincodeController.text.trim();
     final provider = context.read<BulkOrderProvider>();
 
-    if (state == null || city == null || line.length < 5) {
+    if (state == null || city == null || line.length < 5 || pin.length != 6) {
       provider.setDeliveryAddress(null);
       return;
     }
@@ -78,7 +78,7 @@ class _BulkOrderAddressSectionState extends State<BulkOrderAddressSection> {
         stateId: state.id,
         cityId: city.id,
         addressLine: line,
-        pincode: pin.isEmpty ? null : pin,
+        pincode: pin,
         stateName: state.name,
         cityName: city.name,
       ),
@@ -174,11 +174,18 @@ class _BulkOrderAddressSectionState extends State<BulkOrderAddressSection> {
             controller: _pincodeController,
             keyboardType: TextInputType.number,
             maxLength: 6,
-            decoration: const InputDecoration(
-              labelText: 'Pincode (optional)',
+            decoration: InputDecoration(
+              labelText: 'Pincode *',
               counterText: '',
+              hintText: '6-digit pincode',
+              errorText: _pincodeController.text.isNotEmpty && _pincodeController.text.trim().length != 6
+                  ? 'Enter a valid 6-digit pincode'
+                  : null,
             ),
-            onChanged: (_) => _syncToProvider(),
+            onChanged: (_) {
+              setState(() {});
+              _syncToProvider();
+            },
           ),
         ],
       ),

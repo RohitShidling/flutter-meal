@@ -47,9 +47,11 @@ class BulkVarietyMealCardState extends State<BulkVarietyMealCard> {
   @override
   void didUpdateWidget(covariant BulkVarietyMealCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.cartQuantity != oldWidget.cartQuantity) {
-      final next = _textForQty(widget.cartQuantity);
-      if (_controller.text != next) _controller.text = next;
+    if (widget.quantity != oldWidget.quantity) {
+      final nextText = _textForQty(widget.quantity);
+      if (_controller.text != nextText) {
+        _controller.text = nextText;
+      }
     }
   }
 

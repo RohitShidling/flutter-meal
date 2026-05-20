@@ -8,6 +8,8 @@ import 'package:meal_app/features/subscription/ui/screens/subscription_managemen
 import 'package:meal_app/features/subscription/ui/screens/meal_skip_screen.dart';
 import 'package:meal_app/features/subscription/ui/screens/cart_screen.dart';
 import 'package:meal_app/features/subscription/ui/screens/meal_size_upgrade_screen.dart';
+import 'package:meal_app/features/bulk_order/ui/screens/bulk_delivery_address_settings_screen.dart';
+import 'package:meal_app/core/providers/cart_provider.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -79,7 +81,22 @@ class SettingsScreen extends StatelessWidget {
             CupertinoIcons.cart_fill,
             'Cart',
             isDark,
-            () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const CartScreen())),
+            () async {
+              await context.read<CartProvider>().fetchCart(force: true);
+              if (!context.mounted) return;
+              Navigator.push(context, CupertinoPageRoute(builder: (_) => const CartScreen()));
+            },
+          ),
+          const SizedBox(height: 8),
+          _buildNavigationTile(
+            context,
+            CupertinoIcons.location_fill,
+            'Bulk delivery address',
+            isDark,
+            () => Navigator.push(
+              context,
+              CupertinoPageRoute(builder: (_) => const BulkDeliveryAddressSettingsScreen()),
+            ),
           ),
           const SizedBox(height: 30),
 

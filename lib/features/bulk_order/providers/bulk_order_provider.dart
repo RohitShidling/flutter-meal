@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:meal_app/core/network/api_endpoints.dart';
 import 'package:meal_app/core/services/network_status_service.dart';
 import 'package:meal_app/core/services/phonepe_service.dart';
 import 'package:meal_app/core/utils/error_handler.dart';
+import 'package:meal_app/features/bulk_order/core/bulk_address_storage.dart';
 import 'package:meal_app/features/bulk_order/data/models/bulk_delivery_address.dart';
 import 'package:meal_app/features/bulk_order/data/models/bulk_order_config.dart';
 import 'package:meal_app/features/bulk_order/data/models/bulk_variety_category.dart';
@@ -36,11 +39,22 @@ class BulkOrderProvider with ChangeNotifier {
 
   final Map<String, int> _varietyQty = {};
   final Map<String, BulkMenuOption> _varietyMealCatalog = {};
+  final Map<String, String> _mealCategoryNames = {};
   BulkDeliveryAddress? _deliveryAddress;
   BulkDeliveryAddress? get deliveryAddress => _deliveryAddress;
   Map<String, int> get varietyQty => Map.unmodifiable(_varietyQty);
 
+  int? _standardQty;
+  int? get standardQty => _standardQty;
+
+  String? _standardDeliveryDate;
+  String? get standardDeliveryDate => _standardDeliveryDate;
+
   int get varietyLineSum => _varietyQty.values.fold(0, (a, b) => a + b);
+
+  int get bulkCartTotalMeals => varietyLineSum + (_standardQty ?? 0);
+
+  bool get hasBulkCartItems => bulkCartTotalMeals > 0;
 
   Map<String, dynamic>? _lastQuote;
   Map<String, dynamic>? get lastQuote => _lastQuote;
@@ -62,93 +76,106 @@ class BulkOrderProvider with ChangeNotifier {
   void clearVarietyCart() {
     _varietyQty.clear();
     _varietyMealCatalog.clear();
+    _mealCategoryNames.clear();
     notifyListeners();
+    _scheduleCartSync();
+  }
+
+  void clearStandardDraft() {
+    _standardQty = null;
+    _standardDeliveryDate = null;
+    notifyListeners();
+    _scheduleCartSync();
+  }
+
+  void clearBulkCart() {
+    clearVarietyCart();
+    clearStandardDraft();
+  }
+
+  void setStandardDraft(int qty, {String? deliveryDate}) {
+    if (qty <= 0) {
+      _standardQty = null;
+      _standardDeliveryDate = null;
+    } else {
+      _standardQty = qty;
+      if (deliveryDate != null && deliveryDate.length >= 10) {
+        _standardDeliveryDate = deliveryDate;
+      }
+    }
+    notifyListeners();
+    _scheduleCartSync();
+  }
+
+  void setStandardDeliveryDate(String? ymd) {
+    _standardDeliveryDate = ymd;
+    notifyListeners();
+  }
+
+  Future<void> loadSavedDeliveryAddress() async {
+    final saved = await BulkAddressStorage.load();
+    if (saved != null) {
+      _deliveryAddress = saved;
+      notifyListeners();
+    }
   }
 
   void setDeliveryAddress(BulkDeliveryAddress? address) {
     _deliveryAddress = address;
     notifyListeners();
+    if (address != null && address.isComplete) {
+      BulkAddressStorage.save(address);
+    }
   }
 
-  String? validateDeliveryAddress() {
+  String? validateDeliveryAddress({bool requireTime = false}) {
     final a = _deliveryAddress;
     if (a == null || !a.isComplete) {
       return 'Select state, city, and enter delivery address (min 5 characters).';
     }
     final pin = a.pincode?.trim() ?? '';
-    if (pin.isNotEmpty && !RegExp(r'^\d{6}$').hasMatch(pin)) {
-      return 'Pincode must be 6 digits.';
+    if (pin.isEmpty || !RegExp(r'^\d{6}$').hasMatch(pin)) {
+      return 'Pincode is required and must be exactly 6 digits.';
+    }
+    if (requireTime && !a.hasDeliveryTime) {
+      return 'Select a delivery time.';
     }
     return null;
   }
 
   BulkMenuOption? mealById(String id) => _varietyMealCatalog[id];
 
+  String? categoryNameForMeal(String mealId) => _mealCategoryNames[mealId];
+
   int get varietyMealTypeCount =>
       _varietyQty.entries.where((e) => e.value > 0).length;
 
   static const int varietyCartMaxTotal = 5000;
 
-  int _mealMin(String mealId) {
-    final min = mealById(mealId)?.minOrderQuantity ?? 1;
-    return min < 1 ? 1 : min;
-  }
-
-  /// Per-line rules only (not the order-wide tier minimum). Use when adding/updating cart lines.
-  String? validateVarietyLineUpdate(BulkOrderConfig cfg, String mealId, int qty) {
-    if (qty < 0) return 'Invalid quantity.';
-    if (qty == 0) return null;
-
-    if (!cfg.allowMultipleVarietyMeals) {
-      if (qty < cfg.tierThreshold) {
-        return 'This meal needs at least ${cfg.tierThreshold} portions.';
-      }
-      return null;
+  String? validateStandardDraft(BulkOrderConfig cfg) {
+    final qty = _standardQty ?? 0;
+    if (qty <= 0) return 'Enter how many meals you need.';
+    if (qty < cfg.minQuantity) {
+      return 'Minimum order is ${cfg.minQuantity} meals.';
     }
-
-    final wasInCart = varietyQtyFor(mealId) > 0;
-    if (!wasInCart && varietyMealTypeCount >= cfg.maxVarietyTypes) {
-      return 'You can pick at most ${cfg.maxVarietyTypes} different meal types.';
+    if (qty > cfg.standardMaxQuantity) {
+      return 'Maximum for standard bulk is ${cfg.standardMaxQuantity} meals.';
     }
-
-    final simulated = Map<String, int>.from(_varietyQty);
-    if (qty <= 0) {
-      simulated.remove(mealId);
-    } else {
-      simulated[mealId] = qty;
+    if (qty >= cfg.tierThreshold) {
+      return 'For ${cfg.tierThreshold} or more meals, use the large event bulk option.';
     }
-    final active = simulated.entries.where((e) => e.value > 0).toList();
-    final typeCount = active.length;
-
-    if (typeCount > cfg.maxVarietyTypes) {
-      return 'You can pick at most ${cfg.maxVarietyTypes} different meal types.';
-    }
-
-    if (typeCount > 1) {
-      var minSum = 0;
-      for (final e in active) {
-        final meal = mealById(e.key);
-        if (meal == null) {
-          return 'Re-open this category to refresh meal details, then try again.';
-        }
-        final min = _mealMin(e.key);
-        minSum += min;
-        if (e.value < min) {
-          return '${meal.items} needs at least $min portions when you order multiple meal types.';
-        }
-      }
-      final sum = active.fold<int>(0, (s, e) => s + e.value);
-      if (minSum > sum) {
-        return 'Combined minimum for these meals is $minSum portions (you have $sum).';
-      }
+    if (_deliveryMenu == null) {
+      return 'Menu preview is not available yet. Try again shortly.';
     }
     return null;
   }
 
-  /// Full cart validation including order minimum (${cfg.tierThreshold}+ total).
-  String? validateVarietyCartForCheckout(BulkOrderConfig cfg) {
+  /// Returns null when the variety cart can proceed to quote/pay.
+  String? validateVarietyCart(BulkOrderConfig cfg, {bool forPayment = false}) {
     final lineSum = varietyLineSum;
-    if (lineSum == 0) return 'Add at least one meal from the categories below.';
+    if (lineSum == 0) {
+      return forPayment ? 'Add portions for at least one meal.' : null;
+    }
     if (lineSum < cfg.tierThreshold) {
       return 'Order at least ${cfg.tierThreshold} meals in total (you have $lineSum).';
     }
@@ -194,13 +221,117 @@ class BulkOrderProvider with ChangeNotifier {
   List<MapEntry<String, int>> get varietyCartLines =>
       _varietyQty.entries.where((e) => e.value > 0).toList();
 
-  void setVarietyQty(String mealId, int qty) {
+  void setVarietyQty(String mealId, int qty, {String? categoryName}) {
     if (qty <= 0) {
       _varietyQty.remove(mealId);
     } else {
       _varietyQty[mealId] = qty;
+      if (categoryName != null && categoryName.isNotEmpty) {
+        _mealCategoryNames[mealId] = categoryName;
+      }
     }
     notifyListeners();
+    _scheduleCartSync();
+  }
+
+  Timer? _cartSyncTimer;
+
+  void _scheduleCartSync() {
+    _cartSyncTimer?.cancel();
+    _cartSyncTimer = Timer(const Duration(milliseconds: 600), () {
+      syncCartToServer();
+    });
+  }
+
+  Map<String, dynamic> _cartPayload() => {
+        'standard': _standardQty != null && _standardQty! > 0
+            ? {
+                'quantity': _standardQty,
+                'deliveryDate': _standardDeliveryDate,
+                'dailyMenuId': _deliveryMenu?.id,
+              }
+            : null,
+        'variety': _varietyQty.entries
+            .where((e) => e.value > 0)
+            .map(
+              (e) => {
+                'bulkMealId': e.key,
+                'quantity': e.value,
+                'categoryName': _mealCategoryNames[e.key],
+              },
+            )
+            .toList(),
+        'deliveryAddress': _deliveryAddress?.toApiPayload(),
+      };
+
+  void _applyCartPayload(Map<String, dynamic> payload) {
+    clearBulkCart();
+    final standard = payload['standard'];
+    if (standard is Map) {
+      final qty = int.tryParse('${standard['quantity']}') ?? 0;
+      final date = standard['deliveryDate']?.toString();
+      if (qty > 0) {
+        _standardQty = qty;
+        if (date != null && date.length >= 10) _standardDeliveryDate = date;
+      }
+    }
+    final variety = payload['variety'];
+    if (variety is List) {
+      for (final row in variety) {
+        if (row is! Map) continue;
+        final mealId = row['bulkMealId']?.toString() ?? '';
+        final qty = int.tryParse('${row['quantity']}') ?? 0;
+        if (mealId.isEmpty || qty <= 0) continue;
+        _varietyQty[mealId] = qty;
+        final cat = row['categoryName']?.toString();
+        if (cat != null && cat.isNotEmpty) _mealCategoryNames[mealId] = cat;
+      }
+    }
+    final addr = payload['deliveryAddress'];
+    if (addr is Map) {
+      try {
+        _deliveryAddress = BulkDeliveryAddress(
+          stateId: int.tryParse('${addr['stateId'] ?? addr['state_id']}') ?? 0,
+          cityId: int.tryParse('${addr['cityId'] ?? addr['city_id']}') ?? 0,
+          addressLine: addr['address']?.toString() ?? addr['addressLine']?.toString() ?? '',
+          pincode: addr['pincode']?.toString(),
+          stateName: addr['stateName']?.toString(),
+          cityName: addr['cityName']?.toString(),
+          deliveryTime: addr['deliveryTime']?.toString(),
+        );
+      } catch (_) {}
+    }
+  }
+
+  Future<void> syncCartToServer() async {
+    if (!hasBulkCartItems) {
+      try {
+        await _repository.deleteCartDraft();
+      } catch (_) {}
+      return;
+    }
+    try {
+      await _repository.saveCartDraft(_cartPayload());
+    } catch (_) {}
+  }
+
+  Future<void> loadCartFromServer() async {
+    try {
+      final payload = await _repository.getCartDraft();
+      if (payload == null || payload.isEmpty) return;
+      _applyCartPayload(payload);
+      final date = _standardDeliveryDate;
+      if (date != null && date.length >= 10) {
+        await loadMenusForDate(date);
+      }
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<void> clearServerCart() async {
+    try {
+      await _repository.deleteCartDraft();
+    } catch (_) {}
   }
 
   int varietyQtyFor(String mealId) => _varietyQty[mealId] ?? 0;
@@ -219,7 +350,7 @@ class BulkOrderProvider with ChangeNotifier {
     }
   }
 
-  Future<void> loadMealsForCategory(String categoryId) async {
+  Future<void> loadMealsForCategory(String categoryId, {String? categoryName}) async {
     _loading = true;
     _error = null;
     notifyListeners();
@@ -227,6 +358,9 @@ class BulkOrderProvider with ChangeNotifier {
       _categoryMeals = await _repository.fetchMealsByCategory(categoryId);
       for (final m in _categoryMeals) {
         _varietyMealCatalog[m.id] = m;
+        if (categoryName != null && categoryName.isNotEmpty) {
+          _mealCategoryNames[m.id] = categoryName;
+        }
       }
     } catch (e) {
       _error = ErrorHandler.getErrorMessage(e);
@@ -284,6 +418,73 @@ class BulkOrderProvider with ChangeNotifier {
         deliveryAddress: deliveryAddress,
       );
       return _lastQuote;
+    } catch (e) {
+      _error = ErrorHandler.getErrorMessage(e);
+      return null;
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<Map<String, dynamic>?> checkoutBundle({
+    required String deliveryDate,
+    required Map<String, dynamic> deliveryAddress,
+    bool isSandbox = true,
+  }) async {
+    if (!NetworkStatusService.instance.canAttemptApi) {
+      _error = 'No internet connection. Connect to complete payment.';
+      notifyListeners();
+      return null;
+    }
+    _loading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      Map<String, dynamic>? standard;
+      if ((_standardQty ?? 0) > 0 && _deliveryMenu != null) {
+        standard = {
+          'dailyMenuId': _deliveryMenu!.id,
+          'quantity': _standardQty,
+        };
+      }
+      final variety = _varietyQty.entries
+          .where((e) => e.value > 0)
+          .map((e) => {'bulkMealId': e.key, 'quantity': e.value})
+          .toList();
+
+      final paymentData = await _repository.initiateBundlePayment(
+        deliveryDate: deliveryDate,
+        deliveryAddress: deliveryAddress,
+        standard: standard,
+        variety: variety,
+        redirectUrl: ApiEndpoints.paymentStatusPage,
+      );
+
+      final paymentUrl = paymentData['paymentUrl']?.toString();
+      final orderId = paymentData['orderId']?.toString() ?? '';
+      final merchantTransactionId = paymentData['merchantTransactionId']?.toString() ?? '';
+      final backendToken = paymentData['token']?.toString() ?? paymentData['orderToken']?.toString();
+      final backendMerchantId = paymentData['merchantId']?.toString();
+
+      if ((paymentUrl == null || paymentUrl.isEmpty) && backendToken == null) {
+        throw Exception('Payment information not received from gateway');
+      }
+
+      final sdkResult = await PhonePeService.pay(
+        orderId: orderId,
+        paymentUrl: paymentUrl,
+        backendToken: backendToken,
+        backendMerchantId: backendMerchantId,
+        isSandbox: isSandbox,
+      );
+
+      return {
+        ...paymentData,
+        'sdkStatus': sdkResult['status'] ?? 'FAILURE',
+        'sdkError': sdkResult['error'],
+        'merchantTransactionId': merchantTransactionId,
+      };
     } catch (e) {
       _error = ErrorHandler.getErrorMessage(e);
       return null;

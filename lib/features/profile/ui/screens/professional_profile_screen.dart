@@ -17,6 +17,8 @@ import 'package:meal_app/core/widgets/entity_plan_actions_row.dart';
 import 'package:meal_app/core/providers/cart_provider.dart';
 import 'package:meal_app/core/widgets/cart_overlay_body.dart';
 import 'package:meal_app/core/services/app_route_tracker.dart';
+import 'package:meal_app/core/utils/subscription_status_normalize.dart';
+import 'package:meal_app/core/widgets/meal_size_blocked_banner.dart';
 
 
 class ProfessionalProfileScreen extends StatefulWidget {
@@ -39,9 +41,28 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
   bool _isInitializing = true;
   bool _isSaving = false;
   bool _isEditing = false;
+  String? _mealSizeBlockedFlash;
 
   // Switch to onUserInteraction after first submit attempt
   AutovalidateMode _autovalidateMode = AutovalidateMode.disabled;
+
+  String _mealSizeBlockedMessage(ProfileProvider profileProvider, LookupProvider lookup) {
+    final savedId = profileProvider.professionalProfile?.mealSizeId;
+    final sizeName = lookup.mealSizes
+        .where((m) => m.id == savedId)
+        .map((m) => m.displayName)
+        .firstOrNull;
+    final label = sizeName?.isNotEmpty == true ? sizeName! : 'your current size';
+    return 'You cannot change meal size because you are actively subscribed with $label. Use Upgrade meal size in Settings.';
+  }
+
+  bool get _blocksMealSizeChange {
+    final id = context.read<ProfileProvider>().professionalProfile?.id;
+    if (id == null || id.isEmpty) return false;
+    final status = context.read<MealProvider>().subscriptionStatusData;
+    final state = SubscriptionStatusNormalizer.entityPlanState(status, 'professional', id);
+    return state == 'active' || state == 'upcoming';
+  }
 
   @override
   void initState() {
@@ -60,7 +81,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
       await lookup.fetchCorporateLocations();
       await profileProvider.fetchProfiles(force: true);
       if (mounted) {
-        context.read<MealProvider>().fetchSubscriptionStatus(silent: true);
+        await context.read<MealProvider>().fetchSubscriptionStatus(silent: false);
         context.read<CartProvider>().fetchCart(silent: true);
       }
 
@@ -154,9 +175,17 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
       return;
     }
 
-    // Let the API handle profile conflict checks (400/403)
-    // No hard-coded client-side blocking
     final profileProvider = context.read<ProfileProvider>();
+    final existing = profileProvider.professionalProfile;
+    if (existing != null &&
+        _blocksMealSizeChange &&
+        _selectedMealSize!.id != existing.mealSizeId) {
+      ErrorHandler.showError(
+        context,
+        'Meal size cannot be changed while a subscription is active or upcoming. Use Upgrade meal size in Settings.',
+      );
+      return;
+    }
 
     setState(() => _isSaving = true);
 
@@ -343,6 +372,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                       band: MealSizeRecommendations.recommendedBandForTeacherOrProfessional(),
                     ),
                     value: _selectedMealSize,
+                    enabled: !_blocksMealSizeChange,
                     isLoading: lookup.isLoading,
                     listenable: lookup,
                     itemsGetter: () => lookup.mealSizes,
@@ -353,9 +383,25 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                       lookup.fetchInitialData();
                     },
                     onChanged: (v) {
-                      setState(() => _selectedMealSize = v);
+                      if (_blocksMealSizeChange) {
+                        final saved = profileProvider.professionalProfile?.mealSizeId;
+                        if (v != null && v.id != saved) {
+                          final msg = _mealSizeBlockedMessage(profileProvider, lookup);
+                          setState(() => _mealSizeBlockedFlash = msg);
+                          ErrorHandler.showValidationError(context, msg);
+                        }
+                        return;
+                      }
+                      setState(() {
+                        _mealSizeBlockedFlash = null;
+                        _selectedMealSize = v;
+                      });
                     },
                   ),
+                  if (_blocksMealSizeChange)
+                    MealSizeBlockedBanner(
+                      message: _mealSizeBlockedFlash ?? _mealSizeBlockedMessage(profileProvider, lookup),
+                    ),
                   if (_selectedMealSize != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 6),

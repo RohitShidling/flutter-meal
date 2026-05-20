@@ -13,7 +13,11 @@ import 'package:meal_app/core/utils/validators.dart';
 import 'package:meal_app/core/providers/meal_provider.dart';
 import 'package:meal_app/core/widgets/entity_subscription_badge.dart';
 import 'package:meal_app/core/widgets/entity_plan_actions_row.dart';
+import 'package:meal_app/core/providers/meal_provider.dart';
 import 'package:meal_app/core/utils/meal_size_recommendations.dart';
+import 'package:meal_app/core/utils/subscription_status_normalize.dart';
+import 'package:meal_app/core/widgets/meal_size_blocked_banner.dart';
+import 'package:meal_app/core/widgets/unsaved_form_guard.dart';
 import 'package:meal_app/core/providers/cart_provider.dart';
 import 'package:meal_app/core/widgets/cart_overlay_body.dart';
 import 'package:meal_app/core/services/app_route_tracker.dart';
@@ -338,6 +342,8 @@ class _ChildFormState extends State<_ChildForm> {
   late TextEditingController _nameController;
   late TextEditingController _rollController;
   late TextEditingController _timeController;
+  late TextEditingController _timeDisplayController;
+  late String _initialSnapshot;
   
   SchoolModel? _selectedSchool;
   StandardModel? _selectedStandard;
@@ -347,9 +353,53 @@ class _ChildFormState extends State<_ChildForm> {
   
   bool _isLoading = false;
   bool _isSaving = false;
+  bool _schoolLocksLocation = false;
 
   // Switch to onUserInteraction after first submit attempt
   AutovalidateMode _autovalidateMode = AutovalidateMode.disabled;
+  String? _formError;
+  String? _mealSizeBlockedFlash;
+
+  String _mealSizeBlockedMessage(LookupProvider lookup) {
+    final savedId = widget.child?.mealSizeId;
+    final sizeName = lookup.mealSizes
+        .where((m) => m.id == savedId)
+        .map((m) => m.displayName)
+        .firstOrNull;
+    final label = sizeName?.isNotEmpty == true ? sizeName! : (widget.child?.mealSizeName ?? 'your current size');
+    return 'You cannot change meal size because you are actively subscribed with $label. Use Upgrade meal size in Settings.';
+  }
+
+  bool get _blocksMealSizeChange {
+    final id = widget.child?.id;
+    if (id == null || id.isEmpty) return false;
+    final status = context.read<MealProvider>().subscriptionStatusData;
+    final state = SubscriptionStatusNormalizer.entityPlanState(status, 'child', id);
+    return state == 'active' || state == 'upcoming';
+  }
+
+  String _snapshot() {
+    return [
+      _nameController.text.trim(),
+      _rollController.text.trim(),
+      _selectedSchool?.id ?? '',
+      _selectedStandard?.id ?? '',
+      _selectedMealSize?.id ?? '',
+      _selectedState?.id ?? '',
+      _selectedCity?.id ?? '',
+      TimeUtils.normalizeBackendTime(_timeController.text),
+    ].join('|');
+  }
+
+  bool get _isDirty => _snapshot() != _initialSnapshot;
+
+  void _captureSnapshot() {
+    _initialSnapshot = _snapshot();
+  }
+
+  void _syncTimeDisplay() {
+    _timeDisplayController.text = TimeUtils.formatToDisplay(_timeController.text);
+  }
 
   @override
   void initState() {
@@ -357,7 +407,10 @@ class _ChildFormState extends State<_ChildForm> {
     
     _nameController = TextEditingController(text: widget.child?.name);
     _rollController = TextEditingController(text: widget.child?.rollNumber);
-    _timeController = TextEditingController(text: widget.child?.mealTime ?? '13:30');
+    final backendTime = TimeUtils.tryParseToBackend(widget.child?.mealTime);
+    _timeController = TextEditingController(text: backendTime);
+    _timeDisplayController = TextEditingController(text: TimeUtils.formatToDisplay(backendTime));
+    _initialSnapshot = '';
 
     // If editing, fetch lookup data to pre-fill selections
     if (widget.child != null) {
@@ -365,6 +418,9 @@ class _ChildFormState extends State<_ChildForm> {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         final lookup = context.read<LookupProvider>();
         await lookup.fetchInitialData();
+        if (mounted) {
+          await context.read<MealProvider>().fetchSubscriptionStatus(silent: false);
+        }
         if (mounted) {
           setState(() {
             _selectedSchool = lookup.schools.where((s) => s.id == widget.child!.schoolId).firstOrNull;
@@ -384,10 +440,14 @@ class _ChildFormState extends State<_ChildForm> {
               }
             }
             
+            _schoolLocksLocation = _selectedSchool != null;
             _isLoading = false;
+            _captureSnapshot();
           });
         }
       });
+    } else {
+      _captureSnapshot();
     }
   }
 
@@ -396,14 +456,18 @@ class _ChildFormState extends State<_ChildForm> {
     _nameController.dispose();
     _rollController.dispose();
     _timeController.dispose();
+    _timeDisplayController.dispose();
     super.dispose();
   }
 
   Future<void> _selectTime(BuildContext context) async {
     FocusScope.of(context).unfocus();
+    final parts = _timeController.text.split(':');
+    final initHour = int.tryParse(parts.first) ?? 13;
+    final initMin = parts.length > 1 ? int.tryParse(parts[1]) ?? 30 : 30;
     final TimeOfDay? picked = await showTimePicker(
       context: context,
-      initialTime: const TimeOfDay(hour: 13, minute: 30),
+      initialTime: TimeOfDay(hour: initHour.clamp(0, 23), minute: initMin.clamp(0, 59)),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -419,12 +483,16 @@ class _ChildFormState extends State<_ChildForm> {
     if (picked != null) {
       setState(() {
         _timeController.text = TimeUtils.toBackendFormat(picked);
+        _syncTimeDisplay();
       });
     }
   }
 
-  Future<void> _submitForm() async {
+  Future<bool> _submitForm() async {
     final childrenProvider = context.read<ChildrenProvider>();
+
+    // Clear previous inline error
+    setState(() => _formError = null);
 
     // Activate auto-validation so errors clear on user interaction
     if (_autovalidateMode != AutovalidateMode.onUserInteraction) {
@@ -432,23 +500,40 @@ class _ChildFormState extends State<_ChildForm> {
     }
 
     if (!_formKey.currentState!.validate()) {
-      return; // errors are shown inline by validators
+      setState(() => _formError = 'Please fill in all required fields correctly.');
+      return false;
     }
 
     final school = _selectedSchool!;
     final stateName = _selectedState?.name.trim().toLowerCase() ?? '';
     final cityName = _selectedCity?.name.trim().toLowerCase() ?? '';
     if (stateName.isEmpty || cityName.isEmpty) {
-      ErrorHandler.showError(context, 'Please select state and city to match the school location.');
-      return;
+      final msg = 'Please select state and city to match the school location.';
+      setState(() => _formError = msg);
+      ErrorHandler.showError(context, msg);
+      return false;
     }
     if (school.state.trim().toLowerCase() != stateName) {
-      ErrorHandler.showError(context, 'Selected state does not match the school’s state. Pick the school again or correct state.');
-      return;
+      final msg = 'Selected state does not match this school.\nExpected: ${school.state}';
+      setState(() => _formError = msg);
+      ErrorHandler.showError(context, msg);
+      return false;
     }
     if (school.city.trim().toLowerCase() != cityName) {
-      ErrorHandler.showError(context, 'Selected city does not match the school’s city. Pick the school again or correct city.');
-      return;
+      final msg = 'Selected city does not match this school.\nExpected: ${school.city}';
+      setState(() => _formError = msg);
+      ErrorHandler.showError(context, msg);
+      return false;
+    }
+
+    if (widget.child != null && _blocksMealSizeChange) {
+      final before = widget.child!;
+      if (_selectedMealSize != null && _selectedMealSize!.id != before.mealSizeId) {
+        final msg = 'Meal size cannot be changed while a subscription is active or upcoming. Use Upgrade meal size in Settings.';
+        setState(() => _formError = msg);
+        ErrorHandler.showError(context, msg);
+        return false;
+      }
     }
 
     setState(() => _isSaving = true);
@@ -473,10 +558,38 @@ class _ChildFormState extends State<_ChildForm> {
           TimeUtils.normalizeBackendTime(before.mealTime) == TimeUtils.normalizeBackendTime(newChild.mealTime);
       if (same) {
         setState(() => _isSaving = false);
-        if (!mounted) return;
+        if (!mounted) return false;
+        final snap = _snapshot();
+        final saved = _initialSnapshot;
+        if (snap != saved) {
+          if (_blocksMealSizeChange && _selectedMealSize?.id != before.mealSizeId) {
+            ErrorHandler.showError(
+              context,
+              'Meal size cannot be changed while a subscription is active or upcoming. Use Upgrade meal size in Settings.',
+            );
+          } else if (_selectedState != null &&
+              school.state.trim().toLowerCase() != _selectedState!.name.trim().toLowerCase()) {
+            ErrorHandler.showError(
+              context,
+              'Selected state does not match this school (expected ${school.state}).',
+            );
+          } else if (_selectedCity != null &&
+              school.city.trim().toLowerCase() != _selectedCity!.name.trim().toLowerCase()) {
+            ErrorHandler.showError(
+              context,
+              'Selected city does not match this school (expected ${school.city}).',
+            );
+          } else {
+            ErrorHandler.showError(
+              context,
+              'Some changes could not be saved. Check school location and meal size rules.',
+            );
+          }
+          return false;
+        }
         ErrorHandler.showSuccess(context, 'No changes to save.');
         Navigator.pop(context);
-        return;
+        return true;
       }
     }
 
@@ -487,14 +600,17 @@ class _ChildFormState extends State<_ChildForm> {
       success = await childrenProvider.updateChild(widget.child!.id!, newChild);
     }
 
-    if (!mounted) return;
+    if (!mounted) return false;
     setState(() => _isSaving = false);
 
     if (success) {
+      _captureSnapshot();
       ErrorHandler.showSuccess(context, widget.child == null ? 'Child registered!' : 'Profile updated!');
-      Navigator.pop(context);
+      if (mounted) Navigator.pop(context);
+      return true;
     } else {
       ErrorHandler.showError(context, childrenProvider.error);
+      return false;
     }
   }
 
@@ -503,7 +619,7 @@ class _ChildFormState extends State<_ChildForm> {
     final lookup = context.watch<LookupProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
+    final formBody = Container(
       height: MediaQuery.of(context).size.height * 0.85,
       decoration: BoxDecoration(
         color: Theme.of(context).scaffoldBackgroundColor,
@@ -533,7 +649,37 @@ class _ChildFormState extends State<_ChildForm> {
                   ),
                   IconButton(
                     icon: const Icon(CupertinoIcons.xmark_circle_fill, color: Colors.grey),
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () async {
+                      if (!_isDirty) {
+                        Navigator.pop(context);
+                        return;
+                      }
+                      final leave = await showCupertinoDialog<String>(
+                        context: context,
+                        builder: (ctx) => CupertinoAlertDialog(
+                          title: const Text('Unsaved changes'),
+                          content: const Text('You have unsaved changes. What would you like to do?'),
+                          actions: [
+                            CupertinoDialogAction(onPressed: () => Navigator.pop(ctx, 'cancel'), child: const Text('Cancel')),
+                            CupertinoDialogAction(
+                              isDestructiveAction: true,
+                              onPressed: () => Navigator.pop(ctx, 'discard'),
+                              child: const Text('Discard'),
+                            ),
+                            CupertinoDialogAction(
+                              isDefaultAction: true,
+                              onPressed: () => Navigator.pop(ctx, 'save'),
+                              child: const Text('Save'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (leave == 'discard' && mounted) Navigator.pop(context);
+                      if (leave == 'save' && mounted) {
+                        final ok = await _submitForm();
+                        if (ok && mounted) Navigator.pop(context);
+                      }
+                    },
                   ),
                 ],
               ),
@@ -580,7 +726,7 @@ class _ChildFormState extends State<_ChildForm> {
                 onChanged: (v) {
                   setState(() {
                     _selectedSchool = v;
-                    // Auto-fill state and city from school data
+                    _schoolLocksLocation = v != null;
                     if (v != null) {
                       _selectedState = lookup.states.where((s) => s.name.toLowerCase() == v.state.toLowerCase()).firstOrNull;
                       if (_selectedState != null) {
@@ -591,7 +737,11 @@ class _ChildFormState extends State<_ChildForm> {
                             });
                           }
                         });
+                      } else {
+                        _selectedCity = null;
                       }
+                    } else {
+                      _schoolLocksLocation = false;
                     }
                   });
                 },
@@ -615,7 +765,7 @@ class _ChildFormState extends State<_ChildForm> {
                 onChanged: (v) {
                   setState(() {
                     _selectedStandard = v;
-                    if (v != null) {
+                    if (v != null && !_blocksMealSizeChange) {
                       final band = MealSizeRecommendations.recommendedBandForChild(
                         v.displayName,
                         v.id,
@@ -630,7 +780,9 @@ class _ChildFormState extends State<_ChildForm> {
               // 5. State (auto-filled from school, but user can also select)
               SearchableDropdown<StateModel>(
                 label: 'State',
-                items: lookup.states,
+                items: _schoolLocksLocation && _selectedSchool != null
+                    ? lookup.states.where((s) => s.name.toLowerCase() == _selectedSchool!.state.toLowerCase()).toList()
+                    : lookup.states,
                 itemLabel: (s) => s.name,
                 value: _selectedState,
                 isLoading: lookup.isLoading,
@@ -643,13 +795,12 @@ class _ChildFormState extends State<_ChildForm> {
                   lookup.fetchInitialData();
                 },
                 onChanged: (v) {
+                  if (_schoolLocksLocation) return;
                   setState(() {
                     if (_selectedState?.id != v?.id) {
                       _selectedState = v;
                       _selectedCity = null;
-                      if (v != null) {
-                        lookup.fetchCitiesByState(v.id);
-                      }
+                      if (v != null) lookup.fetchCitiesByState(v.id);
                     }
                   });
                 },
@@ -658,7 +809,9 @@ class _ChildFormState extends State<_ChildForm> {
               // 6. City (auto-filled from school, but user can also select)
               SearchableDropdown<CityModel>(
                 label: 'City',
-                items: lookup.cities,
+                items: _schoolLocksLocation && _selectedSchool != null
+                    ? lookup.cities.where((c) => c.name.toLowerCase() == _selectedSchool!.city.toLowerCase()).toList()
+                    : lookup.cities,
                 itemLabel: (c) => c.name,
                 value: _selectedCity,
                 isLoading: lookup.isLoading,
@@ -674,9 +827,8 @@ class _ChildFormState extends State<_ChildForm> {
                   }
                 },
                 onChanged: (v) {
-                  setState(() {
-                    _selectedCity = v;
-                  });
+                  if (_schoolLocksLocation) return;
+                  setState(() => _selectedCity = v);
                 },
               ),
               const SizedBox(height: 16),
@@ -696,6 +848,7 @@ class _ChildFormState extends State<_ChildForm> {
                   );
                 },
                 value: _selectedMealSize,
+                enabled: !_blocksMealSizeChange,
                 isLoading: lookup.isLoading,
                 listenable: lookup,
                 itemsGetter: () => lookup.mealSizes,
@@ -705,8 +858,25 @@ class _ChildFormState extends State<_ChildForm> {
                   FocusScope.of(context).unfocus();
                   lookup.fetchInitialData();
                 },
-                onChanged: (v) => setState(() => _selectedMealSize = v),
+                onChanged: (v) {
+                  if (_blocksMealSizeChange) {
+                    if (v != null && v.id != widget.child?.mealSizeId) {
+                      final msg = _mealSizeBlockedMessage(lookup);
+                      setState(() => _mealSizeBlockedFlash = msg);
+                      ErrorHandler.showValidationError(context, msg);
+                    }
+                    return;
+                  }
+                  setState(() {
+                    _mealSizeBlockedFlash = null;
+                    _selectedMealSize = v;
+                  });
+                },
               ),
+              if (_blocksMealSizeChange)
+                MealSizeBlockedBanner(
+                  message: _mealSizeBlockedFlash ?? _mealSizeBlockedMessage(lookup),
+                ),
               if (_selectedStandard != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
@@ -721,7 +891,7 @@ class _ChildFormState extends State<_ChildForm> {
                 onTap: () => _selectTime(context),
                 child: IgnorePointer(
                   child: TextFormField(
-                    controller: TextEditingController(text: TimeUtils.formatToDisplay(_timeController.text)),
+                    controller: _timeDisplayController,
                     decoration: const InputDecoration(
                       labelText: 'Meal Delivery Time',
                       hintText: 'Select meal delivery time',
@@ -732,9 +902,38 @@ class _ChildFormState extends State<_ChildForm> {
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 16),
+              if (_formError != null)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(CupertinoIcons.exclamationmark_triangle_fill, color: Colors.red.shade700, size: 18),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _formError!,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.red.shade800,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ElevatedButton(
-                onPressed: _isSaving ? null : _submitForm,
+                onPressed: _isSaving ? null : () async => _submitForm(),
                 style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 60)),
                 child: _isSaving
                     ? const SizedBox(
@@ -748,6 +947,13 @@ class _ChildFormState extends State<_ChildForm> {
           ),
         ),
       ),
+    );
+
+    return UnsavedFormGuard(
+      isDirty: _isDirty,
+      onDiscard: () {},
+      onSave: _submitForm,
+      child: formBody,
     );
   }
 }

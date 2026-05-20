@@ -8,6 +8,11 @@ class LocalCache {
     await prefs.setString(key, jsonEncode(value));
   }
 
+  Future<void> remove(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(key);
+  }
+
   Future<Map<String, dynamic>?> loadJson(String key) async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(key);

@@ -121,5 +121,7 @@ class ApiEndpoints {
       '/api/common/bulk-orders/variety-categories/$categoryId/meals';
   static const String bulkOrderQuote = '/api/client/bulk-orders/quote';
   static const String bulkOrderInitiatePayment = '/api/client/bulk-orders/initiate-payment';
+  static const String bulkOrderInitiateBundlePayment = '/api/client/bulk-orders/initiate-bundle-payment';
+  static const String bulkOrderCart = '/api/client/bulk-orders/cart';
   static String bulkOrderById(String id) => '/api/client/bulk-orders/$id';
 }

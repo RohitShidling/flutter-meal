@@ -46,6 +46,7 @@ class ChildModel {
       'standardId': standardId,
       'mealSizeId': mealSizeId,
       'mealTime': mealTime,
+      'meal_time': mealTime,
     };
   }
 }

@@ -67,6 +67,56 @@ class BulkOrderRepository {
     throw response.data['message']?.toString() ?? 'Quote failed';
   }
 
+  Future<Map<String, dynamic>?> getCartDraft() async {
+    final response = await _dioClient.dio.get(ApiEndpoints.bulkOrderCart);
+    if (response.data['success'] == true) {
+      final data = response.data['data'];
+      if (data is Map) return Map<String, dynamic>.from(data);
+      return {};
+    }
+    throw response.data['message']?.toString() ?? 'Failed to load bulk cart';
+  }
+
+  Future<void> saveCartDraft(Map<String, dynamic> payload) async {
+    final response = await _dioClient.dio.put(
+      ApiEndpoints.bulkOrderCart,
+      data: {'payload': payload},
+    );
+    if (response.data['success'] != true) {
+      throw response.data['message']?.toString() ?? 'Failed to save bulk cart';
+    }
+  }
+
+  Future<void> deleteCartDraft() async {
+    final response = await _dioClient.dio.delete(ApiEndpoints.bulkOrderCart);
+    if (response.data['success'] != true) {
+      throw response.data['message']?.toString() ?? 'Failed to clear bulk cart';
+    }
+  }
+
+  Future<Map<String, dynamic>> initiateBundlePayment({
+    required String deliveryDate,
+    required Map<String, dynamic> deliveryAddress,
+    Map<String, dynamic>? standard,
+    List<Map<String, dynamic>>? variety,
+    String? redirectUrl,
+  }) async {
+    final response = await _dioClient.dio.post(
+      ApiEndpoints.bulkOrderInitiateBundlePayment,
+      data: {
+        'deliveryDate': deliveryDate,
+        'deliveryAddress': deliveryAddress,
+        if (standard != null) 'standard': standard,
+        if (variety != null && variety.isNotEmpty) 'variety': variety,
+        if (redirectUrl != null) 'redirectUrl': redirectUrl,
+      },
+    );
+    if (response.data['success'] == true) {
+      return Map<String, dynamic>.from(response.data['data'] as Map);
+    }
+    throw response.data['message']?.toString() ?? 'Bundle payment initiation failed';
+  }
+
   Future<Map<String, dynamic>> initiatePayment({
     required String deliveryDate,
     required List<Map<String, dynamic>> items,

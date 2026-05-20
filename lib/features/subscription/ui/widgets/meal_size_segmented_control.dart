@@ -49,7 +49,7 @@ class MealSizeSegmentedControl extends StatelessWidget {
                   duration: const Duration(milliseconds: 380),
                   curve: Curves.easeInOutCubic,
                   width: itemWidth,
-                  padding: const EdgeInsets.symmetric(vertical: 11),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
                   decoration: BoxDecoration(
                     color: selected ? selectedBg : Colors.transparent,
                     borderRadius: BorderRadius.circular(12),
@@ -60,14 +60,17 @@ class MealSizeSegmentedControl extends StatelessWidget {
                     ),
                   ),
                   child: Center(
-                    child: Text(
-                      options[index],
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                        color: selected
-                            ? (isDark ? Colors.white : AppTheme.textPrimaryLight)
-                            : (isDark ? Colors.white54 : AppTheme.textSecondaryLight),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        options[index],
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                          color: selected
+                              ? (isDark ? Colors.white : AppTheme.textPrimaryLight)
+                              : (isDark ? Colors.white54 : AppTheme.textSecondaryLight),
+                        ),
                       ),
                     ),
                   ),

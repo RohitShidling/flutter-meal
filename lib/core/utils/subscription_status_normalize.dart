@@ -155,6 +155,18 @@ class SubscriptionStatusNormalizer {
     return null;
   }
 
+  static bool accountHasActive(Map<String, dynamic>? statusMap) {
+    if (statusMap == null) return false;
+    return statusMap['has_active_subscription'] == true;
+  }
+
+  /// True when any entity is upcoming and none are serving today.
+  static bool accountHasOnlyUpcoming(Map<String, dynamic>? statusMap) {
+    if (statusMap == null) return false;
+    final hasUpcoming = statusMap['has_upcoming_subscription'] == true;
+    return hasUpcoming && !accountHasActive(statusMap);
+  }
+
   /// Earliest `start_date` among upcoming (not yet serving) subscription rows.
   static String? earliestUpcomingStartYmd(Map<String, dynamic>? statusMap) {
     if (statusMap == null) return null;

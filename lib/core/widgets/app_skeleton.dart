@@ -242,6 +242,44 @@ class TodayMealCardSkeleton extends StatelessWidget {
   }
 }
 
+/// Weekly menu list card image + text placeholders.
+class WeeklyMealCardSkeleton extends StatelessWidget {
+  final double imageHeight;
+
+  const WeeklyMealCardSkeleton({super.key, this.imageHeight = 112});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        color: Theme.of(context).brightness == Brightness.dark
+            ? AppTheme.surfaceDark
+            : Colors.white,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SkeletonBone(height: imageHeight, borderRadius: const BorderRadius.vertical(top: Radius.circular(16))),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SkeletonBone(width: 72, height: 12, borderRadius: BorderRadius.circular(6)),
+                const SizedBox(height: 8),
+                SkeletonBone(width: double.infinity, height: 16, borderRadius: BorderRadius.circular(6)),
+                const SizedBox(height: 10),
+                SkeletonBone(width: MediaQuery.sizeOf(context).width * 0.5, height: 28, borderRadius: BorderRadius.circular(12)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Compact home row while cart totals are loading.
 class HomeCartSummarySkeleton extends StatelessWidget {
   final bool isDark;

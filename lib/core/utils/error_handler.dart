@@ -104,8 +104,9 @@ class ErrorHandler {
         final joined = (data['errors'] as List).map((e) => e.toString()).join(', ');
         if (joined.length <= 200) return joined;
       }
-      if (data.containsKey('message')) {
-        final m = data['message'];
+      for (final key in ['message', 'error', 'msg']) {
+        if (!data.containsKey(key)) continue;
+        final m = data[key];
         if (m != null) {
           final text = m.toString().trim();
           if (text.isNotEmpty && text.length <= 300 && !_looksLikeTechnicalNoise(text)) {
@@ -160,6 +161,28 @@ class ErrorHandler {
 
   /// Use when storing a string error on a provider (e.g. cart) for UI display.
   static String userFacing(Object? error) => getErrorMessage(error);
+
+  /// Red snackbar for validation / blocked actions (meal size, etc.).
+  static void showValidationError(BuildContext context, String message) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: Colors.red.shade700,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 4),
+      ),
+    );
+  }
 
   /// Shows an error snackbar.
   /// Always clears previous snackbars first to prevent stacking.

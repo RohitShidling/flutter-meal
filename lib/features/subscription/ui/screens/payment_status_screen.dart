@@ -8,6 +8,8 @@ import 'package:meal_app/core/providers/meal_provider.dart';
 import 'package:meal_app/core/providers/subscription_provider.dart';
 import 'package:meal_app/features/children/providers/children_provider.dart';
 import 'package:meal_app/features/profile/providers/profile_provider.dart';
+import 'package:meal_app/features/home/providers/menu_provider.dart';
+import 'package:meal_app/features/bulk_order/providers/bulk_order_provider.dart';
 import 'package:meal_app/core/theme/app_theme.dart';
 import 'package:meal_app/core/widgets/apple_card.dart';
 import 'package:meal_app/core/utils/meal_date.dart';
@@ -98,9 +100,10 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
 
     final orderType = (_statusData?['orderType']?.toString() ?? widget.orderType ?? '').toLowerCase();
     final isCartOrder = orderType == 'cart';
+    final isBulkOrder = orderType == 'bulk';
 
     final orderStatus = (_statusData?['orderStatus']?.toString() ?? '').toLowerCase();
-    if (orderStatus == 'pending' && widget.txnId.isNotEmpty) {
+    if ((orderStatus == 'pending' || _statusData?['localStatus'] == 'pending') && widget.txnId.isNotEmpty) {
       try {
         await payment.forceSyncPayment(widget.txnId);
         final synced = await payment.checkStatus(widget.txnId);
@@ -108,6 +111,13 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
           setState(() => _statusData = synced);
         }
       } catch (_) {/* best-effort */}
+    }
+
+    if (isBulkOrder) {
+      try {
+        context.read<BulkOrderProvider>().clearBulkCart();
+        await context.read<BulkOrderProvider>().clearServerCart();
+      } catch (_) {/* ignore */}
     }
 
     if (isCartOrder) {
@@ -132,6 +142,7 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
         meal.fetchMealStatus(),
         meal.fetchAlerts(),
         meal.fetchTodayMenu(),
+        context.read<MenuProvider>().fetchTodayMenu(silent: true),
         payment.fetchActiveSubscriptions(),
         payment.fetchPaymentHistory(),
         subscriptions.fetchSubscriptions(force: true),

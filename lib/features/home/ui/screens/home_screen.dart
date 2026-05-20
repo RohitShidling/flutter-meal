@@ -20,6 +20,8 @@ import 'package:meal_app/core/providers/meal_provider.dart';
 import 'package:meal_app/core/providers/cart_provider.dart';
 import 'package:meal_app/core/providers/subscription_provider.dart';
 import 'package:meal_app/features/subscription/ui/screens/view_all_plans_screen.dart';
+import 'package:meal_app/features/bulk_order/providers/bulk_order_provider.dart';
+import 'package:meal_app/features/bulk_order/ui/screens/bulk_order_cart_screen.dart';
 import 'package:meal_app/features/bulk_order/ui/screens/bulk_order_screen.dart';
 import 'package:meal_app/features/subscription/ui/screens/meal_skip_screen.dart';
 import 'package:meal_app/features/subscription/ui/screens/cart_screen.dart';
@@ -92,11 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
         context.read<HomepageProvider>().fetchHomepageEntries(force: true, silent: true),
         context.read<MenuProvider>().fetchTodayMenu(silent: true),
         context.read<CartProvider>().fetchCart(force: true, silent: true),
-        context.read<ChildrenProvider>().fetchChildren(force: true, silent: true),
-        context.read<ProfileProvider>().fetchProfiles(force: true, silent: true),
-
         context.read<AuthProvider>().refreshMeProfile(silent: true, forceNetwork: true),
-        context.read<SubscriptionProvider>().fetchSubscriptions(force: true, silent: true),
       ]);
     } else {
       await _loadAllData();
@@ -122,9 +120,6 @@ class _HomeScreenState extends State<HomeScreen> {
       context.read<HomepageProvider>().fetchHomepageEntries(silent: true),
       context.read<MenuProvider>().fetchTodayMenu(silent: true),
       context.read<CartProvider>().fetchCart(silent: true),
-      context.read<ChildrenProvider>().fetchChildren(silent: true),
-      context.read<ProfileProvider>().fetchProfiles(silent: true),
-
       context.read<AuthProvider>().refreshMeProfile(silent: true),
     ]);
   }
@@ -271,6 +266,10 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       actions: [
         _buildPlansButton(context),
+        if (context.watch<BulkOrderProvider>().hasBulkCartItems) ...[
+          const SizedBox(width: 6),
+          _buildBulkCartActionButton(context),
+        ],
         if (context.watch<CartProvider>().itemCount > 0) ...[
           const SizedBox(width: 6),
           _buildCartActionButton(context),
@@ -338,6 +337,57 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       tooltip: itemCount > 0 ? 'Cart ($itemCount)' : 'Cart',
+    );
+  }
+
+  Widget _buildBulkCartActionButton(BuildContext context) {
+    final count = context.watch<BulkOrderProvider>().bulkCartTotalMeals;
+    final badgeColor = Theme.of(context).colorScheme.secondary;
+
+    return IconButton(
+      onPressed: () {
+        Navigator.push(
+          context,
+          CupertinoPageRoute(builder: (_) => const BulkOrderCartScreen()),
+        );
+      },
+      icon: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Icon(
+            CupertinoIcons.bag_fill,
+            size: 24,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
+          if (count > 0)
+            Positioned(
+              right: -8,
+              top: -6,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                constraints: const BoxConstraints(minWidth: 16),
+                decoration: BoxDecoration(
+                  color: badgeColor,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Theme.of(context).scaffoldBackgroundColor,
+                    width: 1.5,
+                  ),
+                ),
+                child: Text(
+                  count > 99 ? '99+' : '$count',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+      tooltip: 'Bulk cart ($count)',
     );
   }
 
@@ -482,8 +532,9 @@ class _HomeScreenState extends State<HomeScreen> {
   /// Separate card below welcome — upcoming plan start date (industry-style status card).
   Widget _buildUpcomingPlanCard(BuildContext context, bool isDark) {
     final statusData = context.watch<MealProvider>().subscriptionStatusData;
-    final hasUpcoming = statusData?['has_upcoming_subscription'] == true;
-    if (!hasUpcoming) return const SizedBox.shrink();
+    if (!SubscriptionStatusNormalizer.accountHasOnlyUpcoming(statusData)) {
+      return const SizedBox.shrink();
+    }
 
     final upcomingStart = SubscriptionStatusNormalizer.earliestUpcomingStartYmd(statusData);
     final upcomingLabel = upcomingStart != null ? MealDate.formatDisplay(upcomingStart) : null;
@@ -529,6 +580,27 @@ class _HomeScreenState extends State<HomeScreen> {
                       color: isDark ? Colors.white : AppTheme.textPrimaryLight,
                     ),
                   ),
+                  const SizedBox(height: 14),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          CupertinoPageRoute(builder: (_) => const WeeklyMenuScreen()),
+                        );
+                      },
+                      icon: const Icon(CupertinoIcons.calendar, size: 18),
+                      label: const Text(
+                        'One Week Meal',
+                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -559,19 +631,45 @@ class _HomeScreenState extends State<HomeScreen> {
           margin: EdgeInsets.zero,
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
           borderRadius: 20,
-          child: Row(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(CupertinoIcons.info_circle_fill, color: AppTheme.primaryColor, size: 22),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  msg,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                    height: 1.35,
-                    color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(CupertinoIcons.info_circle_fill, color: AppTheme.primaryColor, size: 22),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      msg,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                        height: 1.35,
+                        color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      CupertinoPageRoute(builder: (_) => const WeeklyMenuScreen()),
+                    );
+                  },
+                  icon: const Icon(CupertinoIcons.calendar, size: 18),
+                  label: const Text(
+                    'One Week Meal',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
                 ),
               ),
@@ -746,7 +844,7 @@ class _HomeScreenState extends State<HomeScreen> {
           imageUrl: imageUrl,
           height: height,
           width: double.infinity,
-          fit: BoxFit.contain,
+          fit: BoxFit.cover,
           placeholder: (_, __) => _buildMealPlaceholder(height),
           errorWidget: (_, __, ___) => _buildMealPlaceholder(height),
         ),
@@ -759,34 +857,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildMealPlaceholder(double height) {
-    return Container(
+    return SkeletonBone(
       height: height,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppTheme.primaryColor.withValues(alpha: 0.15),
-            AppTheme.primaryColor.withValues(alpha: 0.05),
-          ],
-        ),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(CupertinoIcons.flame_fill, size: 40, color: AppTheme.primaryColor.withValues(alpha: 0.5)),
-            const SizedBox(height: 6),
-            Text(
-              'Today\'s Meal',
-              style: TextStyle(
-                color: AppTheme.primaryColor.withValues(alpha: 0.6),
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
-              ),
-            ),
-          ],
-        ),
-      ),
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
     );
   }
 

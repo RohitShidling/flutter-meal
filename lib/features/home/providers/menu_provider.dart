@@ -10,7 +10,8 @@ class MenuProvider with ChangeNotifier {
   final DioClient _dioClient;
   final LocalCache _cache;
   static const _todayCacheKey = 'cache_today_menu_v1';
-  static const _weeklyCacheKey = 'cache_weekly_menu_v2';
+  static const _weeklyCacheKey = 'cache_weekly_menu_v3';
+  static const _legacyWeeklyCacheKey = 'cache_weekly_menu_v2';
 
   MenuProvider(this._dioClient, this._cache) {
     _loadCachedTodayMenu();
@@ -167,29 +168,41 @@ class MenuProvider with ChangeNotifier {
     }
   }
 
-  /// Opens instantly from cache, then silently refreshes from network.
-  /// The screen never shows a blocking spinner if cache exists.
-  Future<void> fetchWeeklyMenuSilent() async {
-    // Step 1 — load from cache immediately (no spinner)
-    final cached = await _cache.loadJson(_weeklyCacheKey);
-    if (cached != null && _weeklyMenu.isEmpty) {
-      _isSubscribed = cached['is_subscribed'] == true;
-      _weeklyMenu = (cached['menu'] as List? ?? const []).toList();
-      _subscriptionSummary = (cached['subscription_summary'] as List? ?? const []).toList();
+  /// Opens from cache when available, then always refreshes from network.
+  Future<void> fetchWeeklyMenuSilent({bool forceRefresh = false}) async {
+    if (!forceRefresh) {
+      final cached = await _cache.loadJson(_weeklyCacheKey);
+      if (cached != null && _weeklyMenu.isEmpty) {
+        _applyWeeklyCache(cached);
+        notifyListeners();
+      }
+    }
+
+    final showSkeleton = _weeklyMenu.isEmpty;
+    if (showSkeleton) {
+      _isLoading = true;
+      _error = null;
       notifyListeners();
     }
 
-    // Step 2 — network refresh (only show spinner if truly empty)
-    await fetchWeeklyMenu(silent: true);
+    await fetchWeeklyMenu(silent: !showSkeleton, forceRefresh: forceRefresh);
   }
 
-  Future<void> fetchWeeklyMenu({bool silent = false}) async {
-    final cached = await _cache.loadJson(_weeklyCacheKey);
-    if (cached != null && _weeklyMenu.isEmpty) {
-      _isSubscribed = cached['is_subscribed'] == true;
-      _weeklyMenu = (cached['menu'] as List? ?? const []).toList();
-      _subscriptionSummary = (cached['subscription_summary'] as List? ?? const []).toList();
-      notifyListeners();
+  void _applyWeeklyCache(Map<String, dynamic> cached) {
+    _isSubscribed = cached['is_subscribed'] == true;
+    _weeklyMenu = (cached['menu'] as List? ?? const []).toList();
+    _subscriptionSummary = (cached['subscription_summary'] as List? ?? const []).toList();
+  }
+
+  Future<void> fetchWeeklyMenu({bool silent = false, bool forceRefresh = false}) async {
+    if (!forceRefresh) {
+      final cached = await _cache.loadJson(_weeklyCacheKey);
+      if (cached != null && _weeklyMenu.isEmpty) {
+        _applyWeeklyCache(cached);
+        notifyListeners();
+      }
+    } else {
+      await _cache.remove(_legacyWeeklyCacheKey);
     }
 
     if (!silent) {
@@ -226,8 +239,9 @@ class MenuProvider with ChangeNotifier {
           final menu = entry is Map<String, dynamic> ? Map<String, dynamic>.from(entry) : Map<String, dynamic>.from(entry);
           final menuDate = _menuRowDateKey(menu);
           final embedded = _extractNutrition(menu['nutrition_points']);
-          final merged = nutritionByDate[menuDate] ?? <String>[];
-          menu['nutrition_points'] = embedded.isNotEmpty ? embedded : merged;
+          final overlay = nutritionByDate[menuDate] ?? <String>[];
+          final combined = <String>{...embedded, ...overlay}.toList();
+          menu['nutrition_points'] = combined;
           return menu;
         }).toList();
         _subscriptionSummary = data['subscription_summary'] ?? [];

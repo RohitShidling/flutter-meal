@@ -21,7 +21,9 @@ class _BulkOrderHubScreenState extends State<BulkOrderHubScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final p = context.read<BulkOrderProvider>();
+      await p.loadSavedDeliveryAddress();
       await p.loadConfig();
+      await p.loadCartFromServer();
       final cfg = p.config;
       if (cfg != null && cfg.earliestDeliveryDate.length >= 10) {
         await p.loadMenusForDate(cfg.earliestDeliveryDate);

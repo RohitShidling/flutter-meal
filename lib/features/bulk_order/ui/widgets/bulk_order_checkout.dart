@@ -15,8 +15,9 @@ class BulkOrderCheckout {
     required List<Map<String, dynamic>> items,
     required int totalMeals,
     String? summaryLines,
+    bool useBundle = false,
   }) async {
-    final addrErr = provider.validateDeliveryAddress();
+    final addrErr = provider.validateDeliveryAddress(requireTime: true);
     if (addrErr != null) {
       ErrorHandler.showError(context, addrErr);
       return;
@@ -25,34 +26,39 @@ class BulkOrderCheckout {
 
     final cfg = provider.config;
     final isVarietyOrder = items.any((e) => e['bulkMealId'] != null);
-    if (cfg != null && isVarietyOrder) {
-      final cartErr = provider.validateVarietyCartForCheckout(cfg);
+    if (cfg != null && isVarietyOrder && !useBundle) {
+      final cartErr = provider.validateVarietyCart(cfg, forPayment: true);
       if (cartErr != null) {
         ErrorHandler.showError(context, cartErr);
         return;
       }
     }
 
-    final quote = await provider.fetchQuote(
-      deliveryDate: deliveryDate,
-      items: items,
-      deliveryAddress: addressPayload,
-    );
-    if (!context.mounted) return;
-    if (quote == null) {
-      if (provider.error != null) ErrorHandler.showError(context, provider.error);
-      return;
+    if (!useBundle) {
+      final quote = await provider.fetchQuote(
+        deliveryDate: deliveryDate,
+        items: items,
+        deliveryAddress: addressPayload,
+      );
+      if (!context.mounted) return;
+      if (quote == null) {
+        if (provider.error != null) ErrorHandler.showError(context, provider.error);
+        return;
+      }
     }
 
     final addr = provider.deliveryAddress;
-    final body = StringBuffer()
-      ..writeln('Delivery: $deliveryDate')
+    final body = StringBuffer()..writeln('Delivery: $deliveryDate');
+    final deliveryTime = addr?.deliveryTime?.trim();
+    if (deliveryTime != null && deliveryTime.isNotEmpty) {
+      body.writeln('Time: $deliveryTime');
+    }
+    body
       ..writeln('Address: ${addr?.formatted ?? '—'}')
       ..writeln('Total meals: $totalMeals');
     if (summaryLines != null && summaryLines.isNotEmpty) {
       body.writeln(summaryLines);
     }
-    body.writeln('Amount: ₹${quote['total_amount']}');
 
     final confirm = await showCupertinoDialog<bool>(
       context: context,
@@ -74,12 +80,18 @@ class BulkOrderCheckout {
     );
     if (confirm != true || !context.mounted) return;
 
-    final result = await provider.checkout(
-      deliveryDate: deliveryDate,
-      items: items,
-      deliveryAddress: addressPayload,
-      isSandbox: ApiEndpoints.isSandboxPayment,
-    );
+    final result = useBundle
+        ? await provider.checkoutBundle(
+            deliveryDate: deliveryDate,
+            deliveryAddress: addressPayload,
+            isSandbox: ApiEndpoints.isSandboxPayment,
+          )
+        : await provider.checkout(
+            deliveryDate: deliveryDate,
+            items: items,
+            deliveryAddress: addressPayload,
+            isSandbox: ApiEndpoints.isSandboxPayment,
+          );
     if (!context.mounted) return;
     if (result != null) {
       final txnId = result['merchantTransactionId']?.toString() ?? '';

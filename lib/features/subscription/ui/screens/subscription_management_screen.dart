@@ -12,6 +12,7 @@ import 'package:meal_app/core/services/connectivity_service.dart';
 import 'package:meal_app/features/children/providers/children_provider.dart';
 import 'package:meal_app/features/profile/providers/profile_provider.dart';
 import 'package:meal_app/core/services/app_route_tracker.dart';
+import 'package:meal_app/core/utils/upgrade_payment_history.dart';
 
 class SubscriptionManagementScreen extends StatefulWidget {
   const SubscriptionManagementScreen({super.key});
@@ -343,7 +344,13 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
         final payment = provider.paymentHistory[index];
         
         // Safe type conversion — prevents "type X is not a subtype of type String"
-        final planName = _safeString(payment['plan_name'] ?? payment['entity_name'], 'Subscription');
+        final isUpgrade = (payment['order_type'] ?? payment['orderType'] ?? '')
+            .toString()
+            .toLowerCase() ==
+            'meal_size_upgrade';
+        final planName = isUpgrade
+            ? 'Meal size upgrade'
+            : _safeString(payment['plan_name'] ?? payment['entity_name'], 'Subscription');
         final entityName = _safeString(payment['entity_name'], '');
         final amount = _safeNumString(payment['amount']);
         final pStatus = _safeString(

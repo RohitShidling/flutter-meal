@@ -4,6 +4,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:meal_app/core/theme/app_theme.dart';
+import 'package:meal_app/core/providers/meal_provider.dart';
+import 'package:meal_app/core/utils/subscription_status_normalize.dart';
+import 'package:meal_app/core/widgets/app_skeleton.dart';
 import 'package:meal_app/features/home/providers/menu_provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:meal_app/core/widgets/image_preview_dialog.dart';
@@ -37,7 +40,7 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
     super.initState();
     AppRouteTracker.instance.setCurrent(AppScreen.weeklyMenu);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<MenuProvider>().fetchWeeklyMenuSilent();
+      context.read<MenuProvider>().fetchWeeklyMenuSilent(forceRefresh: true);
     });
   }
 
@@ -68,13 +71,15 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
   }
 
   Widget _buildBody(BuildContext context, MenuProvider menuProvider, bool isDark) {
+    // Show skeleton when loading and no data available (first load without cache)
     if (menuProvider.isLoading && menuProvider.weeklyMenu.isEmpty) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        children: const [
-          SizedBox(height: 200),
-          Center(child: CupertinoActivityIndicator()),
-        ],
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        children: List.generate(5, (_) => const Padding(
+              padding: EdgeInsets.only(bottom: 10),
+              child: WeeklyMealCardSkeleton(),
+            )),
       );
     }
 
@@ -104,7 +109,11 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
       );
     }
 
-    if (!menuProvider.isSubscribed) {
+    final mealProvider = context.watch<MealProvider>();
+    final canViewWeekly = menuProvider.isSubscribed ||
+        SubscriptionStatusNormalizer.accountHasOnlyUpcoming(mealProvider.subscriptionStatusData);
+
+    if (!canViewWeekly) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
@@ -154,12 +163,12 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
       itemCount: menuProvider.weeklyMenu.length,
       itemBuilder: (context, index) {
         final menu = menuProvider.weeklyMenu[index];
-        return _buildWeeklyMealCard(context, menu, index, isDark);
+        return _buildWeeklyMealCard(context, menu, index, isDark, menuProvider.isLoading);
       },
     );
   }
 
-  Widget _buildWeeklyMealCard(BuildContext context, dynamic menu, int index, bool isDark) {
+  Widget _buildWeeklyMealCard(BuildContext context, dynamic menu, int index, bool isDark, bool isLoading) {
     final imageUrl = menu['image_url']?.toString();
     final items = menu['items']?.toString() ?? menu['item_name']?.toString() ?? 'Meal';
     final menuDateRaw = menu['menu_date']?.toString() ?? '';
@@ -197,18 +206,10 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
                 child: CachedNetworkImage(
                   imageUrl: imageUrl,
                   width: double.infinity,
-                  // Use contain so the full image is visible, not cropped
-                  fit: BoxFit.contain,
-                  placeholder: (_, __) => Container(
-                    height: 160,
-                    color: AppTheme.primaryColor.withValues(alpha: 0.05),
-                    child: Center(child: Icon(CupertinoIcons.photo, color: Colors.grey.withValues(alpha: 0.3), size: 32)),
-                  ),
-                  errorWidget: (_, __, ___) => Container(
-                    height: 100,
-                    color: AppTheme.primaryColor.withValues(alpha: 0.05),
-                    child: Center(child: Icon(CupertinoIcons.photo, color: Colors.grey.withValues(alpha: 0.3), size: 32)),
-                  ),
+                  height: 112,
+                  fit: BoxFit.cover,
+                  placeholder: (_, __) => const WeeklyMealCardSkeleton(imageHeight: 112),
+                  errorWidget: (_, __, ___) => const WeeklyMealCardSkeleton(imageHeight: 112),
                 ),
               ),
             ),
@@ -249,8 +250,8 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                if (nutritionPoints.isNotEmpty) ...[
-                  const SizedBox(height: 12),
+                const SizedBox(height: 10),
+                if (nutritionPoints.isNotEmpty)
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
@@ -283,8 +284,16 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
                         );
                       }).toList(),
                     ),
+                  )
+                else if (!isLoading)
+                  Text(
+                    'Nutrition info not available',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white38 : AppTheme.textSecondaryLight,
+                    ),
                   ),
-                ],
               ],
             ),
           ),
