@@ -20,13 +20,13 @@ class BulkOrderPaymentSheet extends StatefulWidget {
   });
 
   final BulkOrderConfig config;
-  final Future<bool> Function(String deliveryDate) onConfirm;
+  final Future<void> Function(String deliveryDate) onConfirm;
   final String? initialDeliveryDate;
 
   static Future<bool?> show(
     BuildContext context, {
     required BulkOrderConfig config,
-    required Future<bool> Function(String deliveryDate) onConfirm,
+    required Future<void> Function(String deliveryDate) onConfirm,
     String? initialDeliveryDate,
   }) {
     return showModalBottomSheet<bool>(
@@ -127,11 +127,11 @@ class _BulkOrderPaymentSheetState extends State<BulkOrderPaymentSheet> {
     }
 
     setState(() => _paying = true);
-    final ok = await widget.onConfirm(_deliveryDate!);
+    final deliveryDate = _deliveryDate!;
     if (mounted) {
-      setState(() => _paying = false);
-      if (ok) Navigator.pop(context, true);
+      Navigator.pop(context, true);
     }
+    await widget.onConfirm(deliveryDate);
   }
 
   @override

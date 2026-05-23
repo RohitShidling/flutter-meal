@@ -42,6 +42,7 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
   int _retryCount = 0;
   final int _maxRetries = 10;
   bool _postSuccessHandled = false;
+  bool _pendingForceSyncAttempted = false;
 
   @override
   void initState() {
@@ -77,6 +78,19 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
 
     if (mounted && _isPolling) {
       setState(() => _isPolling = false);
+    }
+
+    if (mounted && _currentStatus == 'PENDING' && !_pendingForceSyncAttempted && widget.txnId.isNotEmpty) {
+      _pendingForceSyncAttempted = true;
+      try {
+        await context.read<PaymentProvider>().forceSyncPayment(widget.txnId);
+        final synced = await context.read<PaymentProvider>().checkStatus(widget.txnId);
+        if (mounted && synced != null) {
+          setState(() => _statusData = synced);
+        }
+      } catch (_) {
+        // Best-effort recovery for delayed webhook / redirect finalization.
+      }
     }
 
     // After polling stops, if we resolved to SUCCESS, run the success-side effects.

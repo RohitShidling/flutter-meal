@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'dart:convert';
 import 'package:meal_app/core/network/dio_client.dart';
 import 'package:meal_app/core/network/api_endpoints.dart';
 import 'package:meal_app/core/storage/cache_store.dart';
@@ -71,6 +72,29 @@ class MenuProvider with ChangeNotifier {
             return e.toString();
           })
           .where((e) => e.trim().isNotEmpty)
+          .toList();
+    }
+    if (value is String) {
+      final raw = value.trim();
+      if (raw.isEmpty) return [];
+
+      if ((raw.startsWith('[') && raw.endsWith(']')) ||
+          (raw.startsWith('{') && raw.endsWith('}'))) {
+        try {
+          final normalized = raw.startsWith('{')
+              ? '[${raw.substring(1, raw.length - 1).split(',').map((e) => jsonEncode(e.trim())).join(',')}]'
+              : raw;
+          final decoded = jsonDecode(normalized);
+          return _extractNutrition(decoded);
+        } catch (_) {
+          // Fall through to plain-text handling below.
+        }
+      }
+
+      return raw
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
           .toList();
     }
     return [];

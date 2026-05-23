@@ -9,6 +9,23 @@ import 'package:meal_app/features/subscription/ui/screens/payment_webview_screen
 class BulkOrderCheckout {
   BulkOrderCheckout._();
 
+  static void _openStatusScreen(
+    BuildContext context, {
+    required String txnId,
+    required String orderId,
+  }) {
+    Navigator.pushReplacement(
+      context,
+      CupertinoPageRoute(
+        builder: (_) => PaymentStatusScreen(
+          txnId: txnId,
+          orderId: orderId,
+          orderType: 'bulk',
+        ),
+      ),
+    );
+  }
+
   static Future<void> pay({
     required BuildContext context,
     required BulkOrderProvider provider,
@@ -100,22 +117,19 @@ class BulkOrderCheckout {
       final orderId = result['orderId']?.toString() ?? '';
       final paymentUrl = result['paymentUrl']?.toString() ?? '';
 
-      if (sdkStatus == 'SUCCESS') {
-        if (txnId.isNotEmpty) {
-          Navigator.pushReplacement(
-            context,
-            CupertinoPageRoute(
-              builder: (_) => PaymentStatusScreen(
-                txnId: txnId,
-                orderId: orderId,
-                orderType: 'bulk',
-              ),
-            ),
-          );
+      // Bulk orders should always enter the shared payment status flow once
+      // the backend has created a merchant transaction id. This mirrors the
+      // working subscription/cart confirmation path and lets the backend poll,
+      // finalize, or force-sync even when the PhonePe SDK/WebView returns an
+      // unexpected status.
+      if (txnId.isNotEmpty && context.mounted) {
+        if (sdkStatus == 'SUCCESS') {
+          _openStatusScreen(context, txnId: txnId, orderId: orderId);
+          return;
         }
-      } else {
-        if (paymentUrl.isNotEmpty && txnId.isNotEmpty) {
-          final webViewResult = await Navigator.push(
+
+        if (paymentUrl.isNotEmpty) {
+          await Navigator.push(
             context,
             CupertinoPageRoute(
               builder: (_) => PaymentWebViewScreen(
@@ -125,31 +139,17 @@ class BulkOrderCheckout {
               ),
             ),
           );
-          if (webViewResult == true && context.mounted) {
-            Navigator.pushReplacement(
-              context,
-              CupertinoPageRoute(
-                builder: (_) => PaymentStatusScreen(
-                  txnId: txnId,
-                  orderId: orderId,
-                  orderType: 'bulk',
-                ),
-              ),
-            );
-          } else if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text('Payment cancelled or failed.'),
-                backgroundColor: Colors.red.shade700,
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            );
+          if (context.mounted) {
+            _openStatusScreen(context, txnId: txnId, orderId: orderId);
           }
-        } else {
-          ErrorHandler.showError(context, result['sdkError'] ?? 'Payment failed or was cancelled.');
+          return;
         }
+
+        _openStatusScreen(context, txnId: txnId, orderId: orderId);
+        return;
       }
+
+      ErrorHandler.showError(context, result['sdkError'] ?? 'Payment failed or was cancelled.');
     } else if (provider.error != null) {
       ErrorHandler.showError(context, provider.error);
     }

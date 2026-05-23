@@ -55,9 +55,13 @@ class BulkOrderCartScreen extends StatelessWidget {
                   child: ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
-                      // --- Standard bulk section ---
                       if (isStandard) ...[
-                        _sectionHeader(context, 'Standard Bulk', CupertinoIcons.person_3_fill, AppTheme.primaryColor),
+                        _sectionHeader(
+                          context,
+                          'Standard Bulk',
+                          CupertinoIcons.person_3_fill,
+                          AppTheme.primaryColor,
+                        ),
                         const SizedBox(height: 10),
                         _StandardCartCard(
                           menuName: p.deliveryMenu?.items ?? 'Daily menu',
@@ -73,14 +77,24 @@ class BulkOrderCartScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 20),
                       ],
-
-                      // --- Variety bulk section ---
                       if (isVariety) ...[
                         Row(
                           children: [
-                            Expanded(child: _sectionHeader(context, 'Large Event Bulk', CupertinoIcons.square_stack_3d_up_fill, Colors.deepOrange)),
+                            Expanded(
+                              child: _sectionHeader(
+                                context,
+                                'Large Event Bulk',
+                                CupertinoIcons.square_stack_3d_up_fill,
+                                Colors.deepOrange,
+                              ),
+                            ),
                             TextButton.icon(
-                              onPressed: () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const BulkOrderVarietyCategoriesScreen())),
+                              onPressed: () => Navigator.push(
+                                context,
+                                CupertinoPageRoute(
+                                  builder: (_) => const BulkOrderVarietyCategoriesScreen(),
+                                ),
+                              ),
                               icon: const Icon(CupertinoIcons.plus_circle, size: 16),
                               label: const Text('Add more'),
                             ),
@@ -111,15 +125,11 @@ class BulkOrderCartScreen extends StatelessWidget {
                         const SizedBox(height: 8),
                         _totalPortionsInfo(p.varietyLineSum, cfg.tierThreshold, isDark),
                       ],
-
-                      // --- Price Summary ---
                       const SizedBox(height: 16),
                       _PriceSummary(provider: p, config: cfg, isDark: isDark),
                     ],
                   ),
                 ),
-
-                // --- Bottom Pay Button ---
                 _BottomPayBar(
                   totalMeals: p.bulkCartTotalMeals,
                   isLoading: p.isLoading,
@@ -142,13 +152,20 @@ class BulkOrderCartScreen extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               'Your bulk cart is empty',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: isDark ? Colors.white70 : AppTheme.textPrimaryLight),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: isDark ? Colors.white70 : AppTheme.textPrimaryLight,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               'Add meals from standard or large event bulk.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontWeight: FontWeight.w600, color: isDark ? Colors.white54 : AppTheme.textSecondaryLight),
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white54 : AppTheme.textSecondaryLight,
+              ),
             ),
           ],
         ),
@@ -161,7 +178,12 @@ class BulkOrderCartScreen extends StatelessWidget {
       children: [
         Icon(icon, size: 18, color: color),
         const SizedBox(width: 8),
-        Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+        Text(
+          title,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+        ),
       ],
     );
   }
@@ -171,18 +193,31 @@ class BulkOrderCartScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: (isValid ? Colors.green : Colors.orange).withValues(alpha: isDark ? 0.15 : 0.08),
+        color: (isValid ? Colors.green : Colors.orange).withValues(
+          alpha: isDark ? 0.15 : 0.08,
+        ),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: (isValid ? Colors.green : Colors.orange).withValues(alpha: 0.3)),
+        border: Border.all(
+          color: (isValid ? Colors.green : Colors.orange).withValues(alpha: 0.3),
+        ),
       ),
       child: Row(
         children: [
-          Icon(isValid ? CupertinoIcons.checkmark_circle_fill : CupertinoIcons.exclamationmark_triangle_fill,
-              color: isValid ? Colors.green : Colors.orange, size: 18),
+          Icon(
+            isValid
+                ? CupertinoIcons.checkmark_circle_fill
+                : CupertinoIcons.exclamationmark_triangle_fill,
+            color: isValid ? Colors.green : Colors.orange,
+            size: 18,
+          ),
           const SizedBox(width: 10),
           Text(
             'Total: $sum portions (min $minThreshold)',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: isDark ? Colors.white70 : AppTheme.textSecondaryLight),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: isDark ? Colors.white70 : AppTheme.textSecondaryLight,
+            ),
           ),
         ],
       ),
@@ -192,16 +227,21 @@ class BulkOrderCartScreen extends StatelessWidget {
   Future<void> _startPay(BuildContext context, BulkOrderProvider p, cfg) async {
     if (p.standardQty != null && p.standardQty! > 0) {
       final err = p.validateStandardDraft(cfg);
-      if (err != null) { ErrorHandler.showError(context, err); return; }
+      if (err != null) {
+        ErrorHandler.showError(context, err);
+        return;
+      }
     }
     if (p.varietyLineSum > 0) {
       final err = p.validateVarietyCart(cfg, forPayment: true);
-      if (err != null) { ErrorHandler.showError(context, err); return; }
+      if (err != null) {
+        ErrorHandler.showError(context, err);
+        return;
+      }
     }
 
     final isVariety = p.varietyLineSum > 0;
     final isStandard = (p.standardQty ?? 0) > 0;
-
     final initialDate = p.standardDeliveryDate;
 
     await BulkOrderPaymentSheet.show(
@@ -211,19 +251,23 @@ class BulkOrderCartScreen extends StatelessWidget {
       onConfirm: (deliveryDate) async {
         if (isStandard && isVariety) {
           await p.loadMenusForDate(deliveryDate);
-          if (!context.mounted) return false;
+          if (!context.mounted) return;
           if (p.deliveryMenu == null) {
             ErrorHandler.showError(context, 'No menu available for this delivery date');
-            return false;
+            return;
           }
-          final summaryParts = <String>['Standard: ${p.deliveryMenu!.items} × ${p.standardQty}'];
+
+          final summaryParts = <String>[
+            'Standard: ${p.deliveryMenu!.items} x ${p.standardQty}',
+          ];
           summaryParts.addAll(
             p.varietyQty.entries.where((e) => e.value > 0).map((e) {
               final cat = p.categoryNameForMeal(e.key);
               final name = p.mealById(e.key)?.items ?? e.key;
-              return cat != null ? '$cat — $name × ${e.value}' : '$name × ${e.value}';
+              return cat != null ? '$cat - $name x ${e.value}' : '$name x ${e.value}';
             }),
           );
+
           await BulkOrderCheckout.pay(
             context: context,
             provider: p,
@@ -233,18 +277,21 @@ class BulkOrderCartScreen extends StatelessWidget {
             summaryLines: summaryParts.join('\n'),
             useBundle: true,
           );
-          return true;
+          return;
         }
 
         if (isStandard) {
           final dateForMenu = p.standardDeliveryDate ?? deliveryDate;
           await p.loadMenusForDate(dateForMenu);
-          if (!context.mounted) return false;
+          if (!context.mounted) return;
           if (p.deliveryMenu == null) {
             ErrorHandler.showError(context, 'No menu available for this delivery date');
-            return false;
+            return;
           }
-          final items = [{'dailyMenuId': p.deliveryMenu!.id, 'quantity': p.standardQty!}];
+
+          final items = [
+            {'dailyMenuId': p.deliveryMenu!.id, 'quantity': p.standardQty!},
+          ];
           await BulkOrderCheckout.pay(
             context: context,
             provider: p,
@@ -253,7 +300,7 @@ class BulkOrderCartScreen extends StatelessWidget {
             totalMeals: p.standardQty!,
             summaryLines: p.deliveryMenu!.items,
           );
-          return true;
+          return;
         }
 
         final items = p.varietyQty.entries
@@ -263,8 +310,9 @@ class BulkOrderCartScreen extends StatelessWidget {
         final summary = p.varietyQty.entries.where((e) => e.value > 0).map((e) {
           final cat = p.categoryNameForMeal(e.key);
           final name = p.mealById(e.key)?.items ?? e.key;
-          return cat != null ? '$cat — $name × ${e.value}' : '$name × ${e.value}';
+          return cat != null ? '$cat - $name x ${e.value}' : '$name x ${e.value}';
         }).join('\n');
+
         await BulkOrderCheckout.pay(
           context: context,
           provider: p,
@@ -273,25 +321,31 @@ class BulkOrderCartScreen extends StatelessWidget {
           totalMeals: p.varietyLineSum,
           summaryLines: summary,
         );
-        return true;
       },
     );
   }
 }
 
-// ─── Standard Cart Card ───────────────────────────────────────────────────────
 class _StandardCartCard extends StatelessWidget {
   const _StandardCartCard({
-    required this.menuName, this.imageUrl, required this.quantity,
-    required this.pricePerMeal, required this.isDark,
-    required this.onIncrement, required this.onDecrement, required this.onRemove,
+    required this.menuName,
+    this.imageUrl,
+    required this.quantity,
+    required this.pricePerMeal,
+    required this.isDark,
+    required this.onIncrement,
+    required this.onDecrement,
+    required this.onRemove,
   });
+
   final String menuName;
   final String? imageUrl;
   final int quantity;
   final double pricePerMeal;
   final bool isDark;
-  final VoidCallback onIncrement, onDecrement, onRemove;
+  final VoidCallback onIncrement;
+  final VoidCallback onDecrement;
+  final VoidCallback onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -301,80 +355,145 @@ class _StandardCartCard extends StatelessWidget {
         color: isDark ? AppTheme.surfaceDark : Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.15)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          // Image
           ClipRRect(
             borderRadius: const BorderRadius.horizontal(left: Radius.circular(14)),
             child: SizedBox(
-              width: 90, height: 90,
+              width: 90,
+              height: 90,
               child: imageUrl != null && imageUrl!.isNotEmpty
-                  ? CachedNetworkImage(imageUrl: imageUrl!, fit: BoxFit.contain,
-                      placeholder: (_, __) => Container(color: AppTheme.primaryColor.withValues(alpha: 0.08), child: const Center(child: CupertinoActivityIndicator())),
-                      errorWidget: (_, __, ___) => _placeholderIcon())
+                  ? CachedNetworkImage(
+                      imageUrl: imageUrl!,
+                      fit: BoxFit.contain,
+                      placeholder: (_, __) => Container(
+                        color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                        child: const Center(child: CupertinoActivityIndicator()),
+                      ),
+                      errorWidget: (_, __, ___) => _placeholderIcon(),
+                    )
                   : _placeholderIcon(),
             ),
           ),
-          // Details
           Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(menuName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14), maxLines: 2, overflow: TextOverflow.ellipsis),
+                  Text(
+                    menuName,
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   const SizedBox(height: 4),
-                  Text('₹${pricePerMeal.toStringAsFixed(2)} per meal', style: TextStyle(fontSize: 12, color: AppTheme.primaryColor, fontWeight: FontWeight.w600)),
+                  Text(
+                    'Rs ${pricePerMeal.toStringAsFixed(2)} per meal',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.primaryColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   Row(
                     children: [
                       _qtyButton(CupertinoIcons.minus, onDecrement, quantity <= 1),
-                      Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text('$quantity', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900))),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Text(
+                          '$quantity',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                        ),
+                      ),
                       _qtyButton(CupertinoIcons.plus, onIncrement, false),
                       const Spacer(),
-                      Text('₹${subtotal.toStringAsFixed(0)}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AppTheme.primaryColor)),
+                      Text(
+                        'Rs ${subtotal.toStringAsFixed(0)}',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
                     ],
                   ),
                 ],
               ),
             ),
           ),
-          // Remove
-          IconButton(onPressed: onRemove, icon: Icon(CupertinoIcons.xmark_circle_fill, color: Colors.red.withValues(alpha: 0.6), size: 20)),
+          IconButton(
+            onPressed: onRemove,
+            icon: Icon(
+              CupertinoIcons.xmark_circle_fill,
+              color: Colors.red.withValues(alpha: 0.6),
+              size: 20,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _placeholderIcon() => Container(color: AppTheme.primaryColor.withValues(alpha: 0.08), child: const Center(child: Icon(CupertinoIcons.photo, color: Colors.grey)));
+  Widget _placeholderIcon() {
+    return Container(
+      color: AppTheme.primaryColor.withValues(alpha: 0.08),
+      child: const Center(child: Icon(CupertinoIcons.photo, color: Colors.grey)),
+    );
+  }
+
   Widget _qtyButton(IconData icon, VoidCallback onTap, bool disabled) {
     return GestureDetector(
       onTap: disabled ? null : onTap,
       child: Container(
         padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(shape: BoxShape.circle, color: disabled ? Colors.grey.withValues(alpha: 0.1) : AppTheme.primaryColor.withValues(alpha: 0.12)),
-        child: Icon(icon, size: 16, color: disabled ? Colors.grey : AppTheme.primaryColor),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: disabled
+              ? Colors.grey.withValues(alpha: 0.1)
+              : AppTheme.primaryColor.withValues(alpha: 0.12),
+        ),
+        child: Icon(
+          icon,
+          size: 16,
+          color: disabled ? Colors.grey : AppTheme.primaryColor,
+        ),
       ),
     );
   }
 }
 
-// ─── Variety Cart Card ────────────────────────────────────────────────────────
 class _VarietyCartCard extends StatelessWidget {
   const _VarietyCartCard({
-    required this.mealName, this.imageUrl, this.categoryName,
-    required this.quantity, this.pricePerMeal, required this.isDark,
-    required this.onIncrement, required this.onDecrement, required this.onRemove,
+    required this.mealName,
+    this.imageUrl,
+    this.categoryName,
+    required this.quantity,
+    this.pricePerMeal,
+    required this.isDark,
+    required this.onIncrement,
+    required this.onDecrement,
+    required this.onRemove,
   });
+
   final String mealName;
   final String? imageUrl;
   final String? categoryName;
   final int quantity;
   final double? pricePerMeal;
   final bool isDark;
-  final VoidCallback onIncrement, onDecrement, onRemove;
+  final VoidCallback onIncrement;
+  final VoidCallback onDecrement;
+  final VoidCallback onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -384,18 +503,31 @@ class _VarietyCartCard extends StatelessWidget {
         color: isDark ? AppTheme.surfaceDark : Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.deepOrange.withValues(alpha: 0.15)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
           ClipRRect(
             borderRadius: const BorderRadius.horizontal(left: Radius.circular(14)),
             child: SizedBox(
-              width: 80, height: 80,
+              width: 80,
+              height: 80,
               child: imageUrl != null && imageUrl!.isNotEmpty
-                  ? CachedNetworkImage(imageUrl: imageUrl!, fit: BoxFit.contain,
-                      placeholder: (_, __) => Container(color: Colors.deepOrange.withValues(alpha: 0.06), child: const Center(child: CupertinoActivityIndicator())),
-                      errorWidget: (_, __, ___) => _placeholderIcon())
+                  ? CachedNetworkImage(
+                      imageUrl: imageUrl!,
+                      fit: BoxFit.contain,
+                      placeholder: (_, __) => Container(
+                        color: Colors.deepOrange.withValues(alpha: 0.06),
+                        child: const Center(child: CupertinoActivityIndicator()),
+                      ),
+                      errorWidget: (_, __, ___) => _placeholderIcon(),
+                    )
                   : _placeholderIcon(),
             ),
           ),
@@ -405,51 +537,112 @@ class _VarietyCartCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(mealName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis),
+                  Text(
+                    mealName,
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   if (categoryName != null) ...[
                     const SizedBox(height: 2),
-                    Text(categoryName!, style: TextStyle(fontSize: 11, color: isDark ? Colors.white54 : AppTheme.textSecondaryLight, fontWeight: FontWeight.w600)),
+                    Text(
+                      categoryName!,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? Colors.white54 : AppTheme.textSecondaryLight,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ],
                   if (pricePerMeal != null) ...[
                     const SizedBox(height: 2),
-                    Text('₹${pricePerMeal!.toStringAsFixed(2)}/meal', style: TextStyle(fontSize: 11, color: Colors.deepOrange, fontWeight: FontWeight.w600)),
+                    Text(
+                      'Rs ${pricePerMeal!.toStringAsFixed(2)}/meal',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.deepOrange,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ],
                   const SizedBox(height: 6),
                   Row(
                     children: [
                       _qtyButton(CupertinoIcons.minus, onDecrement, quantity <= 1),
-                      Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: Text('$quantity', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900))),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: Text(
+                          '$quantity',
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+                        ),
+                      ),
                       _qtyButton(CupertinoIcons.plus, onIncrement, false),
                       const Spacer(),
-                      if (subtotal != null) Text('₹${subtotal.toStringAsFixed(0)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.deepOrange)),
+                      if (subtotal != null)
+                        Text(
+                          'Rs ${subtotal.toStringAsFixed(0)}',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.deepOrange,
+                          ),
+                        ),
                     ],
                   ),
                 ],
               ),
             ),
           ),
-          IconButton(onPressed: onRemove, icon: Icon(CupertinoIcons.xmark_circle_fill, color: Colors.red.withValues(alpha: 0.6), size: 18)),
+          IconButton(
+            onPressed: onRemove,
+            icon: Icon(
+              CupertinoIcons.xmark_circle_fill,
+              color: Colors.red.withValues(alpha: 0.6),
+              size: 18,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _placeholderIcon() => Container(color: Colors.deepOrange.withValues(alpha: 0.06), child: const Center(child: Icon(CupertinoIcons.photo, color: Colors.grey, size: 20)));
+  Widget _placeholderIcon() {
+    return Container(
+      color: Colors.deepOrange.withValues(alpha: 0.06),
+      child: const Center(
+        child: Icon(CupertinoIcons.photo, color: Colors.grey, size: 20),
+      ),
+    );
+  }
+
   Widget _qtyButton(IconData icon, VoidCallback onTap, bool disabled) {
     return GestureDetector(
       onTap: disabled ? null : onTap,
       child: Container(
         padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(shape: BoxShape.circle, color: disabled ? Colors.grey.withValues(alpha: 0.1) : Colors.deepOrange.withValues(alpha: 0.12)),
-        child: Icon(icon, size: 14, color: disabled ? Colors.grey : Colors.deepOrange),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: disabled
+              ? Colors.grey.withValues(alpha: 0.1)
+              : Colors.deepOrange.withValues(alpha: 0.12),
+        ),
+        child: Icon(
+          icon,
+          size: 14,
+          color: disabled ? Colors.grey : Colors.deepOrange,
+        ),
       ),
     );
   }
 }
 
-// ─── Price Summary ────────────────────────────────────────────────────────────
 class _PriceSummary extends StatelessWidget {
-  const _PriceSummary({required this.provider, required this.config, required this.isDark});
+  const _PriceSummary({
+    required this.provider,
+    required this.config,
+    required this.isDark,
+  });
+
   final BulkOrderProvider provider;
   final BulkOrderConfig config;
   final bool isDark;
@@ -460,10 +653,14 @@ class _PriceSummary extends StatelessWidget {
     final varietyLines = provider.varietyQty.entries.where((e) => e.value > 0).toList();
 
     double estimatedTotal = 0;
-    if (standardQty > 0) estimatedTotal += standardQty * config.pricePerMealUnderThreshold;
+    if (standardQty > 0) {
+      estimatedTotal += standardQty * config.pricePerMealUnderThreshold;
+    }
     for (final e in varietyLines) {
       final meal = provider.mealById(e.key);
-      if (meal?.pricePerMeal != null) estimatedTotal += meal!.pricePerMeal! * e.value;
+      if (meal?.pricePerMeal != null) {
+        estimatedTotal += meal!.pricePerMeal! * e.value;
+      }
     }
 
     return Container(
@@ -480,9 +677,12 @@ class _PriceSummary extends StatelessWidget {
             const SizedBox(height: 8),
             const Divider(height: 1),
             const SizedBox(height: 8),
-            _row('Estimated total', '₹${estimatedTotal.toStringAsFixed(0)}', isDark, bold: true),
+            _row('Estimated total', 'Rs ${estimatedTotal.toStringAsFixed(0)}', isDark, bold: true),
             const SizedBox(height: 4),
-            Text('Final price confirmed at checkout', style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.grey)),
+            Text(
+              'Final price confirmed at checkout',
+              style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.grey),
+            ),
           ],
         ],
       ),
@@ -493,16 +693,35 @@ class _PriceSummary extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: TextStyle(fontSize: 14, fontWeight: bold ? FontWeight.w800 : FontWeight.w600, color: isDark ? Colors.white70 : AppTheme.textSecondaryLight)),
-        Text(value, style: TextStyle(fontSize: bold ? 18 : 14, fontWeight: FontWeight.w900, color: bold ? AppTheme.primaryColor : (isDark ? Colors.white : AppTheme.textPrimaryLight))),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
+            color: isDark ? Colors.white70 : AppTheme.textSecondaryLight,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: bold ? 18 : 14,
+            fontWeight: FontWeight.w900,
+            color: bold ? AppTheme.primaryColor : (isDark ? Colors.white : AppTheme.textPrimaryLight),
+          ),
+        ),
       ],
     );
   }
 }
 
-// ─── Bottom Pay Bar ───────────────────────────────────────────────────────────
 class _BottomPayBar extends StatelessWidget {
-  const _BottomPayBar({required this.totalMeals, required this.isLoading, required this.onPay, required this.isDark});
+  const _BottomPayBar({
+    required this.totalMeals,
+    required this.isLoading,
+    required this.onPay,
+    required this.isDark,
+  });
+
   final int totalMeals;
   final bool isLoading;
   final VoidCallback onPay;
@@ -528,8 +747,15 @@ class _BottomPayBar extends StatelessWidget {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
               child: isLoading
-                  ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : Text('Proceed to Pay ($totalMeals meals)', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                  ? const SizedBox(
+                      height: 22,
+                      width: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : Text(
+                      'Proceed to Pay ($totalMeals meals)',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                    ),
             ),
           ),
         ),

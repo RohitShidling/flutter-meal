@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
+import 'dart:convert';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:meal_app/core/theme/app_theme.dart';
@@ -22,11 +23,27 @@ class WeeklyMenuScreen extends StatefulWidget {
 class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
   List<String> _nutritionPointsFrom(dynamic menu) {
     final raw = menu is Map ? menu['nutrition_points'] : null;
+    if (raw is String) {
+      final text = raw.trim();
+      if (text.isEmpty) return [];
+      try {
+        final decoded = jsonDecode(
+          text.startsWith('{') ? '[${text.substring(1, text.length - 1).split(',').map((e) => jsonEncode(e.trim())).join(',')}]' : text,
+        );
+        return _nutritionPointsFrom({'nutrition_points': decoded});
+      } catch (_) {
+        return text
+            .split(',')
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
+      }
+    }
     if (raw is! List) return [];
     return raw
         .map((e) {
           if (e is Map) {
-            final text = e['nutrition_text'] ?? e['text'] ?? e['point'] ?? e['label'];
+            final text = e['nutrition_text'] ?? e['text'] ?? e['point'] ?? e['label'] ?? e['name'];
             return text?.toString() ?? '';
           }
           return e.toString();

@@ -391,21 +391,19 @@ class _CartScreenState extends State<CartScreen> {
       }
     } else {
       if (paymentUrl.isNotEmpty && txnId.isNotEmpty) {
-        final webViewResult = await Navigator.push(
+        await Navigator.push(
           context,
           CupertinoPageRoute(
             builder: (_) => PaymentWebViewScreen(url: paymentUrl, txnId: txnId, orderId: orderId),
           ),
         );
-        if (webViewResult == true && context.mounted) {
+        if (context.mounted) {
           Navigator.pushReplacement(
             context,
             CupertinoPageRoute(
               builder: (_) => PaymentStatusScreen(txnId: txnId, orderId: orderId, orderType: 'cart'),
             ),
           );
-        } else if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Payment cancelled or failed.'), backgroundColor: Colors.red.shade700, behavior: SnackBarBehavior.floating));
         }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
