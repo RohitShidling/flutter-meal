@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:meal_app/core/theme/app_theme.dart';
 import 'package:meal_app/core/providers/theme_provider.dart';
 import 'package:meal_app/features/auth/providers/auth_provider.dart';
@@ -10,6 +11,7 @@ import 'package:meal_app/features/subscription/ui/screens/cart_screen.dart';
 import 'package:meal_app/features/subscription/ui/screens/meal_size_upgrade_screen.dart';
 import 'package:meal_app/features/bulk_order/ui/screens/bulk_delivery_address_settings_screen.dart';
 import 'package:meal_app/core/providers/cart_provider.dart';
+import 'package:meal_app/features/profile/ui/screens/legal_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -102,6 +104,48 @@ class SettingsScreen extends StatelessWidget {
 
           _buildSectionHeader('App Customization', isDark),
           _buildThemeTile(context, themeProvider, isDark),
+          const SizedBox(height: 30),
+
+          _buildSectionHeader('Help & Support', isDark),
+          _buildNavigationTile(
+            context,
+            CupertinoIcons.mail_solid,
+            'Contact Us',
+            isDark,
+            () => _launchUrl('mailto:contact@buuttii.com'),
+          ),
+          const SizedBox(height: 8),
+          _buildNavigationTile(
+            context,
+            CupertinoIcons.globe,
+            'Visit Website',
+            isDark,
+            () => _launchUrl('https://buuttii.com/'),
+          ),
+          const SizedBox(height: 30),
+
+          _buildSectionHeader('Legal & Compliance', isDark),
+          _buildNavigationTile(
+            context,
+            CupertinoIcons.doc_text_fill,
+            'Terms & Conditions',
+            isDark,
+            () => Navigator.push(
+              context,
+              CupertinoPageRoute(builder: (_) => const LegalScreen(initialTabIndex: 0)),
+            ),
+          ),
+          const SizedBox(height: 8),
+          _buildNavigationTile(
+            context,
+            CupertinoIcons.shield_fill,
+            'Privacy Policy',
+            isDark,
+            () => Navigator.push(
+              context,
+              CupertinoPageRoute(builder: (_) => const LegalScreen(initialTabIndex: 1)),
+            ),
+          ),
           const SizedBox(height: 30),
           
           _buildSectionHeader('About', isDark),
@@ -404,5 +448,16 @@ class SettingsScreen extends StatelessWidget {
       ),
       child: const Text('Logout Account'),
     );
+  }
+
+  Future<void> _launchUrl(String urlString) async {
+    final Uri url = Uri.parse(urlString);
+    try {
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+      }
+    } catch (_) {
+      // Safely ignore failures
+    }
   }
 }

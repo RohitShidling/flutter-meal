@@ -227,6 +227,7 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
                   child: CachedNetworkImage(
                     imageUrl: imageUrl,
                     width: double.infinity,
+                    height: 160,
                     fit: BoxFit.contain,
                     placeholder: (_, __) => const WeeklyMealCardSkeleton(imageHeight: 112),
                     errorWidget: (_, __, ___) => const WeeklyMealCardSkeleton(imageHeight: 112),

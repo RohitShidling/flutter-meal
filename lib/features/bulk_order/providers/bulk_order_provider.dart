@@ -456,8 +456,13 @@ class BulkOrderProvider with ChangeNotifier {
     required Map<String, dynamic> deliveryAddress,
     bool isSandbox = true,
   }) async {
-    if (!NetworkStatusService.instance.canAttemptApi) {
+    if (!NetworkStatusService.instance.hasDeviceConnectivity) {
       _error = 'No internet connection. Connect to complete payment.';
+      notifyListeners();
+      return null;
+    }
+    if (!NetworkStatusService.instance.isBackendReachable) {
+      _error = 'Cannot reach the server right now. Please try again in a moment.';
       notifyListeners();
       return null;
     }
@@ -532,8 +537,13 @@ class BulkOrderProvider with ChangeNotifier {
     required Map<String, dynamic> deliveryAddress,
     bool isSandbox = true,
   }) async {
-    if (!NetworkStatusService.instance.canAttemptApi) {
+    if (!NetworkStatusService.instance.hasDeviceConnectivity) {
       _error = 'No internet connection. Connect to complete payment.';
+      notifyListeners();
+      return null;
+    }
+    if (!NetworkStatusService.instance.isBackendReachable) {
+      _error = 'Cannot reach the server right now. Please try again in a moment.';
       notifyListeners();
       return null;
     }

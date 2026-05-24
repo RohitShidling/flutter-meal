@@ -3,6 +3,7 @@ import 'dart:io' show SocketException;
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:meal_app/core/services/network_status_service.dart';
 import 'package:meal_app/core/theme/app_theme.dart';
 
 /// Central place for user-visible error text — avoids exposing raw exceptions,
@@ -16,6 +17,8 @@ class ErrorHandler {
       'Something went wrong. Please try again.';
   static const String _serviceUnavailable =
       'Service is temporarily unavailable. Please try again later.';
+  static const String _serverUnreachable =
+      'Cannot reach the server right now. Please try again in a moment.';
 
   /// Converts API failures, network errors, and exceptions into short copy for users.
   static String getErrorMessage(dynamic error) {
@@ -75,6 +78,7 @@ class ErrorHandler {
     if (u is SocketException) return _noInternet;
     final s = '${error.message} $u';
     if (_looksLikeNetworkFailure(s)) return _noInternet;
+    if (_shouldTreatAsServerUnavailable(error)) return _serverUnreachable;
     return _noInternet;
   }
 
@@ -90,6 +94,7 @@ class ErrorHandler {
     }
     final combined = '${error.message} ${error.error}';
     if (_looksLikeNetworkFailure(combined)) return _noInternet;
+    if (_shouldTreatAsServerUnavailable(error)) return _serverUnreachable;
     return _genericRetry;
   }
 
@@ -157,6 +162,21 @@ class ErrorHandler {
         (s.contains('statuscode:') && s.contains('http')) ||
         raw.length > 280 ||
         (s.contains(' at ') && (s.contains('.dart:') || s.contains('package:')));
+  }
+
+  static bool _shouldTreatAsServerUnavailable(DioException error) {
+    final net = NetworkStatusService.instance;
+    if (net.hasDeviceConnectivity && !net.isBackendReachable) {
+      return true;
+    }
+
+    final raw = '${error.message} ${error.error}'.toLowerCase();
+    return raw.contains('connection refused') ||
+        raw.contains('errno = 111') ||
+        raw.contains('errno = 61') ||
+        raw.contains('software caused connection abort') ||
+        raw.contains('actively refused') ||
+        raw.contains('connection closed before full header was received');
   }
 
   /// Use when storing a string error on a provider (e.g. cart) for UI display.

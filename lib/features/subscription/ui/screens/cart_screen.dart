@@ -324,8 +324,9 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Widget _buildCheckoutBar(BuildContext context, CartProvider cartProvider, bool isDark) {
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 36),
+      padding: EdgeInsets.fromLTRB(24, 20, 24, bottomPadding > 0 ? bottomPadding + 10 : 20),
       decoration: BoxDecoration(
         color: isDark ? AppTheme.surfaceDark : Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),

@@ -106,7 +106,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
       final lookupProvider = context.read<LookupProvider>();
       
       // Fetch lookup data first so dropdowns are ready
-      await lookupProvider.fetchInitialData();
+      await lookupProvider.fetchInitialData(force: true);
       await provider.fetchProfiles(force: true, silent: false);
       if (mounted) {
         await context.read<MealProvider>().fetchSubscriptionStatus(silent: false);
@@ -181,18 +181,24 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
 
   Future<void> _selectTime(BuildContext context) async {
     FocusScope.of(context).unfocus();
+    final parts = _timeController.text.split(':');
+    final initHour = int.tryParse(parts.first) ?? 13;
+    final initMin = parts.length > 1 ? int.tryParse(parts[1]) ?? 30 : 30;
     final TimeOfDay? picked = await showTimePicker(
       context: context,
-      initialTime: const TimeOfDay(hour: 13, minute: 30),
+      initialTime: TimeOfDay(hour: initHour.clamp(0, 23), minute: initMin.clamp(0, 59)),
       builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: AppTheme.primaryColor,
-              brightness: Theme.of(context).brightness,
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: false),
+          child: Theme(
+            data: Theme.of(context).copyWith(
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: AppTheme.primaryColor,
+                brightness: Theme.of(context).brightness,
+              ),
             ),
+            child: child!,
           ),
-          child: child!,
         );
       },
     );
@@ -234,14 +240,21 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
     }
 
     final existing = profileProvider.teacherProfile;
-    if (existing != null &&
-        _blocksMealSizeChange &&
-        _selectedMealSize!.id != existing.mealSizeId) {
-      ErrorHandler.showError(
-        context,
-        'Meal size cannot be changed while a subscription is active or upcoming. Use Upgrade meal size in Settings.',
-      );
-      return;
+    if (existing != null) {
+      if (!_isDirty) {
+        ErrorHandler.showSuccess(context, 'No changes to save.');
+        setState(() {
+          _isEditing = false;
+        });
+        return;
+      }
+      if (_blocksMealSizeChange && _selectedMealSize!.id != existing.mealSizeId) {
+        ErrorHandler.showError(
+          context,
+          'Meal size cannot be changed while a subscription is active or upcoming. Use Upgrade meal size in Settings.',
+        );
+        return;
+      }
     }
 
     setState(() => _isSaving = true);
@@ -304,254 +317,256 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: CartOverlayBody(
-        child: (profileProvider.isLoading || _isInitializing)
-              ? const Center(child: CircularProgressIndicator())
-              : (profile != null && !_isEditing)
-                  ? _buildProfileCard(context, profile)
-                  : UnsavedFormGuard(
-                      isDirty: _isDirty,
-                      onDiscard: () {
+      body: SafeArea(
+        child: CartOverlayBody(
+          child: (profileProvider.isLoading || _isInitializing)
+                ? const Center(child: CircularProgressIndicator())
+                : (profile != null && !_isEditing)
+                    ? _buildProfileCard(context, profile)
+                    : UnsavedFormGuard(
+                        isDirty: _isDirty,
+                        onDiscard: () {
+                          setState(() {
+                            _isEditing = false;
+                            // restore from original profile next time edit is opened
+                          });
+                        },
+                        child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Form(
+                key: _formKey,
+                autovalidateMode: _autovalidateMode,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                     Text(
+                      profile == null 
+                        ? 'Setup your teacher profile for school deliveries.'
+                        : 'Update your teacher profile details below.',
+                      style: TextStyle(
+                        color: isDark ? Colors.white70 : Theme.of(context).textTheme.bodyMedium?.color,
+                      ),
+                    ),
+                    const SizedBox(height: 30),
+
+                    // 1. Full Name
+                    TextFormField(
+                      controller: _nameController,
+                      autofocus: false,
+                      decoration: const InputDecoration(
+                        labelText: 'Full Name',
+                        prefixIcon: Icon(CupertinoIcons.person_fill),
+                      ),
+                      textInputAction: TextInputAction.done,
+                      validator: (v) => Validators.name(v, fieldName: 'Full Name'),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // 2. School/College — ALL active schools from GET /api/client/schools
+                    SearchableDropdown<SchoolModel>(
+                      label: 'School/College Name',
+                      items: lookupProvider.schools,
+                      itemLabel: (s) => '${s.name} (${s.city})',
+                      value: _selectedSchool,
+                      isLoading: lookupProvider.isLoading,
+                      listenable: lookupProvider,
+                      itemsGetter: () => lookupProvider.schools,
+                      loadingGetter: () => lookupProvider.isLoading,
+                      validator: (v) => Validators.requiredField(v, 'School/College'),
+                      onInteraction: () {
+                        FocusScope.of(context).unfocus();
+                        lookupProvider.fetchInitialData();
+                      },
+                      onChanged: (v) {
                         setState(() {
-                          _isEditing = false;
-                          // restore from original profile next time edit is opened
+                          _selectedSchool = v;
+                          _schoolController.text = v?.name ?? '';
+                          if (v != null) {
+                            _schoolLocksLocation = true;
+                            _selectedState = lookupProvider.states.where((s) => s.name.toLowerCase() == v.state.toLowerCase()).firstOrNull;
+                            _stateController.text = v.state;
+                            if (_selectedState != null) {
+                              lookupProvider.fetchCitiesByState(_selectedState!.id).then((_) {
+                                if (mounted) {
+                                  setState(() {
+                                    _selectedCity = lookupProvider.cities.where((c) => c.name.toLowerCase() == v.city.toLowerCase()).firstOrNull;
+                                    _cityController.text = v.city;
+                                  });
+                                }
+                              });
+                            }
+                          } else {
+                            _schoolLocksLocation = false;
+                          }
                         });
                       },
-                      child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Form(
-              key: _formKey,
-              autovalidateMode: _autovalidateMode,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                   Text(
-                    profile == null 
-                      ? 'Setup your teacher profile for school deliveries.'
-                      : 'Update your teacher profile details below.',
-                    style: TextStyle(
-                      color: isDark ? Colors.white70 : Theme.of(context).textTheme.bodyMedium?.color,
                     ),
-                  ),
-                  const SizedBox(height: 30),
+                    const SizedBox(height: 20),
 
-                  // 1. Full Name
-                  TextFormField(
-                    controller: _nameController,
-                    autofocus: false,
-                    decoration: const InputDecoration(
-                      labelText: 'Full Name',
-                      prefixIcon: Icon(CupertinoIcons.person_fill),
-                    ),
-                    textInputAction: TextInputAction.done,
-                    validator: (v) => Validators.name(v, fieldName: 'Full Name'),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // 2. School/College — ALL active schools from GET /api/client/schools
-                  SearchableDropdown<SchoolModel>(
-                    label: 'School/College Name',
-                    items: lookupProvider.schools,
-                    itemLabel: (s) => '${s.name} (${s.city})',
-                    value: _selectedSchool,
-                    isLoading: lookupProvider.isLoading,
-                    listenable: lookupProvider,
-                    itemsGetter: () => lookupProvider.schools,
-                    loadingGetter: () => lookupProvider.isLoading,
-                    validator: (v) => Validators.requiredField(v, 'School/College'),
-                    onInteraction: () {
-                      FocusScope.of(context).unfocus();
-                      lookupProvider.fetchInitialData();
-                    },
-                    onChanged: (v) {
-                      setState(() {
-                        _selectedSchool = v;
-                        _schoolController.text = v?.name ?? '';
-                        if (v != null) {
-                          _schoolLocksLocation = true;
-                          _selectedState = lookupProvider.states.where((s) => s.name.toLowerCase() == v.state.toLowerCase()).firstOrNull;
-                          _stateController.text = v.state;
-                          if (_selectedState != null) {
-                            lookupProvider.fetchCitiesByState(_selectedState!.id).then((_) {
-                              if (mounted) {
-                                setState(() {
-                                  _selectedCity = lookupProvider.cities.where((c) => c.name.toLowerCase() == v.city.toLowerCase()).firstOrNull;
-                                  _cityController.text = v.city;
-                                });
-                              }
-                            });
+                    // 3. State
+                    SearchableDropdown<StateModel>(
+                      label: 'State',
+                      items: lookupProvider.states,
+                      itemLabel: (s) => s.name,
+                      value: _selectedState,
+                      enabled: !_schoolLocksLocation,
+                      isLoading: lookupProvider.isLoading,
+                      listenable: lookupProvider,
+                      itemsGetter: () => lookupProvider.states,
+                      loadingGetter: () => lookupProvider.isLoading,
+                      validator: (v) => Validators.requiredField(v, 'State'),
+                      onInteraction: () {
+                        FocusScope.of(context).unfocus();
+                        lookupProvider.fetchInitialData();
+                      },
+                      onChanged: (v) {
+                        setState(() {
+                          if (_selectedState?.id != v?.id) {
+                            _selectedState = v;
+                            _stateController.text = v?.name ?? '';
+                            _selectedCity = null;
+                            _cityController.text = '';
+                            if (v != null) {
+                              lookupProvider.fetchCitiesByState(v.id);
+                            }
                           }
-                        } else {
-                          _schoolLocksLocation = false;
-                        }
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 20),
-
-                  // 3. State
-                  SearchableDropdown<StateModel>(
-                    label: 'State',
-                    items: lookupProvider.states,
-                    itemLabel: (s) => s.name,
-                    value: _selectedState,
-                    enabled: !_schoolLocksLocation,
-                    isLoading: lookupProvider.isLoading,
-                    listenable: lookupProvider,
-                    itemsGetter: () => lookupProvider.states,
-                    loadingGetter: () => lookupProvider.isLoading,
-                    validator: (v) => Validators.requiredField(v, 'State'),
-                    onInteraction: () {
-                      FocusScope.of(context).unfocus();
-                      lookupProvider.fetchInitialData();
-                    },
-                    onChanged: (v) {
-                      setState(() {
-                        if (_selectedState?.id != v?.id) {
-                          _selectedState = v;
-                          _stateController.text = v?.name ?? '';
-                          _selectedCity = null;
-                          _cityController.text = '';
-                          if (v != null) {
-                            lookupProvider.fetchCitiesByState(v.id);
-                          }
-                        }
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 20),
-
-                  // 4. City
-                  SearchableDropdown<CityModel>(
-                    label: 'City',
-                    items: lookupProvider.cities,
-                    itemLabel: (s) => s.name,
-                    value: _selectedCity,
-                    enabled: !_schoolLocksLocation,
-                    isLoading: lookupProvider.isLoading,
-                    listenable: lookupProvider,
-                    itemsGetter: () => lookupProvider.cities,
-                    loadingGetter: () => lookupProvider.isLoading,
-                    validator: (v) => Validators.requiredField(v, 'City'),
-                    onInteraction: () {
-                      FocusScope.of(context).unfocus();
-                      if (_selectedState == null) {
-                        ErrorHandler.showError(context, 'Please select a state first');
-                        return;
-                      }
-                    },
-                    onChanged: (v) {
-                      setState(() {
-                        _selectedCity = v;
-                        _cityController.text = v?.name ?? '';
-                      });
-                    },
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // 5. Meal Size
-                  SearchableDropdown<MealSizeModel>(
-                    label: 'Meal Size',
-                    items: lookupProvider.mealSizes,
-                    itemLabel: (m) => MealSizeRecommendations.mealSizeLabel(
-                      m,
-                      showRecommended: true,
-                      band: MealSizeRecommendations.recommendedBandForTeacherOrProfessional(),
+                        });
+                      },
                     ),
-                    value: _selectedMealSize,
-                    enabled: !_blocksMealSizeChange,
-                    isLoading: lookupProvider.isLoading,
-                    listenable: lookupProvider,
-                    itemsGetter: () => lookupProvider.mealSizes,
-                    loadingGetter: () => lookupProvider.isLoading,
-                    validator: (v) => Validators.requiredField(v, 'Meal Size'),
-                    onInteraction: () {
-                      FocusScope.of(context).unfocus();
-                      lookupProvider.fetchInitialData();
-                    },
-                    onChanged: (v) {
-                      if (_blocksMealSizeChange) {
-                        final saved = profileProvider.teacherProfile?.mealSizeId;
-                        if (v != null && v.id != saved) {
-                          final msg = _mealSizeBlockedMessage(profileProvider, lookupProvider);
-                          setState(() => _mealSizeBlockedFlash = msg);
-                          ErrorHandler.showValidationError(context, msg);
-                        }
-                        return;
-                      }
-                      setState(() {
-                        _mealSizeBlockedFlash = null;
-                        _selectedMealSize = v;
-                      });
-                    },
-                  ),
-                  if (_blocksMealSizeChange)
-                    MealSizeBlockedBanner(
-                      message: _mealSizeBlockedFlash ?? _mealSizeBlockedMessage(profileProvider, lookupProvider),
-                    ),
-                  if (_selectedMealSize != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Text(
-                        'Recommended: ${MealSizeRecommendations.mealSizeLabel(_selectedMealSize!, showRecommended: false)} pack for teachers',
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                      ),
-                    ),
+                    const SizedBox(height: 20),
 
-                  const SizedBox(height: 20),
-
-                  // 6. Meal Time
-                  InkWell(
-                    onTap: () => _selectTime(context),
-                    child: IgnorePointer(
-                      child: TextFormField(
-                        controller: TextEditingController(text: TimeUtils.formatToDisplay(_timeController.text)),
-                        decoration: const InputDecoration(
-                          labelText: 'Meal Time',
-                          hintText: 'Select meal delivery time',
-                          prefixIcon: Icon(CupertinoIcons.clock_fill),
-                          suffixIcon: Icon(CupertinoIcons.chevron_down, size: 16),
-                        ),
-                        validator: (v) => Validators.time(_timeController.text, fieldName: 'Meal time'),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 40),
-                  ElevatedButton(
-                    onPressed: _isSaving ? null : _submitForm,
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 60),
-                    ),
-                    child: _isSaving
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                          )
-                        : Text(profile == null ? 'Save Teacher Profile' : 'Update Profile'),
-                  ),
-                  if (_isEditing && profile != null) ...[
-                    const SizedBox(height: 16),
-                    TextButton(
-                      onPressed: () {
-                        if (_isDirty) {
-                          _showDiscardDialog();
-                        } else {
-                          setState(() => _isEditing = false);
+                    // 4. City
+                    SearchableDropdown<CityModel>(
+                      label: 'City',
+                      items: lookupProvider.cities,
+                      itemLabel: (s) => s.name,
+                      value: _selectedCity,
+                      enabled: !_schoolLocksLocation,
+                      isLoading: lookupProvider.isLoading,
+                      listenable: lookupProvider,
+                      itemsGetter: () => lookupProvider.cities,
+                      loadingGetter: () => lookupProvider.isLoading,
+                      validator: (v) => Validators.requiredField(v, 'City'),
+                      onInteraction: () {
+                        FocusScope.of(context).unfocus();
+                        if (_selectedState == null) {
+                          ErrorHandler.showError(context, 'Please select a state first');
+                          return;
                         }
                       },
-                      style: TextButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
-                      child: const Text('Cancel Edit'),
+                      onChanged: (v) {
+                        setState(() {
+                          _selectedCity = v;
+                          _cityController.text = v?.name ?? '';
+                        });
+                      },
                     ),
+
+                    const SizedBox(height: 20),
+
+                    // 5. Meal Size
+                    SearchableDropdown<MealSizeModel>(
+                      label: 'Meal Size',
+                      items: lookupProvider.mealSizes,
+                      itemLabel: (m) => MealSizeRecommendations.mealSizeLabel(
+                        m,
+                        showRecommended: true,
+                        band: MealSizeRecommendations.recommendedBandForTeacherOrProfessional(),
+                      ),
+                      value: _selectedMealSize,
+                      enabled: !_blocksMealSizeChange,
+                      isLoading: lookupProvider.isLoading,
+                      listenable: lookupProvider,
+                      itemsGetter: () => lookupProvider.mealSizes,
+                      loadingGetter: () => lookupProvider.isLoading,
+                      validator: (v) => Validators.requiredField(v, 'Meal Size'),
+                      onInteraction: () {
+                        FocusScope.of(context).unfocus();
+                        lookupProvider.fetchInitialData();
+                      },
+                      onChanged: (v) {
+                        if (_blocksMealSizeChange) {
+                          final saved = profileProvider.teacherProfile?.mealSizeId;
+                          if (v != null && v.id != saved) {
+                            final msg = _mealSizeBlockedMessage(profileProvider, lookupProvider);
+                            setState(() => _mealSizeBlockedFlash = msg);
+                            ErrorHandler.showValidationError(context, msg);
+                          }
+                          return;
+                        }
+                        setState(() {
+                          _mealSizeBlockedFlash = null;
+                          _selectedMealSize = v;
+                        });
+                      },
+                    ),
+                    if (_blocksMealSizeChange)
+                      MealSizeBlockedBanner(
+                        message: _mealSizeBlockedFlash ?? _mealSizeBlockedMessage(profileProvider, lookupProvider),
+                      ),
+                    if (_selectedMealSize != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(
+                          'Recommended: ${MealSizeRecommendations.mealSizeLabel(_selectedMealSize!, showRecommended: false)} pack for teachers',
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                        ),
+                      ),
+
+                    const SizedBox(height: 20),
+
+                    // 6. Meal Time
+                    InkWell(
+                      onTap: () => _selectTime(context),
+                      child: IgnorePointer(
+                        child: TextFormField(
+                          controller: TextEditingController(text: TimeUtils.formatToDisplay(_timeController.text)),
+                          decoration: const InputDecoration(
+                            labelText: 'Meal Time',
+                            hintText: 'Select meal delivery time',
+                            prefixIcon: Icon(CupertinoIcons.clock_fill),
+                            suffixIcon: Icon(CupertinoIcons.chevron_down, size: 16),
+                          ),
+                          validator: (v) => Validators.time(_timeController.text, fieldName: 'Meal time'),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 40),
+                    ElevatedButton(
+                      onPressed: _isSaving ? null : _submitForm,
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 60),
+                      ),
+                      child: _isSaving
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                            )
+                          : Text(profile == null ? 'Save Teacher Profile' : 'Update Profile'),
+                    ),
+                    if (_isEditing && profile != null) ...[
+                      const SizedBox(height: 16),
+                      TextButton(
+                        onPressed: () {
+                          if (_isDirty) {
+                            _showDiscardDialog();
+                          } else {
+                            setState(() => _isEditing = false);
+                          }
+                        },
+                        style: TextButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
+                        child: const Text('Cancel Edit'),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
-                  ),
         ),
+      ),
     );
   }
 

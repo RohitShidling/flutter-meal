@@ -45,11 +45,11 @@ class _BulkOrderStandardScreenState extends State<BulkOrderStandardScreen> {
   }
 
   void _increment(BulkOrderConfig cfg) {
-    if (_qty < _maxQty(cfg)) setState(() => _qty++);
+    if (_selectedDate != null && _qty < _maxQty(cfg)) setState(() => _qty++);
   }
 
   void _decrement(BulkOrderConfig cfg) {
-    if (_qty > cfg.minQuantity) setState(() => _qty--);
+    if (_selectedDate != null && _qty > cfg.minQuantity) setState(() => _qty--);
   }
 
   void _addToCart(BulkOrderProvider p, BulkOrderConfig cfg) {
@@ -90,7 +90,8 @@ class _BulkOrderStandardScreenState extends State<BulkOrderStandardScreen> {
     }
 
     final maxQty = _maxQty(cfg);
-    final estimatedTotal = _qty * cfg.pricePerMealUnderThreshold;
+    final pricePerMeal = cfg.pricePerMealUnderThreshold;
+    final estimatedTotal = _qty * pricePerMeal;
     final canAdd = _selectedDate != null && p.deliveryMenu != null && !p.isLoading;
 
     return Scaffold(
@@ -153,7 +154,7 @@ class _BulkOrderStandardScreenState extends State<BulkOrderStandardScreen> {
                           Text(p.deliveryMenu!.items),
                           const SizedBox(height: 8),
                           Text(
-                            '₹${cfg.pricePerMealUnderThreshold.toStringAsFixed(2)} per meal',
+                            '₹${pricePerMeal.toStringAsFixed(2)} per meal',
                             style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.w600),
                           ),
                         ],
@@ -172,35 +173,59 @@ class _BulkOrderStandardScreenState extends State<BulkOrderStandardScreen> {
                           children: [
                             _StepperButton(
                               icon: CupertinoIcons.minus,
-                              onTap: _qty > cfg.minQuantity ? () => _decrement(cfg) : null,
+                              onTap: (_selectedDate != null && _qty > cfg.minQuantity) ? () => _decrement(cfg) : null,
                             ),
                             const SizedBox(width: 24),
                             Container(
                               constraints: const BoxConstraints(minWidth: 80),
                               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                               decoration: BoxDecoration(
-                                color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                                color: _selectedDate != null
+                                    ? AppTheme.primaryColor.withValues(alpha: 0.08)
+                                    : Colors.grey.withValues(alpha: 0.05),
                                 borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.2)),
+                                border: Border.all(
+                                  color: _selectedDate != null
+                                      ? AppTheme.primaryColor.withValues(alpha: 0.2)
+                                      : Colors.grey.withValues(alpha: 0.15),
+                                ),
                               ),
                               child: Text(
                                 '$_qty',
                                 textAlign: TextAlign.center,
-                                style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: AppTheme.primaryColor),
+                                style: TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w900,
+                                  color: _selectedDate != null ? AppTheme.primaryColor : Colors.grey,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 24),
                             _StepperButton(
                               icon: CupertinoIcons.plus,
-                              onTap: _qty < maxQty ? () => _increment(cfg) : null,
+                              onTap: (_selectedDate != null && _qty < maxQty) ? () => _increment(cfg) : null,
                             ),
                           ],
                         ),
                         const SizedBox(height: 10),
-                        Text(
-                          'Min ${cfg.minQuantity} · Below ${cfg.tierThreshold}',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isDark ? Colors.white54 : AppTheme.textSecondaryLight),
-                        ),
+                        if (_selectedDate == null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8.0),
+                            child: Text(
+                              'Please select a delivery date first',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.orange.shade700,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          )
+                        else
+                          Text(
+                            'Min ${cfg.minQuantity} · Below ${cfg.tierThreshold}',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: isDark ? Colors.white54 : AppTheme.textSecondaryLight),
+                          ),
                       ],
                     ),
                   ),
@@ -217,7 +242,7 @@ class _BulkOrderStandardScreenState extends State<BulkOrderStandardScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            '$_qty × ₹${cfg.pricePerMealUnderThreshold.toStringAsFixed(2)}',
+                            '$_qty × ₹${pricePerMeal.toStringAsFixed(2)}',
                             style: TextStyle(fontWeight: FontWeight.w600, color: isDark ? Colors.white70 : AppTheme.textSecondaryLight),
                           ),
                           Text(

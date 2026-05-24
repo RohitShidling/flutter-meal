@@ -17,17 +17,20 @@ class BulkOrderPaymentSheet extends StatefulWidget {
     required this.config,
     required this.onConfirm,
     this.initialDeliveryDate,
+    this.isStandardBulk = false,
   });
 
   final BulkOrderConfig config;
   final Future<void> Function(String deliveryDate) onConfirm;
   final String? initialDeliveryDate;
+  final bool isStandardBulk;
 
   static Future<bool?> show(
     BuildContext context, {
     required BulkOrderConfig config,
     required Future<void> Function(String deliveryDate) onConfirm,
     String? initialDeliveryDate,
+    bool isStandardBulk = false,
   }) {
     return showModalBottomSheet<bool>(
       context: context,
@@ -37,6 +40,7 @@ class BulkOrderPaymentSheet extends StatefulWidget {
         config: config,
         onConfirm: onConfirm,
         initialDeliveryDate: initialDeliveryDate,
+        isStandardBulk: isStandardBulk,
       ),
     );
   }
@@ -186,7 +190,23 @@ class _BulkOrderPaymentSheetState extends State<BulkOrderPaymentSheet> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    BulkDeliveryDateTile(deliveryDate: _deliveryDate, onTap: _pickDate),
+                    BulkDeliveryDateTile(
+                      deliveryDate: _deliveryDate,
+                      onTap: _pickDate,
+                      enabled: !widget.isStandardBulk,
+                    ),
+                    if (widget.isStandardBulk)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6, bottom: 6),
+                        child: Text(
+                          'Delivery date is fixed for standard bulk items.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? Colors.white38 : Colors.grey.shade500,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ),
                     const SizedBox(height: 12),
                     ListTile(
                       contentPadding: EdgeInsets.zero,

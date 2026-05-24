@@ -99,7 +99,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
       final profileProvider = context.read<ProfileProvider>();
       
       // Fetch lookup data FIRST so dropdowns can be pre-filled
-      await lookup.fetchInitialData();
+      await lookup.fetchInitialData(force: true);
       // Also fetch corporate locations
       await lookup.fetchCorporateLocations();
       await profileProvider.fetchProfiles(force: true);
@@ -110,34 +110,38 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
 
       final profile = profileProvider.professionalProfile;
       if (profile != null && mounted) {
-        setState(() {
-          _nameController.text = profile.name;
-          _timeController.text = profile.lunchTime;
-          
-          // Match corporate location by name
-          _selectedCorporateLocation = lookup.corporateLocations
-              .where((c) => c.name == profile.companyName || c.id == profile.corporateLocationId)
-              .firstOrNull;
-          
-          _selectedState = lookup.states.where((s) => s.name == profile.state).firstOrNull;
-          _selectedMealSize = lookup.mealSizes.where((m) => m.id == profile.mealSizeId).firstOrNull;
-          
-          // Trigger dependent fetch for cities
-          if (_selectedState != null) {
-            lookup.fetchCitiesByState(_selectedState!.id).then((_) {
-              if (mounted) {
-                setState(() {
-                  _selectedCity = lookup.cities.where((c) => c.name == profile.city).firstOrNull;
-                });
-              }
-            });
+        CorporateLocationModel? corpLoc;
+        StateModel? state;
+        MealSizeModel? mealSize;
+        CityModel? city;
+
+        corpLoc = lookup.corporateLocations
+            .where((c) => c.name == profile.companyName || c.id == profile.corporateLocationId)
+            .firstOrNull;
+        state = lookup.states.where((s) => s.name == profile.state).firstOrNull;
+        mealSize = lookup.mealSizes.where((m) => m.id == profile.mealSizeId).firstOrNull;
+
+        if (state != null) {
+          await lookup.fetchCitiesByState(state.id);
+          if (mounted) {
+            city = lookup.cities.where((c) => c.name == profile.city).firstOrNull;
           }
-          
-          _isEditing = false;
-          _isInitializing = false;
-          _corporateLocksLocation = _selectedCorporateLocation != null;
-        });
-        _captureSnapshot();
+        }
+
+        if (mounted) {
+          setState(() {
+            _nameController.text = profile.name;
+            _timeController.text = profile.lunchTime;
+            _selectedCorporateLocation = corpLoc;
+            _selectedState = state;
+            _selectedMealSize = mealSize;
+            _selectedCity = city;
+            _isEditing = false;
+            _isInitializing = false;
+            _corporateLocksLocation = corpLoc != null;
+          });
+          _captureSnapshot();
+        }
         if (widget.renew && profile.id != null) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
@@ -174,18 +178,24 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
 
   Future<void> _selectTime(BuildContext context) async {
     FocusScope.of(context).unfocus();
+    final parts = _timeController.text.split(':');
+    final initHour = int.tryParse(parts.first) ?? 13;
+    final initMin = parts.length > 1 ? int.tryParse(parts[1]) ?? 30 : 30;
     final TimeOfDay? picked = await showTimePicker(
       context: context,
-      initialTime: const TimeOfDay(hour: 13, minute: 30),
+      initialTime: TimeOfDay(hour: initHour.clamp(0, 23), minute: initMin.clamp(0, 59)),
       builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: AppTheme.primaryColor,
-              brightness: Theme.of(context).brightness,
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: false),
+          child: Theme(
+            data: Theme.of(context).copyWith(
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: AppTheme.primaryColor,
+                brightness: Theme.of(context).brightness,
+              ),
             ),
+            child: child!,
           ),
-          child: child!,
         );
       },
     );
@@ -230,14 +240,21 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
 
     final profileProvider = context.read<ProfileProvider>();
     final existing = profileProvider.professionalProfile;
-    if (existing != null &&
-        _blocksMealSizeChange &&
-        _selectedMealSize!.id != existing.mealSizeId) {
-      ErrorHandler.showError(
-        context,
-        'Meal size cannot be changed while a subscription is active or upcoming. Use Upgrade meal size in Settings.',
-      );
-      return;
+    if (existing != null) {
+      if (!_isDirty) {
+        ErrorHandler.showSuccess(context, 'No changes to save.');
+        setState(() {
+          _isEditing = false;
+        });
+        return;
+      }
+      if (_blocksMealSizeChange && _selectedMealSize!.id != existing.mealSizeId) {
+        ErrorHandler.showError(
+          context,
+          'Meal size cannot be changed while a subscription is active or upcoming. Use Upgrade meal size in Settings.',
+        );
+        return;
+      }
     }
 
     setState(() => _isSaving = true);
@@ -295,239 +312,241 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: CartOverlayBody(
-        child: (profileProvider.isLoading || _isInitializing)
-              ? const Center(child: CircularProgressIndicator())
-              : (profile != null && !_isEditing)
-                  ? _buildProfileCard(context, profile)
-                  : UnsavedFormGuard(
-                      isDirty: _isDirty,
-                      onDiscard: () {
+      body: SafeArea(
+        child: CartOverlayBody(
+          child: (profileProvider.isLoading || _isInitializing)
+                ? const Center(child: CircularProgressIndicator())
+                : (profile != null && !_isEditing)
+                    ? _buildProfileCard(context, profile)
+                    : UnsavedFormGuard(
+                        isDirty: _isDirty,
+                        onDiscard: () {
+                          setState(() {
+                            _isEditing = false;
+                            // restore from original profile next time edit is opened
+                          });
+                        },
+                        child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Form(
+                key: _formKey,
+                autovalidateMode: _autovalidateMode,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      profile == null 
+                        ? 'Setup your corporate profile for lunch deliveries.'
+                        : 'Update your corporate profile details.',
+                      style: TextStyle(
+                        color: isDark ? Colors.white70 : Theme.of(context).textTheme.bodyMedium?.color,
+                      ),
+                    ),
+                    const SizedBox(height: 30),
+                    // 1. Full Name
+                    TextFormField(
+                      controller: _nameController,
+                      autofocus: false,
+                      decoration: const InputDecoration(
+                        labelText: 'Full Name',
+                        prefixIcon: Icon(CupertinoIcons.person_fill),
+                      ),
+                      textInputAction: TextInputAction.done,
+                      validator: (v) => Validators.name(v, fieldName: 'Full Name'),
+                    ),
+                    const SizedBox(height: 20),
+                    // 2. Company Name (from Corporate Locations API)
+                    SearchableDropdown<CorporateLocationModel>(
+                      label: 'Company Name',
+                      items: lookup.corporateLocations,
+                      itemLabel: (c) => c.name,
+                      value: _selectedCorporateLocation,
+                      isLoading: lookup.isLoading,
+                      listenable: lookup,
+                      itemsGetter: () => lookup.corporateLocations,
+                      loadingGetter: () => lookup.isLoading,
+                      validator: (v) => Validators.requiredField(v, 'Company Name'),
+                      onInteraction: () {
+                        FocusScope.of(context).unfocus();
+                        lookup.fetchCorporateLocations();
+                      },
+                      onChanged: (v) {
                         setState(() {
-                          _isEditing = false;
-                          // restore from original profile next time edit is opened
+                          _selectedCorporateLocation = v;
+                          if (v != null) {
+                            _corporateLocksLocation = true;
+                            _selectedState = lookup.states.where((s) => s.name.toLowerCase() == v.state.toLowerCase()).firstOrNull;
+                            if (_selectedState != null) {
+                              lookup.fetchCitiesByState(_selectedState!.id).then((_) {
+                                if (mounted) {
+                                  setState(() {
+                                    _selectedCity = lookup.cities.where((c) => c.name.toLowerCase() == v.city.toLowerCase()).firstOrNull;
+                                  });
+                                }
+                              });
+                            }
+                          } else {
+                            _corporateLocksLocation = false;
+                          }
                         });
                       },
-                      child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Form(
-              key: _formKey,
-              autovalidateMode: _autovalidateMode,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    profile == null 
-                      ? 'Setup your corporate profile for lunch deliveries.'
-                      : 'Update your corporate profile details.',
-                    style: TextStyle(
-                      color: isDark ? Colors.white70 : Theme.of(context).textTheme.bodyMedium?.color,
                     ),
-                  ),
-                  const SizedBox(height: 30),
-                  // 1. Full Name
-                  TextFormField(
-                    controller: _nameController,
-                    autofocus: false,
-                    decoration: const InputDecoration(
-                      labelText: 'Full Name',
-                      prefixIcon: Icon(CupertinoIcons.person_fill),
-                    ),
-                    textInputAction: TextInputAction.done,
-                    validator: (v) => Validators.name(v, fieldName: 'Full Name'),
-                  ),
-                  const SizedBox(height: 20),
-                  // 2. Company Name (from Corporate Locations API)
-                  SearchableDropdown<CorporateLocationModel>(
-                    label: 'Company Name',
-                    items: lookup.corporateLocations,
-                    itemLabel: (c) => c.name,
-                    value: _selectedCorporateLocation,
-                    isLoading: lookup.isLoading,
-                    listenable: lookup,
-                    itemsGetter: () => lookup.corporateLocations,
-                    loadingGetter: () => lookup.isLoading,
-                    validator: (v) => Validators.requiredField(v, 'Company Name'),
-                    onInteraction: () {
-                      FocusScope.of(context).unfocus();
-                      lookup.fetchCorporateLocations();
-                    },
-                    onChanged: (v) {
-                      setState(() {
-                        _selectedCorporateLocation = v;
-                        if (v != null) {
-                          _corporateLocksLocation = true;
-                          _selectedState = lookup.states.where((s) => s.name.toLowerCase() == v.state.toLowerCase()).firstOrNull;
-                          if (_selectedState != null) {
-                            lookup.fetchCitiesByState(_selectedState!.id).then((_) {
-                              if (mounted) {
-                                setState(() {
-                                  _selectedCity = lookup.cities.where((c) => c.name.toLowerCase() == v.city.toLowerCase()).firstOrNull;
-                                });
-                              }
-                            });
+                    const SizedBox(height: 20),
+                    // 3. State
+                    SearchableDropdown<StateModel>(
+                      label: 'State',
+                      items: lookup.states,
+                      itemLabel: (s) => s.name,
+                      value: _selectedState,
+                      enabled: !_corporateLocksLocation,
+                      isLoading: lookup.isLoading,
+                      listenable: lookup,
+                      itemsGetter: () => lookup.states,
+                      loadingGetter: () => lookup.isLoading,
+                      validator: (v) => Validators.requiredField(v, 'State'),
+                      onInteraction: () {
+                        FocusScope.of(context).unfocus();
+                        lookup.fetchInitialData();
+                      },
+                      onChanged: (v) {
+                        setState(() {
+                          if (_selectedState?.id != v?.id) {
+                            _selectedState = v;
+                            _selectedCity = null;
+                            if (v != null) {
+                              lookup.fetchCitiesByState(v.id);
+                            }
                           }
-                        } else {
-                          _corporateLocksLocation = false;
-                        }
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  // 3. State
-                  SearchableDropdown<StateModel>(
-                    label: 'State',
-                    items: lookup.states,
-                    itemLabel: (s) => s.name,
-                    value: _selectedState,
-                    enabled: !_corporateLocksLocation,
-                    isLoading: lookup.isLoading,
-                    listenable: lookup,
-                    itemsGetter: () => lookup.states,
-                    loadingGetter: () => lookup.isLoading,
-                    validator: (v) => Validators.requiredField(v, 'State'),
-                    onInteraction: () {
-                      FocusScope.of(context).unfocus();
-                      lookup.fetchInitialData();
-                    },
-                    onChanged: (v) {
-                      setState(() {
-                        if (_selectedState?.id != v?.id) {
-                          _selectedState = v;
-                          _selectedCity = null;
-                          if (v != null) {
-                            lookup.fetchCitiesByState(v.id);
-                          }
-                        }
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  // 4. City
-                  SearchableDropdown<CityModel>(
-                    label: 'City',
-                    items: lookup.cities,
-                    itemLabel: (c) => c.name,
-                    value: _selectedCity,
-                    enabled: !_corporateLocksLocation,
-                    isLoading: lookup.isLoading,
-                    listenable: lookup,
-                    itemsGetter: () => lookup.cities,
-                    loadingGetter: () => lookup.isLoading,
-                    validator: (v) => Validators.requiredField(v, 'City'),
-                    onInteraction: () {
-                      FocusScope.of(context).unfocus();
-                      if (_selectedState == null) {
-                        ErrorHandler.showError(context, 'Please select a state first');
-                        return;
-                      }
-                    },
-                    onChanged: (v) {
-                      setState(() {
-                        _selectedCity = v;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  // 5. Meal Size
-                  SearchableDropdown<MealSizeModel>(
-                    label: 'Meal Size',
-                    items: lookup.mealSizes,
-                    itemLabel: (m) => MealSizeRecommendations.mealSizeLabel(
-                      m,
-                      showRecommended: true,
-                      band: MealSizeRecommendations.recommendedBandForTeacherOrProfessional(),
+                        });
+                      },
                     ),
-                    value: _selectedMealSize,
-                    enabled: !_blocksMealSizeChange,
-                    isLoading: lookup.isLoading,
-                    listenable: lookup,
-                    itemsGetter: () => lookup.mealSizes,
-                    loadingGetter: () => lookup.isLoading,
-                    validator: (v) => Validators.requiredField(v, 'Meal Size'),
-                    onInteraction: () {
-                      FocusScope.of(context).unfocus();
-                      lookup.fetchInitialData();
-                    },
-                    onChanged: (v) {
-                      if (_blocksMealSizeChange) {
-                        final saved = profileProvider.professionalProfile?.mealSizeId;
-                        if (v != null && v.id != saved) {
-                          final msg = _mealSizeBlockedMessage(profileProvider, lookup);
-                          setState(() => _mealSizeBlockedFlash = msg);
-                          ErrorHandler.showValidationError(context, msg);
-                        }
-                        return;
-                      }
-                      setState(() {
-                        _mealSizeBlockedFlash = null;
-                        _selectedMealSize = v;
-                      });
-                    },
-                  ),
-                  if (_blocksMealSizeChange)
-                    MealSizeBlockedBanner(
-                      message: _mealSizeBlockedFlash ?? _mealSizeBlockedMessage(profileProvider, lookup),
-                    ),
-                  if (_selectedMealSize != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Text(
-                        'Recommended: ${MealSizeRecommendations.mealSizeLabel(_selectedMealSize!, showRecommended: false)} pack for professionals',
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                      ),
-                    ),
-                  const SizedBox(height: 20),
-                  // 6. Lunch Time
-                  InkWell(
-                    onTap: () => _selectTime(context),
-                    child: IgnorePointer(
-                      child: TextFormField(
-                        controller: TextEditingController(text: TimeUtils.formatToDisplay(_timeController.text)),
-                        decoration: const InputDecoration(
-                          labelText: 'Lunch Time',
-                          hintText: 'Select lunch delivery time',
-                          prefixIcon: Icon(CupertinoIcons.clock_fill),
-                          suffixIcon: Icon(CupertinoIcons.chevron_down, size: 16),
-                        ),
-                        validator: (v) => Validators.time(_timeController.text, fieldName: 'Lunch time'),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-                  ElevatedButton(
-                    onPressed: _isSaving ? null : _submitForm,
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 60),
-                    ),
-                    child: _isSaving
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                          )
-                        : Text(profile == null ? 'Save Professional Profile' : 'Update Profile'),
-                  ),
-                  if (_isEditing && profile != null) ...[
-                    const SizedBox(height: 16),
-                    TextButton(
-                      onPressed: () {
-                        if (_isDirty) {
-                          _showDiscardDialog();
-                        } else {
-                          setState(() => _isEditing = false);
+                    const SizedBox(height: 20),
+                    // 4. City
+                    SearchableDropdown<CityModel>(
+                      label: 'City',
+                      items: lookup.cities,
+                      itemLabel: (c) => c.name,
+                      value: _selectedCity,
+                      enabled: !_corporateLocksLocation,
+                      isLoading: lookup.isLoading,
+                      listenable: lookup,
+                      itemsGetter: () => lookup.cities,
+                      loadingGetter: () => lookup.isLoading,
+                      validator: (v) => Validators.requiredField(v, 'City'),
+                      onInteraction: () {
+                        FocusScope.of(context).unfocus();
+                        if (_selectedState == null) {
+                          ErrorHandler.showError(context, 'Please select a state first');
+                          return;
                         }
                       },
-                      style: TextButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
-                      child: const Text('Cancel Edit'),
+                      onChanged: (v) {
+                        setState(() {
+                          _selectedCity = v;
+                        });
+                      },
                     ),
+                    const SizedBox(height: 20),
+                    // 5. Meal Size
+                    SearchableDropdown<MealSizeModel>(
+                      label: 'Meal Size',
+                      items: lookup.mealSizes,
+                      itemLabel: (m) => MealSizeRecommendations.mealSizeLabel(
+                        m,
+                        showRecommended: true,
+                        band: MealSizeRecommendations.recommendedBandForTeacherOrProfessional(),
+                      ),
+                      value: _selectedMealSize,
+                      enabled: !_blocksMealSizeChange,
+                      isLoading: lookup.isLoading,
+                      listenable: lookup,
+                      itemsGetter: () => lookup.mealSizes,
+                      loadingGetter: () => lookup.isLoading,
+                      validator: (v) => Validators.requiredField(v, 'Meal Size'),
+                      onInteraction: () {
+                        FocusScope.of(context).unfocus();
+                        lookup.fetchInitialData();
+                      },
+                      onChanged: (v) {
+                        if (_blocksMealSizeChange) {
+                          final saved = profileProvider.professionalProfile?.mealSizeId;
+                          if (v != null && v.id != saved) {
+                            final msg = _mealSizeBlockedMessage(profileProvider, lookup);
+                            setState(() => _mealSizeBlockedFlash = msg);
+                            ErrorHandler.showValidationError(context, msg);
+                          }
+                          return;
+                        }
+                        setState(() {
+                          _mealSizeBlockedFlash = null;
+                          _selectedMealSize = v;
+                        });
+                      },
+                    ),
+                    if (_blocksMealSizeChange)
+                      MealSizeBlockedBanner(
+                        message: _mealSizeBlockedFlash ?? _mealSizeBlockedMessage(profileProvider, lookup),
+                      ),
+                    if (_selectedMealSize != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(
+                          'Recommended: ${MealSizeRecommendations.mealSizeLabel(_selectedMealSize!, showRecommended: false)} pack for professionals',
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                        ),
+                      ),
+                    const SizedBox(height: 20),
+                    // 6. Lunch Time
+                    InkWell(
+                      onTap: () => _selectTime(context),
+                      child: IgnorePointer(
+                        child: TextFormField(
+                          controller: TextEditingController(text: TimeUtils.formatToDisplay(_timeController.text)),
+                          decoration: const InputDecoration(
+                            labelText: 'Lunch Time',
+                            hintText: 'Select lunch delivery time',
+                            prefixIcon: Icon(CupertinoIcons.clock_fill),
+                            suffixIcon: Icon(CupertinoIcons.chevron_down, size: 16),
+                          ),
+                          validator: (v) => Validators.time(_timeController.text, fieldName: 'Lunch time'),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 40),
+                    ElevatedButton(
+                      onPressed: _isSaving ? null : _submitForm,
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 60),
+                      ),
+                      child: _isSaving
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                            )
+                          : Text(profile == null ? 'Save Professional Profile' : 'Update Profile'),
+                    ),
+                    if (_isEditing && profile != null) ...[
+                      const SizedBox(height: 16),
+                      TextButton(
+                        onPressed: () {
+                          if (_isDirty) {
+                            _showDiscardDialog();
+                          } else {
+                            setState(() => _isEditing = false);
+                          }
+                        },
+                        style: TextButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
+                        child: const Text('Cancel Edit'),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
-                  ),
         ),
+      ),
     );
   }
 

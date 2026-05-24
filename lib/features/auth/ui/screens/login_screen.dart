@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/gestures.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:meal_app/features/auth/providers/auth_provider.dart';
 import 'package:meal_app/features/auth/ui/screens/otp_screen.dart';
 import 'package:meal_app/core/theme/app_theme.dart';
 import 'package:meal_app/core/utils/error_handler.dart';
+import 'package:meal_app/features/profile/ui/screens/legal_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -18,6 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _phoneController = TextEditingController();
   final _usernameController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  bool _consentAccepted = false;
 
   @override
   void dispose() {
@@ -55,13 +59,18 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _submitRegister() async {
+    if (!_consentAccepted) {
+      ErrorHandler.showError(context, 'You must accept the Terms & Conditions and Privacy Policy to register.');
+      return;
+    }
+
     if (_formKey.currentState!.validate()) {
       FocusScope.of(context).unfocus();
 
       final provider = Provider.of<AuthProvider>(context, listen: false);
       final completePhoneNumber = '+91${_phoneController.text.trim()}';
       final username = _usernameController.text.trim();
-      final success = await provider.registerSendOtp(completePhoneNumber, username);
+      final success = await provider.registerSendOtp(completePhoneNumber, username, _consentAccepted);
 
       if (success && mounted) {
         Navigator.push(
@@ -95,6 +104,9 @@ class _LoginScreenState extends State<LoginScreen> {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
         statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+        systemNavigationBarColor: isDark ? AppTheme.backgroundDark : AppTheme.backgroundLight,
+        systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        systemNavigationBarDividerColor: Colors.transparent,
       ),
       child: Scaffold(
       body: Container(
@@ -141,9 +153,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   
                   Text(
                     isRegisterMode
-                        ? 'Register with your phone number to get started'
-                        : 'Enter your phone number to login',
-                    style: Theme.of(context).textTheme.bodyMedium,
+                        ? 'Register with your WhatsApp number to get started.\nYou will receive the OTP via WhatsApp.'
+                        : 'Enter your WhatsApp number to login.\nYou will receive the OTP via WhatsApp.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppTheme.primaryColor,
+                      fontWeight: FontWeight.bold,
+                    ),
                     textAlign: TextAlign.center,
                   ).animate().fadeIn(delay: 300.ms, duration: 500.ms).slideY(begin: 0.2, end: 0),
                   
@@ -191,7 +206,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       letterSpacing: 2,
                     ),
                     decoration: InputDecoration(
-                      labelText: 'Phone Number',
+                      labelText: 'WhatsApp Number',
                       counterText: '',
                       prefixIcon: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -228,15 +243,86 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Please enter your phone number';
+                        return 'Please enter your WhatsApp number';
                       }
                       if (value.length != 10 || !RegExp(r'^[0-9]+$').hasMatch(value)) {
-                        return 'Please enter a valid 10-digit number';
+                        return 'Please enter a valid 10-digit WhatsApp number';
                       }
                       return null;
                     },
                   ).animate().fadeIn(delay: 400.ms, duration: 500.ms).slideX(begin: 0.1, end: 0),
                   
+                  if (isRegisterMode) ...[
+                    const SizedBox(height: 16),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Checkbox(
+                          value: _consentAccepted,
+                          onChanged: (val) {
+                            setState(() {
+                              _consentAccepted = val ?? false;
+                            });
+                          },
+                          activeColor: AppTheme.primaryColor,
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 8.0),
+                            child: RichText(
+                              text: TextSpan(
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  color: isDark ? Colors.white70 : AppTheme.textSecondaryLight,
+                                  fontSize: 13,
+                                  height: 1.35,
+                                ),
+                                children: [
+                                  const TextSpan(text: 'I agree to the '),
+                                  TextSpan(
+                                    text: 'Terms & Conditions',
+                                    style: const TextStyle(
+                                      color: AppTheme.primaryColor,
+                                      fontWeight: FontWeight.bold,
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                    recognizer: TapGestureRecognizer()
+                                      ..onTap = () {
+                                        Navigator.push(
+                                          context,
+                                          CupertinoPageRoute(
+                                            builder: (_) => const LegalScreen(initialTabIndex: 0),
+                                          ),
+                                        );
+                                      },
+                                  ),
+                                  const TextSpan(text: ' and '),
+                                  TextSpan(
+                                    text: 'Privacy Policy',
+                                    style: const TextStyle(
+                                      color: AppTheme.primaryColor,
+                                      fontWeight: FontWeight.bold,
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                    recognizer: TapGestureRecognizer()
+                                      ..onTap = () {
+                                        Navigator.push(
+                                          context,
+                                          CupertinoPageRoute(
+                                            builder: (_) => const LegalScreen(initialTabIndex: 1),
+                                          ),
+                                        );
+                                      },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ).animate().fadeIn(delay: 500.ms, duration: 500.ms),
+                  ],
+
                   const SizedBox(height: 32),
                   
                   ElevatedButton(
@@ -271,6 +357,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           provider.setAuthMode(
                             isRegisterMode ? AuthMode.login : AuthMode.register,
                           );
+                          setState(() {
+                            _consentAccepted = false;
+                          });
                           _formKey.currentState?.reset();
                         },
                         child: Text(

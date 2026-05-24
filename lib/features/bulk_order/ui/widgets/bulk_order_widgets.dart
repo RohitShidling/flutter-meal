@@ -14,6 +14,7 @@ Widget bulkMenuImage(String? imageUrl) {
       child: CachedNetworkImage(
         imageUrl: imageUrl,
         width: double.infinity,
+        height: 180,
         fit: BoxFit.contain,
         placeholder: (_, __) => const Padding(
           padding: EdgeInsets.symmetric(vertical: 48),
@@ -76,10 +77,12 @@ class BulkDeliveryDateTile extends StatelessWidget {
     super.key,
     required this.deliveryDate,
     required this.onTap,
+    this.enabled = true,
   });
 
   final String? deliveryDate;
   final VoidCallback onTap;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -87,8 +90,8 @@ class BulkDeliveryDateTile extends StatelessWidget {
       contentPadding: EdgeInsets.zero,
       title: const Text('Delivery date'),
       subtitle: Text(deliveryDate ?? 'Select date'),
-      trailing: const Icon(CupertinoIcons.calendar),
-      onTap: onTap,
+      trailing: enabled ? const Icon(CupertinoIcons.calendar) : null,
+      onTap: enabled ? onTap : null,
     );
   }
 }

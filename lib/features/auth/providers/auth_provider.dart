@@ -22,6 +22,7 @@ class AuthProvider with ChangeNotifier {
   String _username = '';
   bool _isProfileLoading = false;
   bool _pendingDashboardRefresh = false;
+  bool _consentAccepted = false;
 
   AuthProvider(this._authRepository) {
     _checkAuthStatus();
@@ -33,10 +34,17 @@ class AuthProvider with ChangeNotifier {
   String get phoneNumber => _phoneNumber;
   String get username => _username;
   bool get isProfileLoading => _isProfileLoading;
+  bool get consentAccepted => _consentAccepted;
+
+  void setConsentAccepted(bool val) {
+    _consentAccepted = val;
+    notifyListeners();
+  }
 
   void setAuthMode(AuthMode mode) {
     _authMode = mode;
     _errorMessage = '';
+    _consentAccepted = false;
     notifyListeners();
   }
 
@@ -138,15 +146,16 @@ class AuthProvider with ChangeNotifier {
 
   // ─── REGISTER FLOW ────────────────────────────────────────────────────────
 
-  Future<bool> registerSendOtp(String phone, String username) async {
+  Future<bool> registerSendOtp(String phone, String username, bool consentAccepted) async {
     _state = AuthState.loading;
     _errorMessage = '';
     _phoneNumber = phone;
     _username = username;
+    _consentAccepted = consentAccepted;
     notifyListeners();
 
     try {
-      final success = await _withAuthTimeout(_authRepository.registerSendOtp(phone, username));
+      final success = await _withAuthTimeout(_authRepository.registerSendOtp(phone, username, consentAccepted));
       if (success) {
         _state = AuthState.unauthenticated;
         notifyListeners();
@@ -172,8 +181,9 @@ class AuthProvider with ChangeNotifier {
 
     try {
       final success =
-          await _withAuthTimeout(_authRepository.registerVerifyOtp(_phoneNumber, _username, code));
+          await _withAuthTimeout(_authRepository.registerVerifyOtp(_phoneNumber, _username, code, _consentAccepted));
       if (success) {
+        _consentAccepted = false;
         markPendingDashboardRefresh();
         try {
           await refreshMeProfile(silent: true, forceNetwork: true)

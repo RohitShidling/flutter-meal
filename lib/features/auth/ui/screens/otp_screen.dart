@@ -57,6 +57,9 @@ class _OtpScreenState extends State<OtpScreen> {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
         statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+        systemNavigationBarColor: isDark ? AppTheme.backgroundDark : AppTheme.backgroundLight,
+        systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        systemNavigationBarDividerColor: Colors.transparent,
       ),
       child: Scaffold(
       appBar: AppBar(
@@ -101,12 +104,19 @@ class _OtpScreenState extends State<OtpScreen> {
                       text: TextSpan(
                         style: Theme.of(context).textTheme.bodyMedium,
                         children: [
-                          const TextSpan(text: 'We sent a 6-digit code to\n'),
+                          const TextSpan(text: 'We sent a 6-digit code to your WhatsApp number:\n'),
                           TextSpan(
                             text: provider.phoneNumber,
                             style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: Theme.of(context).textTheme.bodyLarge?.color),
+                          ),
+                          const TextSpan(
+                            text: '\nPlease check WhatsApp to retrieve the OTP.',
+                            style: TextStyle(
+                              color: AppTheme.primaryColor,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ],
                       ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -97,17 +98,34 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Buuttii',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: context.watch<ThemeProvider>().themeMode,
-      builder: (context, child) => ReconnectRefreshCoordinator(
-        child: OfflineBanner(child: child ?? const SizedBox.shrink()),
+    final isDark = context.watch<ThemeProvider>().isDarkMode;
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+        systemNavigationBarColor: isDark ? AppTheme.backgroundDark : AppTheme.backgroundLight,
+        systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        systemNavigationBarDividerColor: Colors.transparent,
       ),
-      // navigatorKey lets us show messages from the network layer if needed.
-      home: const AuthWrapper(),
+      child: MaterialApp(
+        title: 'Buuttii',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: context.watch<ThemeProvider>().themeMode,
+        builder: (context, child) => ReconnectRefreshCoordinator(
+          child: OfflineBanner(
+            child: SafeArea(
+              top: false,
+              bottom: true,
+              child: child ?? const SizedBox.shrink(),
+            ),
+          ),
+        ),
+        // navigatorKey lets us show messages from the network layer if needed.
+        home: const AuthWrapper(),
+      ),
     );
   }
 }

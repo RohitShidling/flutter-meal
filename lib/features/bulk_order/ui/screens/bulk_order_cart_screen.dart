@@ -69,6 +69,7 @@ class BulkOrderCartScreen extends StatelessWidget {
                           quantity: standardQty,
                           pricePerMeal: cfg.pricePerMealUnderThreshold,
                           isDark: isDark,
+                          deliveryDate: p.standardDeliveryDate,
                           onIncrement: () => p.setStandardDraft(standardQty + 1),
                           onDecrement: () {
                             if (standardQty > 1) p.setStandardDraft(standardQty - 1);
@@ -248,6 +249,7 @@ class BulkOrderCartScreen extends StatelessWidget {
       context,
       config: cfg,
       initialDeliveryDate: initialDate,
+      isStandardBulk: isStandard,
       onConfirm: (deliveryDate) async {
         if (isStandard && isVariety) {
           await p.loadMenusForDate(deliveryDate);
@@ -336,6 +338,7 @@ class _StandardCartCard extends StatelessWidget {
     required this.onIncrement,
     required this.onDecrement,
     required this.onRemove,
+    this.deliveryDate,
   });
 
   final String menuName;
@@ -346,6 +349,7 @@ class _StandardCartCard extends StatelessWidget {
   final VoidCallback onIncrement;
   final VoidCallback onDecrement;
   final VoidCallback onRemove;
+  final String? deliveryDate;
 
   @override
   Widget build(BuildContext context) {
@@ -395,6 +399,17 @@ class _StandardCartCard extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  if (deliveryDate != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Delivery Date: $deliveryDate',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? Colors.white70 : AppTheme.textSecondaryLight,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 4),
                   Text(
                     'Rs ${pricePerMeal.toStringAsFixed(2)} per meal',

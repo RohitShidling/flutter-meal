@@ -403,11 +403,12 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
 
       ),
 
-      body: _loading && subs.isEmpty
+      body: SafeArea(
+        child: _loading && subs.isEmpty
 
-          ? const Center(child: CupertinoActivityIndicator())
+            ? const Center(child: CupertinoActivityIndicator())
 
-          : RefreshIndicator(
+            : RefreshIndicator(
 
               onRefresh: _load,
 
@@ -859,6 +860,7 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
               ),
 
             ),
+      ),
 
     );
 

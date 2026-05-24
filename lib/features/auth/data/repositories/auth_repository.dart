@@ -57,13 +57,14 @@ class AuthRepository {
 
   // ─── REGISTER FLOW (new user) ──────────────────────────────────────────────
 
-  Future<bool> registerSendOtp(String phoneNumber, String username) async {
+  Future<bool> registerSendOtp(String phoneNumber, String username, bool consentAccepted) async {
     try {
       final response = await _dioClient.dio.post(
         ApiEndpoints.registerSendOtp,
         data: {
           'phoneNumber': phoneNumber,
           'username': username,
+          'consentAccepted': consentAccepted,
         },
       );
       return response.statusCode == 200 && response.data['success'] == true;
@@ -72,7 +73,7 @@ class AuthRepository {
     }
   }
 
-  Future<bool> registerVerifyOtp(String phoneNumber, String username, String code) async {
+  Future<bool> registerVerifyOtp(String phoneNumber, String username, String code, bool consentAccepted) async {
     try {
       final response = await _dioClient.dio.post(
         ApiEndpoints.registerVerifyOtp,
@@ -80,6 +81,7 @@ class AuthRepository {
           'phoneNumber': phoneNumber,
           'username': username,
           'code': code,
+          'consentAccepted': consentAccepted,
         },
       );
 

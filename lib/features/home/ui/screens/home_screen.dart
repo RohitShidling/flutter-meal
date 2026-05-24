@@ -203,6 +203,9 @@ class _HomeScreenState extends State<HomeScreen> {
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
         statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+        systemNavigationBarColor: isDark ? AppTheme.backgroundDark : AppTheme.backgroundLight,
+        systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        systemNavigationBarDividerColor: Colors.transparent,
       ),
       child: Scaffold(
       body: RefreshIndicator(
@@ -853,6 +856,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: CachedNetworkImage(
             imageUrl: imageUrl,
             width: double.infinity,
+            height: height,
             fit: BoxFit.contain,
             placeholder: (_, __) => _buildMealPlaceholder(height),
             errorWidget: (_, __, ___) => _buildMealPlaceholder(height),

@@ -2,6 +2,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
+import 'package:dio/dio.dart';
+import 'package:meal_app/core/providers/session_provider.dart';
+import 'package:meal_app/features/auth/providers/auth_provider.dart';
 import 'package:meal_app/core/providers/payment_provider.dart';
 import 'package:meal_app/core/providers/cart_provider.dart';
 import 'package:meal_app/core/providers/meal_provider.dart';
@@ -15,6 +18,7 @@ import 'package:meal_app/core/widgets/apple_card.dart';
 import 'package:meal_app/core/utils/meal_date.dart';
 import 'package:meal_app/core/utils/time_utils.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:meal_app/core/utils/error_handler.dart';
 
 class PaymentStatusScreen extends StatefulWidget {
   final String txnId;
@@ -43,6 +47,7 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
   final int _maxRetries = 10;
   bool _postSuccessHandled = false;
   bool _pendingForceSyncAttempted = false;
+  String? _lastPollingError;
 
   @override
   void initState() {
@@ -53,11 +58,13 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
   Future<void> _startPolling() async {
     while (_isPolling && _retryCount < _maxRetries && mounted) {
       try {
-        final data = await context.read<PaymentProvider>().checkStatus(widget.txnId);
+        final paymentProvider = context.read<PaymentProvider>();
+        final data = await paymentProvider.checkStatus(widget.txnId);
 
         if (mounted) {
           setState(() {
             _statusData = data;
+            _lastPollingError = data == null ? paymentProvider.error : null;
             if (data != null) {
               final status = _resolveStatus(data);
               if (status == 'SUCCESS' || status == 'FAILED') {
@@ -66,8 +73,13 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
             }
           });
         }
-      } catch (_) {
+      } catch (e) {
         // Continue polling on error
+        if (mounted) {
+          setState(() {
+            _lastPollingError = ErrorHandler.getErrorMessage(e);
+          });
+        }
       }
 
       if (_isPolling && mounted) {
@@ -101,6 +113,22 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
     }
   }
 
+  void _handle401Redirect(String? reason) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(reason ?? 'Session expired. Please log in again to view your active plan.'),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 5),
+      ),
+    );
+    try {
+      context.read<AuthProvider>().logout();
+    } catch (_) {}
+    context.read<SessionProvider>().acknowledge();
+    Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
   /// Runs ONLY when the backend confirms the payment as SUCCESS.
   /// • For cart orders: clears the server-side cart (best-effort, then local).
   /// • Refreshes subscription/meal/payment providers so Home shows "Active Plan".
@@ -111,6 +139,7 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
     final meal = context.read<MealProvider>();
     final payment = context.read<PaymentProvider>();
     final subscriptions = context.read<SubscriptionProvider>();
+    final session = context.read<SessionProvider>();
 
     final orderType = (_statusData?['orderType']?.toString() ?? widget.orderType ?? '').toLowerCase();
     final isCartOrder = orderType == 'cart';
@@ -125,6 +154,11 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
           setState(() => _statusData = synced);
         }
       } catch (_) {/* best-effort */}
+    }
+
+    if (session.isExpired) {
+      _handle401Redirect(session.reason);
+      return;
     }
 
     if (isBulkOrder) {
@@ -149,7 +183,12 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
       } catch (_) {/* ignore */}
     }
 
-  // Refresh dashboard-relevant data so Home and management screens stay in sync.
+    if (session.isExpired) {
+      _handle401Redirect(session.reason);
+      return;
+    }
+
+    // Refresh dashboard-relevant data so Home and management screens stay in sync.
     try {
       final futures = <Future<void>>[
         meal.fetchSubscriptionStatus(),
@@ -161,10 +200,15 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
         payment.fetchPaymentHistory(),
         subscriptions.fetchSubscriptions(force: true),
         context.read<ProfileProvider>().fetchProfiles(force: true),
-        context.read<ChildrenProvider>().fetchChildren(),
+        context.read<ChildrenProvider>().fetchChildren(force: true),
       ];
       await Future.wait(futures);
     } catch (_) {/* ignore — these are best-effort refreshes */}
+
+    if (session.isExpired) {
+      _handle401Redirect(session.reason);
+      return;
+    }
   }
 
   /// Resolve payment status from the API response.
@@ -248,6 +292,18 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
           'Attempt ${_retryCount + 1} of $_maxRetries',
           style: TextStyle(fontSize: 12, color: isDark ? Colors.white38 : Colors.grey.shade400),
         ),
+        if (_lastPollingError != null) ...[
+          const SizedBox(height: 14),
+          Text(
+            _lastPollingError!,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white70 : Colors.grey.shade700,
+            ),
+          ),
+        ],
       ],
     ).animate().fadeIn();
   }
@@ -515,6 +571,18 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
           textAlign: TextAlign.center,
           style: TextStyle(color: isDark ? Colors.white54 : Colors.grey, fontSize: 16),
         ),
+        if (_lastPollingError != null) ...[
+          const SizedBox(height: 16),
+          Text(
+            _lastPollingError!,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: isDark ? Colors.white70 : Colors.grey.shade700,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
         const SizedBox(height: 24),
         OutlinedButton.icon(
           onPressed: () {

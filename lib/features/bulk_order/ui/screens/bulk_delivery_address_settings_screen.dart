@@ -15,29 +15,31 @@ class BulkDeliveryAddressSettingsScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Bulk delivery address'),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          const Text(
-            'This address is prefilled when you pay for a bulk order. You can change it here anytime.',
-          ),
-          const SizedBox(height: 16),
-          const BulkOrderAddressSection(),
-          const SizedBox(height: 24),
-          FilledButton(
-            onPressed: () {
-              final p = context.read<BulkOrderProvider>();
-              final err = p.validateDeliveryAddress();
-              if (err != null) {
-                ErrorHandler.showError(context, err);
-                return;
-              }
-              ErrorHandler.showSuccess(context, 'Delivery address saved');
-              Navigator.pop(context);
-            },
-            child: const Text('Save address'),
-          ),
-        ],
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            const Text(
+              'This address is prefilled when you pay for a bulk order. You can change it here anytime.',
+            ),
+            const SizedBox(height: 16),
+            const BulkOrderAddressSection(),
+            const SizedBox(height: 24),
+            FilledButton(
+              onPressed: () {
+                final p = context.read<BulkOrderProvider>();
+                final err = p.validateDeliveryAddress();
+                if (err != null) {
+                  ErrorHandler.showError(context, err);
+                  return;
+                }
+                ErrorHandler.showSuccess(context, 'Delivery address saved');
+                Navigator.pop(context);
+              },
+              child: const Text('Save address'),
+            ),
+          ],
+        ),
       ),
     );
   }
