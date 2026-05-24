@@ -24,6 +24,15 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _consentAccepted = false;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<AuthProvider>().clearTransientState();
+    });
+  }
+
+  @override
   void dispose() {
     _phoneController.dispose();
     _usernameController.dispose();
@@ -153,11 +162,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   
                   Text(
                     isRegisterMode
-                        ? 'Register with your WhatsApp number to get started.\nYou will receive the OTP via WhatsApp.'
-                        : 'Enter your WhatsApp number to login.\nYou will receive the OTP via WhatsApp.',
+                        ? 'Enter your WhatsApp number to get started.'
+                        : 'Enter your WhatsApp number to log in.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppTheme.primaryColor,
-                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white70 : AppTheme.textSecondaryLight,
+                      fontWeight: FontWeight.w500,
                     ),
                     textAlign: TextAlign.center,
                   ).animate().fadeIn(delay: 300.ms, duration: 500.ms).slideY(begin: 0.2, end: 0),

@@ -65,7 +65,10 @@ class _OtpScreenState extends State<OtpScreen> {
       appBar: AppBar(
         leading: IconButton(
           icon: Icon(Icons.arrow_back_ios_new_rounded, color: Theme.of(context).iconTheme.color),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () {
+            context.read<AuthProvider>().clearTransientState();
+            Navigator.of(context).pop();
+          },
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -102,9 +105,12 @@ class _OtpScreenState extends State<OtpScreen> {
                     RichText(
                       textAlign: TextAlign.center,
                       text: TextSpan(
-                        style: Theme.of(context).textTheme.bodyMedium,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: isDark ? Colors.white70 : AppTheme.textSecondaryLight,
+                          height: 1.45,
+                        ),
                         children: [
-                          const TextSpan(text: 'We sent a 6-digit code to your WhatsApp number:\n'),
+                          const TextSpan(text: 'We sent an OTP to\n'),
                           TextSpan(
                             text: provider.phoneNumber,
                             style: TextStyle(
@@ -112,10 +118,9 @@ class _OtpScreenState extends State<OtpScreen> {
                                 color: Theme.of(context).textTheme.bodyLarge?.color),
                           ),
                           const TextSpan(
-                            text: '\nPlease check WhatsApp to retrieve the OTP.',
+                            text: '\nEnter the 6-digit code from WhatsApp.',
                             style: TextStyle(
-                              color: AppTheme.primaryColor,
-                              fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],

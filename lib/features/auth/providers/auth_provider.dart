@@ -36,6 +36,14 @@ class AuthProvider with ChangeNotifier {
   bool get isProfileLoading => _isProfileLoading;
   bool get consentAccepted => _consentAccepted;
 
+  void clearTransientState() {
+    _errorMessage = '';
+    if (_state != AuthState.authenticated) {
+      _state = AuthState.unauthenticated;
+    }
+    notifyListeners();
+  }
+
   void setConsentAccepted(bool val) {
     _consentAccepted = val;
     notifyListeners();
@@ -45,6 +53,9 @@ class AuthProvider with ChangeNotifier {
     _authMode = mode;
     _errorMessage = '';
     _consentAccepted = false;
+    if (_state != AuthState.authenticated) {
+      _state = AuthState.unauthenticated;
+    }
     notifyListeners();
   }
 
