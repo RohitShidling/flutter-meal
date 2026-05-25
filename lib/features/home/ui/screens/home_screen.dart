@@ -548,75 +548,134 @@ class _HomeScreenState extends State<HomeScreen> {
     final upcomingStart = SubscriptionStatusNormalizer.earliestUpcomingStartYmd(statusData);
     final upcomingLabel = upcomingStart != null ? MealDate.formatDisplay(upcomingStart) : null;
     if (upcomingLabel == null) return const SizedBox.shrink();
+    final upcomingMessage = _upcomingPlanMessage(statusData, upcomingStart, upcomingLabel);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 14),
       child: AppleCard(
         margin: EdgeInsets.zero,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-        borderRadius: 20,
-        child: Row(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        borderRadius: 18,
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEAB308).withOpacity(0.15),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(CupertinoIcons.calendar_badge_plus, color: Color(0xFFEAB308), size: 22),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Upcoming plan',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
-                    ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEAB308).withOpacity(0.15),
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'You\'ll start receiving meals on $upcomingLabel',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      height: 1.35,
-                      color: isDark ? Colors.white : AppTheme.textPrimaryLight,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          CupertinoPageRoute(builder: (_) => const WeeklyMenuScreen()),
-                        );
-                      },
-                      icon: const Icon(CupertinoIcons.calendar, size: 18),
-                      label: const Text(
-                        'One Week Meal',
-                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                  child: const Icon(CupertinoIcons.calendar_badge_plus, color: Color(0xFFEAB308), size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Upcoming plan',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                        ),
                       ),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      const SizedBox(height: 3),
+                      Text(
+                        upcomingMessage,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          height: 1.3,
+                          color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ],
         ),
       ),
     ).animate().fadeIn(duration: 350.ms).slideY(begin: 0.06, end: 0);
+  }
+
+  String _upcomingPlanMessage(
+    Map<String, dynamic>? statusData,
+    String? upcomingStart,
+    String upcomingLabel,
+  ) {
+    final groups = _upcomingPlanGroups(statusData);
+    if (groups.isEmpty) {
+      if (upcomingStart == null) return 'Your plan starts receiving meals soon';
+      return 'Your plan starts receiving meals from $upcomingLabel';
+    }
+
+    final parts = <String>[];
+    for (final group in groups.take(2)) {
+      final names = List<String>.from(group['names'] as List);
+      final label = group['label'] as String;
+      final profileLabel = _formatUpcomingNames(names);
+      final isPlural = names.length > 1;
+      parts.add(
+        isPlural
+            ? '$profileLabel start receiving meals from $label'
+            : '$profileLabel starts receiving meals from $label',
+      );
+    }
+
+    if (groups.length > 2) {
+      parts.add('${groups.length - 2} more upcoming plan(s) scheduled after that');
+    }
+
+    return parts.join('. ');
+  }
+
+  List<Map<String, dynamic>> _upcomingPlanGroups(Map<String, dynamic>? statusData) {
+    if (statusData == null) return const [];
+    final rows = statusData['entities'] is List
+        ? statusData['entities'] as List
+        : (statusData['data'] is List ? statusData['data'] as List : const []);
+    final today = MealDate.sessionTodayYmd();
+    final grouped = <String, List<String>>{};
+
+    for (final row in rows) {
+      if (row is! Map) continue;
+      final map = Map<String, dynamic>.from(row);
+      if (!SubscriptionStatusNormalizer.rowIsUpcoming(map, today)) continue;
+      final start = map['start_date']?.toString();
+      final startYmd = (start != null && start.length >= 10) ? start.substring(0, 10) : null;
+      if (startYmd == null) continue;
+      final name = map['entity_name']?.toString().trim();
+      if (name != null && name.isNotEmpty) {
+        final names = grouped.putIfAbsent(startYmd, () => <String>[]);
+        if (!names.contains(name)) {
+          names.add(name);
+        }
+      }
+    }
+
+    final sortedKeys = grouped.keys.toList()..sort();
+    return sortedKeys
+        .map((ymd) => {
+              'start': ymd,
+              'label': MealDate.formatDisplay(ymd),
+              'names': grouped[ymd]!,
+            })
+        .toList();
+  }
+
+  String _formatUpcomingNames(List<String> names) {
+    if (names.isEmpty) return 'Your plan';
+    if (names.length == 1) return names.first;
+    if (names.length == 2) return '${names[0]} and ${names[1]}';
+    return '${names[0]} +${names.length - 1} more';
   }
 
   /// Today's meal card — ONLY shown when user has active subscription.

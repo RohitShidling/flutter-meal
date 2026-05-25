@@ -90,7 +90,10 @@ class _BulkOrderStandardScreenState extends State<BulkOrderStandardScreen> {
     }
 
     final maxQty = _maxQty(cfg);
-    final pricePerMeal = cfg.pricePerMealUnderThreshold;
+    final menuPrice = p.deliveryMenu?.pricePerMeal;
+    final pricePerMeal = (menuPrice != null && menuPrice > 0)
+        ? menuPrice
+        : cfg.pricePerMealUnderThreshold;
     final estimatedTotal = _qty * pricePerMeal;
     final canAdd = _selectedDate != null && p.deliveryMenu != null && !p.isLoading;
 
