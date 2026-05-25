@@ -105,7 +105,7 @@ class BulkMenuOption {
   });
 
   factory BulkMenuOption.fromJson(Map<String, dynamic> json) {
-    final price = json['price_per_meal'];
+    final price = json['price_per_meal'] ?? json['bulk_order_price'];
     return BulkMenuOption(
       id: '${json['id']}',
       menuDate: '${json['menu_date'] ?? ''}',

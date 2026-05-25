@@ -67,7 +67,10 @@ class BulkOrderCartScreen extends StatelessWidget {
                           menuName: p.deliveryMenu?.items ?? 'Daily menu',
                           imageUrl: p.deliveryMenu?.imageUrl,
                           quantity: standardQty,
-                          pricePerMeal: cfg.pricePerMealUnderThreshold,
+                          pricePerMeal: (p.deliveryMenu?.pricePerMeal != null &&
+                                  p.deliveryMenu!.pricePerMeal! > 0)
+                              ? p.deliveryMenu!.pricePerMeal!
+                              : cfg.pricePerMealUnderThreshold,
                           isDark: isDark,
                           deliveryDate: p.standardDeliveryDate,
                           onIncrement: () => p.setStandardDraft(standardQty + 1),
@@ -669,7 +672,11 @@ class _PriceSummary extends StatelessWidget {
 
     double estimatedTotal = 0;
     if (standardQty > 0) {
-      estimatedTotal += standardQty * config.pricePerMealUnderThreshold;
+      final standardPrice = (provider.deliveryMenu?.pricePerMeal != null &&
+              provider.deliveryMenu!.pricePerMeal! > 0)
+          ? provider.deliveryMenu!.pricePerMeal!
+          : config.pricePerMealUnderThreshold;
+      estimatedTotal += standardQty * standardPrice;
     }
     for (final e in varietyLines) {
       final meal = provider.mealById(e.key);
