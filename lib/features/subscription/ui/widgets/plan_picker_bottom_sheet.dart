@@ -10,6 +10,7 @@ import 'package:meal_app/core/utils/error_handler.dart';
 import 'package:meal_app/core/utils/meal_date.dart';
 import 'package:meal_app/core/utils/money_format.dart';
 import 'package:meal_app/core/widgets/app_skeleton.dart';
+import 'package:meal_app/features/subscription/ui/widgets/plan_features_row.dart';
 
 /// Bottom-sheet plan picker: regular plans first, then trial; with/without Saturday per plan.
 class PlanPickerBottomSheet {
@@ -70,6 +71,13 @@ class _PlanPickerSheetState extends State<_PlanPickerSheet> {
     final sizes = context.read<LookupProvider>().mealSizes;
     final match = sizes.where((m) => m.id == widget.mealSizeId).firstOrNull;
     return match?.displayName ?? 'Meal size ${widget.mealSizeId}';
+  }
+
+  int _durationDays(SubscriptionModel plan, bool includeSaturday) {
+    if (includeSaturday) {
+      return plan.durationDaysWithSaturday ?? plan.durationDays;
+    }
+    return plan.durationDaysWithoutSaturday ?? plan.durationDays;
   }
 
   Future<void> _addPlan(SubscriptionModel plan, bool includeSaturday) async {
@@ -195,13 +203,13 @@ class _PlanPickerSheetState extends State<_PlanPickerSheet> {
                               if (regular.isNotEmpty) ...[
                                 _sectionTitle('Regular plans', isDark),
                                 const SizedBox(height: 10),
-                                ...regular.expand((p) => _planVariants(context, p, isDark)),
+                                ...regular.map((p) => _planCard(context, p, isDark)),
                                 const SizedBox(height: 20),
                               ],
                               if (trial.isNotEmpty) ...[
                                 _sectionTitle('Trial plans', isDark),
                                 const SizedBox(height: 10),
-                                ...trial.expand((p) => _planVariants(context, p, isDark)),
+                                ...trial.map((p) => _planCard(context, p, isDark, isTrial: true)),
                               ],
                             ],
                           ),
@@ -225,53 +233,105 @@ class _PlanPickerSheetState extends State<_PlanPickerSheet> {
     );
   }
 
-  List<Widget> _planVariants(BuildContext context, SubscriptionModel plan, bool isDark) {
-    final widgets = <Widget>[];
+  Widget _planCard(BuildContext context, SubscriptionModel plan, bool isDark, {bool isTrial = false}) {
+    final variants = <_VariantSpec>[];
     if (plan.saturdayOptionEnabled) {
-      widgets.add(_variantTile(
-        context,
-        plan: plan,
+      variants.add(_VariantSpec(
         includeSaturday: true,
-        isDark: isDark,
+        label: 'With Saturday',
+        hint: 'Includes Saturday deliveries',
       ));
-      widgets.add(const SizedBox(height: 8));
-      widgets.add(_variantTile(
-        context,
-        plan: plan,
+      variants.add(_VariantSpec(
         includeSaturday: false,
-        isDark: isDark,
+        label: 'Without Saturday',
+        hint: 'Saturday meals excluded',
       ));
     } else {
-      widgets.add(_variantTile(
-        context,
-        plan: plan,
+      variants.add(_VariantSpec(
         includeSaturday: true,
-        isDark: isDark,
-        hideSaturdayLabel: true,
+        label: plan.planName,
+        hint: plan.billingCycle,
       ));
     }
-    widgets.add(const SizedBox(height: 12));
-    return widgets;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Material(
+        color: isDark ? AppTheme.surfaceDark : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: isDark ? Colors.white12 : Colors.grey.shade200,
+            ),
+          ),
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      plan.planName,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 16,
+                        color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                      ),
+                    ),
+                  ),
+                  if (isTrial)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withValues(alpha: isDark ? 0.25 : 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '${plan.trialDays}d trial',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: isDark ? Colors.orange.shade200 : Colors.orange.shade900,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                plan.billingCycle,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white54 : AppTheme.textSecondaryLight,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ...variants.map((v) => _variantRow(context, plan, v, isDark)),
+              if (plan.features.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                PlanFeaturesRow(features: plan.features, isDark: isDark),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
-  Widget _variantTile(
-    BuildContext context, {
-    required SubscriptionModel plan,
-    required bool includeSaturday,
-    required bool isDark,
-    bool hideSaturdayLabel = false,
-  }) {
+  Widget _variantRow(
+    BuildContext context,
+    SubscriptionModel plan,
+    _VariantSpec variant,
+    bool isDark,
+  ) {
+    final includeSaturday = variant.includeSaturday;
     final price = includeSaturday ? plan.priceWithSaturday : plan.priceWithoutSaturday;
-    final duration = includeSaturday
-        ? (plan.durationDaysWithSaturday ?? plan.durationDays)
-        : (plan.durationDaysWithoutSaturday ?? plan.durationDays);
-    final title = hideSaturdayLabel
-        ? plan.planName
-        : (includeSaturday ? 'With Saturday' : 'Without Saturday');
-    final subtitle = hideSaturdayLabel
-        ? '${plan.billingCycle} • $duration days'
-        : (includeSaturday ? 'Includes Saturday deliveries' : 'Saturday meals excluded');
-
+    final days = _durationDays(plan, includeSaturday);
     final inCart = context.watch<CartProvider>().hasExactCartItem(
           entityType: widget.entityType,
           entityId: widget.entityId,
@@ -279,73 +339,98 @@ class _PlanPickerSheetState extends State<_PlanPickerSheet> {
           includeSaturday: includeSaturday,
         );
 
-    return Material(
-      color: isDark ? AppTheme.surfaceDark : Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: _adding || inCart ? null : () => _addPlan(plan, includeSaturday),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: inCart
-                  ? Colors.green.withValues(alpha: 0.5)
-                  : (isDark ? Colors.white12 : Colors.grey.shade200),
-            ),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: isDark ? Colors.white.withValues(alpha: 0.04) : AppTheme.primaryColor.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: _adding || inCart ? null : () => _addPlan(plan, includeSaturday),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        variant.label,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                          color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        variant.hint,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isDark ? Colors.white54 : AppTheme.textSecondaryLight,
+                        ),
+                      ),
+                      if (days > 0) ...[
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withValues(alpha: isDark ? 0.2 : 0.12),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            '$days delivery days',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: isDark ? Colors.white : AppTheme.primaryColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      title,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
+                      '₹${MoneyFormat.display(price)}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
                         fontSize: 15,
-                        color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                        color: AppTheme.primaryColor,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 4),
                     Text(
-                      subtitle,
+                      inCart ? 'In cart' : 'Add to cart',
                       style: TextStyle(
-                        fontSize: 12,
-                        color: isDark ? Colors.white54 : AppTheme.textSecondaryLight,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: inCart ? Colors.green.shade700 : AppTheme.primaryColor,
                       ),
                     ),
                   ],
                 ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '₹${MoneyFormat.display(price)}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 16,
-                      color: AppTheme.primaryColor,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    inCart ? 'In cart' : 'Add to cart',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: inCart ? Colors.green.shade700 : AppTheme.primaryColor,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+class _VariantSpec {
+  final bool includeSaturday;
+  final String label;
+  final String hint;
+
+  const _VariantSpec({
+    required this.includeSaturday,
+    required this.label,
+    required this.hint,
+  });
 }
