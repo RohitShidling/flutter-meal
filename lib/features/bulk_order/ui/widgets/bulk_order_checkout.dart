@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:meal_app/core/network/api_endpoints.dart';
 import 'package:meal_app/core/utils/error_handler.dart';
+import 'package:meal_app/core/utils/time_utils.dart';
 import 'package:meal_app/features/bulk_order/providers/bulk_order_provider.dart';
 import 'package:meal_app/features/subscription/ui/screens/payment_status_screen.dart';
 import 'package:meal_app/features/subscription/ui/screens/payment_webview_screen.dart';
@@ -69,7 +70,7 @@ class BulkOrderCheckout {
     final body = StringBuffer()..writeln('Delivery: $deliveryDate');
     final deliveryTime = addr?.deliveryTime?.trim();
     if (deliveryTime != null && deliveryTime.isNotEmpty) {
-      body.writeln('Time: $deliveryTime');
+      body.writeln('Time: ${TimeUtils.formatToDisplay(deliveryTime)}');
     }
     body
       ..writeln('Address: ${addr?.formatted ?? '—'}')

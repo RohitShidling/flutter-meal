@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:meal_app/core/models/lookup_models.dart';
 import 'package:meal_app/core/providers/lookup_provider.dart';
 import 'package:meal_app/core/theme/app_theme.dart';
-import 'package:meal_app/core/utils/error_handler.dart';
 import 'package:meal_app/core/widgets/apple_card.dart';
 import 'package:meal_app/core/widgets/searchable_dropdown.dart';
 import 'package:meal_app/features/bulk_order/data/models/bulk_delivery_address.dart';
@@ -23,6 +22,7 @@ class _BulkOrderAddressSectionState extends State<BulkOrderAddressSection> {
   final _addressController = TextEditingController();
   final _pincodeController = TextEditingController();
   bool _hydrated = false;
+  String? _formError;
 
   @override
   void initState() {
@@ -127,6 +127,7 @@ class _BulkOrderAddressSectionState extends State<BulkOrderAddressSection> {
                 if (_selectedState?.id != v?.id) {
                   _selectedState = v;
                   _selectedCity = null;
+                  _formError = null;
                   if (v != null) {
                     lookup.fetchCitiesByState(v.id);
                   }
@@ -148,14 +149,28 @@ class _BulkOrderAddressSectionState extends State<BulkOrderAddressSection> {
             onInteraction: () {
               FocusScope.of(context).unfocus();
               if (_selectedState == null) {
-                ErrorHandler.showError(context, 'Please select a state first');
+                setState(() => _formError = 'Please select a state first.');
               }
             },
             onChanged: (v) {
-              setState(() => _selectedCity = v);
+              setState(() {
+                _selectedCity = v;
+                _formError = null;
+              });
               _syncToProvider();
             },
           ),
+          if (_formError != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              _formError!,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: isDark ? Colors.orange.shade200 : Colors.orange.shade900,
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           TextField(
             controller: _addressController,

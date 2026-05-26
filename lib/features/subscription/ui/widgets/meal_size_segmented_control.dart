@@ -36,19 +36,18 @@ class MealSizeSegmentedControl extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: borderColor, width: 1),
       ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final itemWidth = (constraints.maxWidth - 8) / options.length;
-          return Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: List.generate(options.length, (index) {
-              final selected = index == selectedIndex;
-              return GestureDetector(
+      child: Row(
+        children: List.generate(options.length, (index) {
+          final selected = index == selectedIndex;
+          return Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(left: index > 0 ? 4 : 0),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onTap: () => onChanged(index),
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 380),
-                  curve: Curves.easeInOutCubic,
-                  width: itemWidth,
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   decoration: BoxDecoration(
                     color: selected ? selectedBg : Colors.transparent,
@@ -75,10 +74,10 @@ class MealSizeSegmentedControl extends StatelessWidget {
                     ),
                   ),
                 ),
-              );
-            }),
+              ),
+            ),
           );
-        },
+        }),
       ),
     );
   }
@@ -123,31 +122,37 @@ class MealSizeSegmentedControlWrap extends StatelessWidget {
         alignment: WrapAlignment.spaceEvenly,
         children: List.generate(options.length, (index) {
           final selected = index == selectedIndex;
-          return GestureDetector(
-            onTap: () => onChanged(index),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 380),
-              curve: Curves.easeInOutCubic,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-              decoration: BoxDecoration(
-                color: selected
-                    ? selectedBg
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
+          return Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => onChanged(index),
+              borderRadius: BorderRadius.circular(12),
+              splashColor: colorScheme.primary.withValues(alpha: 0.12),
+              highlightColor: colorScheme.primary.withValues(alpha: 0.08),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 280),
+                curve: Curves.easeInOutCubic,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                decoration: BoxDecoration(
                   color: selected
-                      ? colorScheme.primary.withValues(alpha: isDark ? 0.45 : 0.35)
+                      ? selectedBg
                       : Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: selected
+                        ? colorScheme.primary.withValues(alpha: isDark ? 0.45 : 0.35)
+                        : Colors.transparent,
+                  ),
                 ),
-              ),
-              child: Text(
-                options[index],
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                  color: selected
-                      ? (isDark ? Colors.white : AppTheme.textPrimaryLight)
-                      : (isDark ? Colors.white54 : AppTheme.textSecondaryLight),
+                child: Text(
+                  options[index],
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                    color: selected
+                        ? (isDark ? Colors.white : AppTheme.textPrimaryLight)
+                        : (isDark ? Colors.white54 : AppTheme.textSecondaryLight),
+                  ),
                 ),
               ),
             ),

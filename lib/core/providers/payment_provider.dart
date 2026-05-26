@@ -85,9 +85,9 @@ class PaymentProvider with ChangeNotifier {
 
   // ─── Active Subscriptions ──────────────────────────────────────────────────
 
-  Future<void> fetchActiveSubscriptions({bool silent = false}) async {
+  Future<void> fetchActiveSubscriptions({bool silent = false, bool force = false}) async {
     bool hasCachedData = false;
-    final cached = await _cache.loadJson(_activeCacheKey);
+    final cached = force ? null : await _cache.loadJson(_activeCacheKey);
     if (cached != null && _activeSubscriptions.isEmpty) {
       _activeSubscriptions = (cached['items'] as List? ?? const []).toList();
       hasCachedData = _activeSubscriptions.isNotEmpty;
@@ -111,6 +111,8 @@ class PaymentProvider with ChangeNotifier {
     } finally {
       if (!silent) {
         _isLoading = false;
+        notifyListeners();
+      } else {
         notifyListeners();
       }
     }

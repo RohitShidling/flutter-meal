@@ -55,7 +55,12 @@ class ProfileProvider with ChangeNotifier {
     final hasAnyProfile = _teacherProfile != null || _professionalProfile != null;
     final isFresh = _lastFetchedAt != null &&
         DateTime.now().difference(_lastFetchedAt!).inMinutes < 3;
-    if (!force && hasAnyProfile && isFresh) return;
+    final canUseFreshOnly =
+        !force &&
+        hasAnyProfile &&
+        isFresh &&
+        !NetworkStatusService.instance.isOnline;
+    if (canUseFreshOnly) return;
     if (_inflightRequest != null) return _inflightRequest;
 
     final request = _doFetch(silent: silent);

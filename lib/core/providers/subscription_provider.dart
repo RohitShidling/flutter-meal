@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:meal_app/core/services/network_status_service.dart';
 import 'package:meal_app/core/models/subscription_model.dart';
 import 'package:meal_app/core/network/subscription_repository.dart';
 import 'package:meal_app/core/storage/cache_store.dart';
@@ -39,7 +40,12 @@ class SubscriptionProvider with ChangeNotifier {
   Future<void> fetchSubscriptions({bool force = false, bool silent = false}) async {
     final isFresh = _lastFetchedAt != null &&
         DateTime.now().difference(_lastFetchedAt!).inMinutes < 10;
-    if (!force && _subscriptions.isNotEmpty && isFresh) return;
+    final canUseFreshOnly =
+        !force &&
+        _subscriptions.isNotEmpty &&
+        isFresh &&
+        !NetworkStatusService.instance.isOnline;
+    if (canUseFreshOnly) return;
     if (_inflightFetch != null) return _inflightFetch;
 
     final request = _doFetch(silent: silent);
