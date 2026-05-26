@@ -3,6 +3,8 @@ import 'package:dio/dio.dart';
 import 'package:meal_app/core/network/api_endpoints.dart';
 import 'package:meal_app/core/network/dio_client.dart';
 import 'package:meal_app/core/storage/secure_storage.dart';
+import 'package:meal_app/features/auth/data/models/auth_api_exception.dart';
+import 'package:meal_app/features/auth/data/models/otp_send_result.dart';
 
 class AuthRepository {
   final DioClient _dioClient;
@@ -14,13 +16,17 @@ class AuthRepository {
 
   // ─── LOGIN FLOW (existing user) ────────────────────────────────────────────
 
-  Future<bool> loginSendOtp(String phoneNumber) async {
+  Future<OtpSendResult> loginSendOtp(String phoneNumber) async {
     try {
       final response = await _dioClient.dio.post(
         ApiEndpoints.loginSendOtp,
         data: {'phoneNumber': phoneNumber},
       );
-      return response.statusCode == 200 && response.data['success'] == true;
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        final data = response.data['data'];
+        return OtpSendResult.fromJson(data is Map<String, dynamic> ? data : null);
+      }
+      throw const AuthApiException('Failed to send OTP');
     } on DioException catch (e) {
       throw _handleError(e);
     }
@@ -44,6 +50,7 @@ class AuthRepository {
         
         await _secureStorage.saveTokens(accessToken, refreshToken);
         await _secureStorage.savePhoneNumber(phoneNumber);
+        DioClient.resetSessionGate();
         if (userName != null && userName.trim().isNotEmpty) {
           await _secureStorage.saveUsername(userName.trim());
         }
@@ -57,7 +64,7 @@ class AuthRepository {
 
   // ─── REGISTER FLOW (new user) ──────────────────────────────────────────────
 
-  Future<bool> registerSendOtp(String phoneNumber, String username, bool consentAccepted) async {
+  Future<OtpSendResult> registerSendOtp(String phoneNumber, String username, bool consentAccepted) async {
     try {
       final response = await _dioClient.dio.post(
         ApiEndpoints.registerSendOtp,
@@ -67,7 +74,11 @@ class AuthRepository {
           'consentAccepted': consentAccepted,
         },
       );
-      return response.statusCode == 200 && response.data['success'] == true;
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        final data = response.data['data'];
+        return OtpSendResult.fromJson(data is Map<String, dynamic> ? data : null);
+      }
+      throw const AuthApiException('Failed to send OTP');
     } on DioException catch (e) {
       throw _handleError(e);
     }
@@ -93,6 +104,7 @@ class AuthRepository {
         
         await _secureStorage.saveTokens(accessToken, refreshToken);
         await _secureStorage.savePhoneNumber(phoneNumber);
+        DioClient.resetSessionGate();
         if (userName.trim().isNotEmpty) {
           await _secureStorage.saveUsername(userName.trim());
         }
@@ -166,22 +178,41 @@ class AuthRepository {
     }
   }
 
-  String _handleError(DioException error) {
+  AuthApiException _handleError(DioException error) {
     if (error.response != null) {
       final data = error.response?.data;
       if (data != null && data is Map) {
-        // Check for 'message' field first
+        final meta = data['data'];
+        Map<String, dynamic>? metaMap;
+        if (meta is Map) {
+          metaMap = Map<String, dynamic>.from(meta);
+        }
+
+        String message = 'Request failed';
         if (data['message'] != null) {
-          return data['message'].toString();
+          message = data['message'].toString();
+        } else if (data['errors'] != null && data['errors'] is List && (data['errors'] as List).isNotEmpty) {
+          message = (data['errors'] as List).join(', ');
         }
-        // Check for 'errors' array
-        if (data['errors'] != null && data['errors'] is List && (data['errors'] as List).isNotEmpty) {
-          return (data['errors'] as List).join(', ');
-        }
+
+        return AuthApiException(
+          message,
+          remainingAttempts: _optionalInt(metaMap?['remainingAttempts']),
+          maxVerifyAttempts: _optionalInt(metaMap?['maxVerifyAttempts']),
+          resendAvailableInSeconds: _optionalInt(metaMap?['resendAvailableInSeconds']),
+          expiresInSeconds: _optionalInt(metaMap?['expiresInSeconds']),
+          lockedUntil: metaMap?['lockedUntil']?.toString(),
+          retryAfterSeconds: _optionalInt(metaMap?['retryAfterSeconds']),
+        );
       }
-      return 'Server error: ${error.response?.statusCode}';
-    } else {
-      return 'Network error: Please check your connection.';
+      return AuthApiException('Server error: ${error.response?.statusCode}');
     }
+    return const AuthApiException('Network error: Please check your connection.');
+  }
+
+  int? _optionalInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return null;
   }
 }

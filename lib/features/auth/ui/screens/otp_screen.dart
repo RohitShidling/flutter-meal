@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -16,9 +18,28 @@ class OtpScreen extends StatefulWidget {
 class _OtpScreenState extends State<OtpScreen> {
   final _otpController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  Timer? _resendTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startResendTimer();
+  }
+
+  void _startResendTimer() {
+    _resendTimer?.cancel();
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      final provider = context.read<AuthProvider>();
+      if (provider.resendCooldownSeconds > 0) {
+        provider.tickResendCooldown();
+      }
+    });
+  }
 
   @override
   void dispose() {
+    _resendTimer?.cancel();
     _otpController.dispose();
     super.dispose();
   }
@@ -45,12 +66,29 @@ class _OtpScreenState extends State<OtpScreen> {
     }
   }
 
+  Future<void> _resendOtp() async {
+    final provider = context.read<AuthProvider>();
+    if (provider.resendCooldownSeconds > 0) return;
+
+    final success = await provider.resendOtp();
+    if (!mounted) return;
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('A new OTP has been sent to your WhatsApp.')),
+      );
+    } else {
+      ErrorHandler.showError(context, provider.errorMessage);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<AuthProvider>();
     final isLoading = provider.state == AuthState.loading;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isRegister = provider.authMode == AuthMode.register;
+    final remaining = provider.remainingAttempts;
+    final canResend = provider.resendCooldownSeconds <= 0 && !isLoading;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
@@ -110,22 +148,33 @@ class _OtpScreenState extends State<OtpScreen> {
                           height: 1.45,
                         ),
                         children: [
-                          const TextSpan(text: 'We sent an OTP to\n'),
+                          const TextSpan(text: 'We sent a 6-digit OTP on WhatsApp to\n'),
                           TextSpan(
                             text: provider.phoneNumber,
                             style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: Theme.of(context).textTheme.bodyLarge?.color),
                           ),
-                          const TextSpan(
-                            text: '\nEnter the 6-digit code from WhatsApp.',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w500,
-                            ),
+                          TextSpan(
+                            text:
+                                '\nThe code expires in ${provider.otpExpiresInSeconds ~/ 60} minutes. '
+                                'Enter it below to ${isRegister ? 'complete registration' : 'log in'}.',
+                            style: const TextStyle(fontWeight: FontWeight.w500),
                           ),
                         ],
                       ),
                     ).animate().fadeIn(delay: 200.ms, duration: 500.ms).slideY(begin: 0.2, end: 0),
+                    if (remaining != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        '$remaining of ${provider.maxVerifyAttempts} verification attempts remaining',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: remaining <= 2 ? Colors.red.shade400 : AppTheme.primaryColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 32),
                     TextFormField(
                       controller: _otpController,
@@ -159,7 +208,20 @@ class _OtpScreenState extends State<OtpScreen> {
                         return null;
                       },
                     ).animate().fadeIn(delay: 400.ms, duration: 500.ms).slideX(begin: 0.1, end: 0),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 16),
+                    TextButton(
+                      onPressed: canResend ? _resendOtp : null,
+                      child: Text(
+                        canResend
+                            ? 'Resend OTP on WhatsApp'
+                            : 'Resend OTP in ${provider.resendCooldownSeconds}s',
+                        style: TextStyle(
+                          color: canResend ? AppTheme.primaryColor : Colors.grey,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                     ElevatedButton(
                       onPressed: isLoading ? null : _submit,
                       child: isLoading

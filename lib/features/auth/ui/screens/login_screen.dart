@@ -162,8 +162,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   
                   Text(
                     isRegisterMode
-                        ? 'Enter your WhatsApp number to get started.'
-                        : 'Enter your WhatsApp number to log in.',
+                        ? 'Enter your WhatsApp number. You will receive a 6-digit OTP on WhatsApp to verify your account.'
+                        : 'Enter your WhatsApp number. You will receive a 6-digit OTP on WhatsApp to log in.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: isDark ? Colors.white70 : AppTheme.textSecondaryLight,
                       fontWeight: FontWeight.w500,

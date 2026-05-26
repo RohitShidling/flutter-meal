@@ -11,6 +11,11 @@ class DioClient {
   late Dio _dio;
   final SecureStorage _secureStorage;
   final SessionProvider? _sessionProvider;
+  static bool _sessionRecoveryFailed = false;
+
+  static void resetSessionGate() {
+    _sessionRecoveryFailed = false;
+  }
 
   DioClient(this._secureStorage, {SessionProvider? sessionProvider})
       : _sessionProvider = sessionProvider {
@@ -49,8 +54,12 @@ class DioClient {
         if (e.response?.statusCode == 401) {
           // Don't try to refresh on the refresh endpoint itself — would loop forever.
           final isRefreshCall = e.requestOptions.path.contains(ApiEndpoints.refresh);
-          if (isRefreshCall) {
-            await _expireSession('Refresh token rejected by server.');
+          final isAuthCall = e.requestOptions.path.contains('/auth/');
+          if (isRefreshCall || _sessionRecoveryFailed) {
+            if (!_sessionRecoveryFailed && !isAuthCall) {
+              _sessionRecoveryFailed = true;
+              await _expireSession('Refresh token rejected by server.');
+            }
             return handler.next(e);
           }
 
@@ -67,8 +76,7 @@ class DioClient {
               return handler.next(e);
             }
           } else {
-            // Refresh failed — clear tokens AND signal session expired so the
-            // UI can force-route the user to the login screen.
+            _sessionRecoveryFailed = true;
             await _secureStorage.clearTokens();
             await _expireSession('Your session has expired. Please log in again.');
           }
@@ -144,10 +152,10 @@ class DioClient {
       );
 
       if (response.statusCode == 200) {
-        // Assume API returns similar structure to login
         final accessToken = response.data['data']['accessToken'];
         final newRefreshToken = response.data['data']['refreshToken'];
         await _secureStorage.saveTokens(accessToken, newRefreshToken);
+        _sessionRecoveryFailed = false;
         return accessToken;
       }
     } catch (e) {

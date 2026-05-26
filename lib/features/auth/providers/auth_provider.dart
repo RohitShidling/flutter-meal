@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:meal_app/core/services/network_status_service.dart';
 import 'package:meal_app/core/utils/error_handler.dart';
+import 'package:meal_app/features/auth/data/models/auth_api_exception.dart';
+import 'package:meal_app/features/auth/data/models/otp_send_result.dart';
 import 'package:meal_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:meal_app/core/services/offline_cache_bootstrap.dart';
 
@@ -23,6 +25,10 @@ class AuthProvider with ChangeNotifier {
   bool _isProfileLoading = false;
   bool _pendingDashboardRefresh = false;
   bool _consentAccepted = false;
+  int _maxVerifyAttempts = 5;
+  int? _remainingAttempts;
+  int _resendCooldownSeconds = 0;
+  int _otpExpiresInSeconds = 300;
 
   AuthProvider(this._authRepository) {
     _checkAuthStatus();
@@ -35,6 +41,10 @@ class AuthProvider with ChangeNotifier {
   String get username => _username;
   bool get isProfileLoading => _isProfileLoading;
   bool get consentAccepted => _consentAccepted;
+  int get maxVerifyAttempts => _maxVerifyAttempts;
+  int? get remainingAttempts => _remainingAttempts;
+  int get resendCooldownSeconds => _resendCooldownSeconds;
+  int get otpExpiresInSeconds => _otpExpiresInSeconds;
 
   void clearTransientState() {
     _errorMessage = '';
@@ -97,6 +107,22 @@ class AuthProvider with ChangeNotifier {
 
   // ─── LOGIN FLOW ────────────────────────────────────────────────────────────
 
+  void _applyOtpSendMeta({required int maxVerifyAttempts, required int expiresInSeconds, required int resendCooldown}) {
+    _maxVerifyAttempts = maxVerifyAttempts;
+    _remainingAttempts = maxVerifyAttempts;
+    _otpExpiresInSeconds = expiresInSeconds;
+    _resendCooldownSeconds = resendCooldown;
+  }
+
+  void _applyOtpErrorMeta(dynamic e) {
+    if (e is! AuthApiException) return;
+    if (e.remainingAttempts != null) _remainingAttempts = e.remainingAttempts;
+    if (e.maxVerifyAttempts != null) _maxVerifyAttempts = e.maxVerifyAttempts!;
+    if (e.resendAvailableInSeconds != null) {
+      _resendCooldownSeconds = e.resendAvailableInSeconds!;
+    }
+  }
+
   Future<bool> loginSendOtp(String phone) async {
     _state = AuthState.loading;
     _errorMessage = '';
@@ -104,23 +130,68 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final success = await _withAuthTimeout(_authRepository.loginSendOtp(phone));
-      if (success) {
-        _state = AuthState.unauthenticated;
-        notifyListeners();
-        return true;
-      } else {
-        _errorMessage = 'Failed to send OTP';
-        _state = AuthState.error;
-        notifyListeners();
-        return false;
+      final result = await _withAuthTimeout(_authRepository.loginSendOtp(phone));
+      _applyOtpSendMeta(
+        maxVerifyAttempts: result.maxVerifyAttempts,
+        expiresInSeconds: result.expiresInSeconds,
+        resendCooldown: result.resendAvailableInSeconds,
+      );
+      if (result.phoneNumber != null && result.phoneNumber!.trim().isNotEmpty) {
+        _phoneNumber = result.phoneNumber!.trim();
       }
+      _state = AuthState.unauthenticated;
+      notifyListeners();
+      return true;
     } catch (e) {
+      _applyOtpErrorMeta(e);
       _errorMessage = ErrorHandler.getErrorMessage(e);
       _state = AuthState.error;
       notifyListeners();
       return false;
     }
+  }
+
+  Future<bool> resendOtp() async {
+    if (_phoneNumber.isEmpty) return false;
+    if (_resendCooldownSeconds > 0) return false;
+
+    _state = AuthState.loading;
+    _errorMessage = '';
+    notifyListeners();
+
+    try {
+      final OtpSendResult result;
+      if (_authMode == AuthMode.register) {
+        result = await _withAuthTimeout(
+          _authRepository.registerSendOtp(_phoneNumber, _username, _consentAccepted),
+        );
+      } else {
+        result = await _withAuthTimeout(_authRepository.loginSendOtp(_phoneNumber));
+      }
+      _applyOtpSendMeta(
+        maxVerifyAttempts: result.maxVerifyAttempts,
+        expiresInSeconds: result.expiresInSeconds,
+        resendCooldown: result.resendAvailableInSeconds,
+      );
+      if (result.phoneNumber != null && result.phoneNumber!.trim().isNotEmpty) {
+        _phoneNumber = result.phoneNumber!.trim();
+      }
+      _state = AuthState.unauthenticated;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _applyOtpErrorMeta(e);
+      _errorMessage = ErrorHandler.getErrorMessage(e);
+      _state = AuthState.error;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  void tickResendCooldown() {
+    if (_resendCooldownSeconds <= 0) return;
+    _resendCooldownSeconds -= 1;
+    notifyListeners();
   }
 
   Future<bool> loginVerifyOtp(String code) async {
@@ -148,6 +219,7 @@ class AuthProvider with ChangeNotifier {
         return false;
       }
     } catch (e) {
+      _applyOtpErrorMeta(e);
       _errorMessage = ErrorHandler.getErrorMessage(e);
       _state = AuthState.error;
       notifyListeners();
@@ -166,18 +238,22 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final success = await _withAuthTimeout(_authRepository.registerSendOtp(phone, username, consentAccepted));
-      if (success) {
-        _state = AuthState.unauthenticated;
-        notifyListeners();
-        return true;
-      } else {
-        _errorMessage = 'Failed to send OTP';
-        _state = AuthState.error;
-        notifyListeners();
-        return false;
+      final result = await _withAuthTimeout(
+        _authRepository.registerSendOtp(phone, username, consentAccepted),
+      );
+      _applyOtpSendMeta(
+        maxVerifyAttempts: result.maxVerifyAttempts,
+        expiresInSeconds: result.expiresInSeconds,
+        resendCooldown: result.resendAvailableInSeconds,
+      );
+      if (result.phoneNumber != null && result.phoneNumber!.trim().isNotEmpty) {
+        _phoneNumber = result.phoneNumber!.trim();
       }
+      _state = AuthState.unauthenticated;
+      notifyListeners();
+      return true;
     } catch (e) {
+      _applyOtpErrorMeta(e);
       _errorMessage = ErrorHandler.getErrorMessage(e);
       _state = AuthState.error;
       notifyListeners();
@@ -210,6 +286,7 @@ class AuthProvider with ChangeNotifier {
         return false;
       }
     } catch (e) {
+      _applyOtpErrorMeta(e);
       _errorMessage = ErrorHandler.getErrorMessage(e);
       _state = AuthState.error;
       notifyListeners();
