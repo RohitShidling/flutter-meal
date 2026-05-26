@@ -68,8 +68,41 @@ class BulkOrderProvider with ChangeNotifier {
     return DateTime.now().difference(lastFetchTime).inMinutes < 5;
   }
 
-  Future<void> loadConfig() async {
-    if (_config != null && _isCacheValid(_lastConfigFetchTime)) {
+  bool _canReuseCache(DateTime? lastFetchTime) {
+    return _isCacheValid(lastFetchTime) &&
+        !NetworkStatusService.instance.isOnline;
+  }
+
+  int _compareYmd(String a, String b) {
+    return a.compareTo(b);
+  }
+
+  Future<bool> _sanitizeStandardDraftIfNeeded() async {
+    final date = _standardDeliveryDate;
+    final qty = _standardQty ?? 0;
+    if (qty <= 0 || date == null || date.length < 10) {
+      return false;
+    }
+
+    await loadConfig();
+    final earliest = _config?.earliestDeliveryDate ?? '';
+    if (earliest.isNotEmpty && _compareYmd(date, earliest) < 0) {
+      clearStandardDraft();
+      await syncCartToServer();
+      return true;
+    }
+
+    await loadMenusForDate(date);
+    if (_error == null && _deliveryMenu == null) {
+      clearStandardDraft();
+      await syncCartToServer();
+      return true;
+    }
+    return false;
+  }
+
+  Future<void> loadConfig({bool force = false}) async {
+    if (!force && _config != null && _canReuseCache(_lastConfigFetchTime)) {
       return;
     }
     _loading = true;
@@ -336,10 +369,7 @@ class BulkOrderProvider with ChangeNotifier {
       final payload = await _repository.getCartDraft();
       if (payload == null || payload.isEmpty) return;
       _applyCartPayload(payload);
-      final date = _standardDeliveryDate;
-      if (date != null && date.length >= 10) {
-        await loadMenusForDate(date);
-      }
+      await _sanitizeStandardDraftIfNeeded();
       notifyListeners();
     } catch (_) {}
   }
@@ -352,8 +382,8 @@ class BulkOrderProvider with ChangeNotifier {
 
   int varietyQtyFor(String mealId) => _varietyQty[mealId] ?? 0;
 
-  Future<void> loadVarietyCategories() async {
-    if (_varietyCategories.isNotEmpty && _isCacheValid(_lastCategoriesFetchTime)) {
+  Future<void> loadVarietyCategories({bool force = false}) async {
+    if (!force && _varietyCategories.isNotEmpty && _canReuseCache(_lastCategoriesFetchTime)) {
       return;
     }
     _loading = true;
@@ -370,8 +400,8 @@ class BulkOrderProvider with ChangeNotifier {
     }
   }
 
-  Future<void> loadMealsForCategory(String categoryId, {String? categoryName}) async {
-    if (_categoryMeals.isNotEmpty && _isCacheValid(_lastMealsFetchTime[categoryId])) {
+  Future<void> loadMealsForCategory(String categoryId, {String? categoryName, bool force = false}) async {
+    if (!force && _categoryMeals.isNotEmpty && _canReuseCache(_lastMealsFetchTime[categoryId])) {
       return;
     }
     _loading = true;

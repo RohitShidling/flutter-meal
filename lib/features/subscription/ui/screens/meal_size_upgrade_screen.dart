@@ -78,6 +78,13 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
 
   static int? _int(dynamic v) => int.tryParse('$v');
 
+  String _subscriptionMealSizeLabel(Map<dynamic, dynamic> sub, {bool selected = false}) {
+    if (selected && _currentSizeName != null && _currentSizeName!.isNotEmpty) {
+      return _currentSizeName!;
+    }
+    return _trim(sub['meal_size_name']);
+  }
+
 
 
   @override
@@ -109,7 +116,7 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
     try {
 
       await Future.wait([
-        pay.fetchActiveSubscriptions(),
+        pay.fetchActiveSubscriptions(force: true),
         pay.fetchPaymentHistory(),
       ]);
 
@@ -182,6 +189,14 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
       final data = (payload['data'] as List?) ?? [];
       setState(() {
         _currentSizeName = _trim(payload['current_meal_size_name']);
+        if (_currentSizeName!.isNotEmpty && _selectedSubIndex < pay.activeSubscriptions.length) {
+          final selected = pay.activeSubscriptions[_selectedSubIndex];
+          if (selected is Map) {
+            final updated = Map<String, dynamic>.from(selected);
+            updated['meal_size_name'] = _currentSizeName;
+            pay.activeSubscriptions[_selectedSubIndex] = updated;
+          }
+        }
         _upgradeOptions = [
           for (final raw in data)
             if (raw is Map) Map<String, dynamic>.from(raw),
@@ -260,14 +275,22 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
                         ? _trim(sub['entity_name'])
                         : widget.initialEntityName ?? 'Subscriber';
                     final plan = _trim(sub['plan_name']);
+                    final mealSize = _subscriptionMealSizeLabel(
+                      sub,
+                      selected: i == _selectedSubIndex,
+                    );
                     final selected = i == _selectedSubIndex;
+                    final subtitleParts = <String>[
+                      if (plan.isNotEmpty) plan,
+                      if (mealSize.isNotEmpty) 'Meal size: $mealSize',
+                    ];
                     return ListTile(
                       leading: CircleAvatar(
                         backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
                         child: Icon(CupertinoIcons.person_fill, color: AppTheme.primaryColor, size: 20),
                       ),
                       title: Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                      subtitle: plan.isNotEmpty ? Text(plan) : null,
+                      subtitle: subtitleParts.isNotEmpty ? Text(subtitleParts.join(' • ')) : null,
                       trailing: selected
                           ? const Icon(CupertinoIcons.checkmark_circle_fill, color: AppTheme.primaryColor)
                           : null,
@@ -282,7 +305,11 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
       },
     );
     if (picked == null || !mounted) return;
-    setState(() => _selectedSubIndex = picked);
+    setState(() {
+      _selectedSubIndex = picked;
+      _currentSizeName = null;
+      _toMealSizeId = null;
+    });
     await _loadOptionsForSelected();
   }
 
@@ -383,7 +410,10 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
 
     final targets = _targetOptions();
 
-    final currentSize = _currentSizeName ?? _trim(selectedMap?['meal_size_name']);
+    final currentSize =
+        (_currentSizeName != null && _currentSizeName!.isNotEmpty)
+            ? _currentSizeName!
+            : _trim(selectedMap?['meal_size_name']);
 
 
 
@@ -532,6 +562,15 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
                                         style: TextStyle(
                                           fontSize: 13,
                                           color: isDark ? Colors.white54 : AppTheme.textSecondaryLight,
+                                        ),
+                                      ),
+                                    if (currentSize.isNotEmpty)
+                                      Text(
+                                        'Meal size: $currentSize',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          color: isDark ? Colors.white60 : AppTheme.textSecondaryLight,
                                         ),
                                       ),
                                   ],

@@ -20,21 +20,18 @@ class _ViewAllPlansScreenState extends State<ViewAllPlansScreen> {
   final ScrollController _scrollController = ScrollController();
   final Map<int, GlobalKey> _sectionKeys = {};
   int _selectedSizeIndex = 0;
-  bool _scrollFromSegmentTap = false;
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<SubscriptionProvider>().fetchSubscriptions(silent: true);
-      context.read<LookupProvider>().fetchInitialData();
+      context.read<SubscriptionProvider>().fetchSubscriptions(force: true, silent: true);
+      context.read<LookupProvider>().fetchInitialData(force: true);
     });
   }
 
   @override
   void dispose() {
-    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
   }
@@ -57,44 +54,9 @@ class _ViewAllPlansScreenState extends State<ViewAllPlansScreen> {
   GlobalKey _keyForSection(int mealSizeId) =>
       _sectionKeys.putIfAbsent(mealSizeId, GlobalKey.new);
 
-  void _onScroll() {
-    if (_scrollFromSegmentTap) return;
-    final segments = _segments(
-      context.read<SubscriptionProvider>().subscriptions,
-      context.read<LookupProvider>(),
-    );
-    if (segments.isEmpty) return;
-
-    // If scroll is at or near the bottom, always select the last segment
-    final pos = _scrollController.position;
-    if (pos.pixels >= pos.maxScrollExtent - 20) {
-      if (_selectedSizeIndex != segments.length - 1 && mounted) {
-        setState(() => _selectedSizeIndex = segments.length - 1);
-      }
-      return;
-    }
-
-    final viewportTop = MediaQuery.of(context).padding.top + kToolbarHeight + 80;
-    var active = 0;
-    for (var i = 0; i < segments.length; i++) {
-      final ctx = _keyForSection(segments[i].id).currentContext;
-      if (ctx == null) continue;
-      final box = ctx.findRenderObject() as RenderBox?;
-      if (box == null || !box.hasSize) continue;
-      final dy = box.localToGlobal(Offset.zero).dy;
-      if (dy <= viewportTop + 8) active = i;
-    }
-    if (active != _selectedSizeIndex && mounted) {
-      setState(() => _selectedSizeIndex = active);
-    }
-  }
-
   Future<void> _scrollToSection(int index, List<_MealSizeSegment> segments) async {
     if (index < 0 || index >= segments.length) return;
-    setState(() {
-      _selectedSizeIndex = index;
-      _scrollFromSegmentTap = true;
-    });
+    setState(() => _selectedSizeIndex = index);
     final ctx = _keyForSection(segments[index].id).currentContext;
     if (ctx != null) {
       await Scrollable.ensureVisible(
@@ -103,10 +65,6 @@ class _ViewAllPlansScreenState extends State<ViewAllPlansScreen> {
         curve: Curves.easeInOutCubic,
         alignment: 0.08,
       );
-    }
-    if (mounted) {
-      await Future<void>.delayed(const Duration(milliseconds: 300));
-      setState(() => _scrollFromSegmentTap = false);
     }
   }
 

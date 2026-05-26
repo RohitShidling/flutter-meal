@@ -43,7 +43,12 @@ class ChildrenProvider with ChangeNotifier {
   Future<void> fetchChildren({bool force = false, bool silent = false}) async {
     final isFresh = _lastFetchedAt != null &&
         DateTime.now().difference(_lastFetchedAt!).inMinutes < 3;
-    if (!force && _children.isNotEmpty && isFresh) return;
+    final canUseFreshOnly =
+        !force &&
+        _children.isNotEmpty &&
+        isFresh &&
+        !NetworkStatusService.instance.isOnline;
+    if (canUseFreshOnly) return;
     if (_inflightRequest != null) return _inflightRequest;
 
     final request = _doFetch(silent: silent);

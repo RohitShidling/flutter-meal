@@ -2,7 +2,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:meal_app/core/theme/app_theme.dart';
-import 'package:meal_app/core/utils/error_handler.dart';
 import 'package:meal_app/core/utils/time_utils.dart';
 import 'package:meal_app/features/bulk_order/data/models/bulk_delivery_address.dart';
 import 'package:meal_app/features/bulk_order/data/models/bulk_order_config.dart';
@@ -53,6 +52,8 @@ class _BulkOrderPaymentSheetState extends State<BulkOrderPaymentSheet> {
   String? _deliveryDate;
   TimeOfDay? _deliveryTime;
   bool _paying = false;
+  String? _sheetError;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -75,7 +76,12 @@ class _BulkOrderPaymentSheetState extends State<BulkOrderPaymentSheet> {
 
   Future<void> _pickDate() async {
     final ymd = await pickBulkDeliveryDate(context, widget.config, _deliveryDate);
-    if (ymd != null && mounted) setState(() => _deliveryDate = ymd);
+    if (ymd != null && mounted) {
+      setState(() {
+        _deliveryDate = ymd;
+        _sheetError = null;
+      });
+    }
   }
 
   Future<void> _pickTime() async {
@@ -83,7 +89,23 @@ class _BulkOrderPaymentSheetState extends State<BulkOrderPaymentSheet> {
       context: context,
       initialTime: _deliveryTime ?? const TimeOfDay(hour: 13, minute: 0),
     );
-    if (picked != null && mounted) setState(() => _deliveryTime = picked);
+    if (picked != null && mounted) {
+      setState(() {
+        _deliveryTime = picked;
+        _sheetError = null;
+      });
+    }
+  }
+
+  void _setSheetError(String message) {
+    setState(() => _sheetError = message);
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
   void _syncDeliveryTimeToProvider() {
@@ -105,7 +127,7 @@ class _BulkOrderPaymentSheetState extends State<BulkOrderPaymentSheet> {
 
   Future<void> _pay() async {
     if (_deliveryDate == null) {
-      ErrorHandler.showError(context, 'Select a delivery date');
+      _setSheetError('Select a delivery date.');
       return;
     }
 
@@ -113,12 +135,12 @@ class _BulkOrderPaymentSheetState extends State<BulkOrderPaymentSheet> {
     final today = DateTime.now();
     final todayStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
     if (_deliveryDate!.compareTo(todayStr) <= 0) {
-      ErrorHandler.showError(context, 'Delivery date must be tomorrow or later. Same-day orders are not allowed.');
+      _setSheetError('Delivery date must be tomorrow or later. Same-day orders are not allowed.');
       return;
     }
 
     if (_deliveryTime == null) {
-      ErrorHandler.showError(context, 'Select a delivery time');
+      _setSheetError('Select a delivery time.');
       return;
     }
     _syncDeliveryTimeToProvider();
@@ -126,11 +148,14 @@ class _BulkOrderPaymentSheetState extends State<BulkOrderPaymentSheet> {
     final provider = context.read<BulkOrderProvider>();
     final addrErr = provider.validateDeliveryAddress(requireTime: true);
     if (addrErr != null) {
-      ErrorHandler.showError(context, addrErr);
+      _setSheetError(addrErr);
       return;
     }
 
-    setState(() => _paying = true);
+    setState(() {
+      _paying = true;
+      _sheetError = null;
+    });
     final deliveryDate = _deliveryDate!;
     if (mounted) {
       Navigator.pop(context, true);
@@ -180,6 +205,7 @@ class _BulkOrderPaymentSheetState extends State<BulkOrderPaymentSheet> {
               ),
               Expanded(
                 child: ListView(
+                  controller: _scrollController,
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                   children: [
                     Text(
@@ -212,7 +238,7 @@ class _BulkOrderPaymentSheetState extends State<BulkOrderPaymentSheet> {
                       contentPadding: EdgeInsets.zero,
                       title: const Text('Delivery time'),
                       subtitle: Text(
-                        _deliveryTime == null ? 'Tap to choose' : TimeUtils.toBackendFormat(_deliveryTime!),
+                        _deliveryTime == null ? 'Tap to choose' : TimeUtils.formatToDisplay(TimeUtils.toBackendFormat(_deliveryTime!)),
                       ),
                       trailing: const Icon(CupertinoIcons.clock),
                       onTap: _pickTime,
@@ -230,24 +256,51 @@ class _BulkOrderPaymentSheetState extends State<BulkOrderPaymentSheet> {
                 top: false,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: FilledButton(
-                      onPressed: _paying ? null : _pay,
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 56),
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_sheetError != null) ...[
+                        Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.orange.withValues(alpha: 0.14) : Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isDark ? Colors.orange.withValues(alpha: 0.35) : Colors.orange.shade200,
+                            ),
+                          ),
+                          child: Text(
+                            _sheetError!,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: isDark ? Colors.orange.shade200 : Colors.orange.shade900,
+                            ),
+                          ),
+                        ),
+                      ],
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: FilledButton(
+                          onPressed: _paying ? null : _pay,
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 56),
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                          child: _paying
+                              ? const SizedBox(
+                                  height: 22,
+                                  width: 22,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Text('Proceed to Pay', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                        ),
                       ),
-                      child: _paying
-                          ? const SizedBox(
-                              height: 22,
-                              width: 22,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                            )
-                          : const Text('Proceed to Pay', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-                    ),
+                    ],
                   ),
                 ),
               ),
@@ -256,5 +309,11 @@ class _BulkOrderPaymentSheetState extends State<BulkOrderPaymentSheet> {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 }

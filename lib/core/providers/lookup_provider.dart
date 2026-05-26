@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:meal_app/core/models/lookup_models.dart';
 import 'package:meal_app/core/network/lookup_repository.dart';
+import 'package:meal_app/core/services/network_status_service.dart';
 import 'package:meal_app/core/storage/cache_store.dart';
 
 class LookupProvider with ChangeNotifier {
@@ -99,7 +100,13 @@ class LookupProvider with ChangeNotifier {
 
   Future<void> fetchInitialData({bool force = false}) async {
     final isFresh = _lastFetchedAt != null && DateTime.now().difference(_lastFetchedAt!).inMinutes < 60;
-    if (!force && _schools.isNotEmpty && _standards.isNotEmpty && isFresh) return;
+    final canUseFreshOnly =
+        !force &&
+        _schools.isNotEmpty &&
+        _standards.isNotEmpty &&
+        isFresh &&
+        !NetworkStatusService.instance.isOnline;
+    if (canUseFreshOnly) return;
     if (_inflightInitialRequest != null) return _inflightInitialRequest;
     if (_isLoading) return;
 

@@ -11,8 +11,25 @@ import 'package:meal_app/features/bulk_order/ui/widgets/bulk_order_checkout.dart
 import 'package:meal_app/features/bulk_order/ui/widgets/bulk_order_payment_sheet.dart';
 
 /// Review bulk cart (standard + large variety) and pay with delivery details at checkout.
-class BulkOrderCartScreen extends StatelessWidget {
+class BulkOrderCartScreen extends StatefulWidget {
   const BulkOrderCartScreen({super.key});
+
+  @override
+  State<BulkOrderCartScreen> createState() => _BulkOrderCartScreenState();
+}
+
+class _BulkOrderCartScreenState extends State<BulkOrderCartScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = context.read<BulkOrderProvider>();
+      final date = provider.standardDeliveryDate;
+      if ((provider.standardQty ?? 0) > 0 && date != null && date.length >= 10) {
+        provider.loadMenusForDate(date);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
