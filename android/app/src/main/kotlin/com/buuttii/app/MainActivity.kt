@@ -1,4 +1,4 @@
-package com.example.meal_app
+package com.buuttii.app
 
 import io.flutter.embedding.android.FlutterFragmentActivity
 
