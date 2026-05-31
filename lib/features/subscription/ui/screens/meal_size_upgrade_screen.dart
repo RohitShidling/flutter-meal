@@ -15,6 +15,8 @@ import 'package:meal_app/core/utils/error_handler.dart';
 import 'package:meal_app/core/utils/money_format.dart';
 import 'package:meal_app/core/utils/upgrade_payment_history.dart';
 import 'package:meal_app/features/subscription/ui/screens/payment_status_screen.dart';
+import 'package:meal_app/features/subscription/ui/screens/wallet_screen.dart';
+import 'package:meal_app/core/widgets/wallet_checkout_section.dart';
 
 
 
@@ -69,6 +71,17 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
   int _selectedSubIndex = 0;
 
   int? _toMealSizeId;
+  String? _walletBalance;
+  bool _eligible = false;
+  bool _useWallet = true;
+  bool _loadingWalletPreview = false;
+  double? _walletApplied;
+  double? _gatewayAmount;
+
+  static double _parseMoney(dynamic value) {
+    if (value == null) return 0;
+    return double.tryParse(value.toString().replaceAll(',', '')) ?? 0;
+  }
 
 
 
@@ -165,8 +178,8 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
 
   Future<void> _loadOptionsForSelected() async {
     final pay = context.read<PaymentProvider>();
-    final subs = pay.activeSubscriptions;
-    if (subs.isEmpty || _selectedSubIndex >= subs.length) {
+    final entity = _selectedEntity(pay);
+    if (entity == null) {
       if (mounted) {
         setState(() {
           _upgradeOptions = [];
@@ -176,19 +189,20 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
       return;
     }
 
-    final sub = subs[_selectedSubIndex];
-    if (sub is! Map) return;
-
     setState(() => _loadingOptions = true);
     try {
       final payload = await pay.fetchMealSizeUpgradeOptionsForEntity(
-        entityType: _trim(sub['entity_type']),
-        entityId: _trim(sub['entity_id']),
+        entityType: entity['entity_type']!,
+        entityId: entity['entity_id']!,
       );
       if (!mounted) return;
       final data = (payload['data'] as List?) ?? [];
+      final eligibleRaw = payload['eligible'];
+      final eligible = eligibleRaw == null ? data.isNotEmpty : eligibleRaw == true;
       setState(() {
         _currentSizeName = _trim(payload['current_meal_size_name']);
+        _walletBalance = _trim(payload['wallet_balance']);
+        _eligible = eligible;
         if (_currentSizeName!.isNotEmpty && _selectedSubIndex < pay.activeSubscriptions.length) {
           final selected = pay.activeSubscriptions[_selectedSubIndex];
           if (selected is Map) {
@@ -209,26 +223,93 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
       setState(() {
         _error = ErrorHandler.getErrorMessage(e);
         _upgradeOptions = [];
+        _eligible = false;
       });
     } finally {
       if (mounted) setState(() => _loadingOptions = false);
     }
   }
 
-  List<Map<String, dynamic>> _targetOptions() {
+  Map<String, String>? _selectedEntity(PaymentProvider pay) {
+    final subs = pay.activeSubscriptions;
+    if (subs.isEmpty || _selectedSubIndex >= subs.length || subs[_selectedSubIndex] is! Map) {
+      return null;
+    }
+    final sub = Map<String, dynamic>.from(subs[_selectedSubIndex] as Map);
+    final et = _trim(sub['entity_type']);
+    final eid = _trim(sub['entity_id']);
+    if (et.isEmpty || eid.isEmpty) return null;
+    return {'entity_type': et, 'entity_id': eid};
+  }
+
+  List<Map<String, dynamic>> _optionsForDirection(String direction) {
     final out = <Map<String, dynamic>>[];
     for (final m in _upgradeOptions) {
+      if (_trim(m['direction']).toLowerCase() != direction) continue;
       final t = _int(m['to_meal_size_id']);
       final toName = _trim(m['to_display_name']);
       if (t == null || toName.isEmpty) continue;
+      final isDowngrade = direction == 'downgrade';
       out.add({
         'to_id': t,
         'label': toName,
-        'subtitle': 'One-time fee',
+        'subtitle': isDowngrade ? 'Credit to wallet' : 'One-time fee',
         'price': MoneyFormat.display(m['price']),
+        'direction': direction,
       });
     }
     return out;
+  }
+
+  String? _selectedDirection() {
+    if (_toMealSizeId == null) return null;
+    for (final m in _upgradeOptions) {
+      if (_int(m['to_meal_size_id']) == _toMealSizeId) {
+        return _trim(m['direction']).toLowerCase();
+      }
+    }
+    return null;
+  }
+
+  double? _selectedUpgradePrice() {
+    if (_toMealSizeId == null || _selectedDirection() != 'upgrade') return null;
+    for (final m in _upgradeOptions) {
+      if (_int(m['to_meal_size_id']) != _toMealSizeId) continue;
+      return _parseMoney(m['price']);
+    }
+    return null;
+  }
+
+  Future<void> _refreshUpgradeWalletPreview() async {
+    final price = _selectedUpgradePrice();
+    if (!mounted) return;
+    if (price == null || price <= 0) {
+      setState(() {
+        _walletApplied = null;
+        _gatewayAmount = null;
+      });
+      return;
+    }
+
+    setState(() => _loadingWalletPreview = true);
+    try {
+      final pay = context.read<PaymentProvider>();
+      final preview = await pay.previewWalletForTotal(price, useWallet: _useWallet);
+      if (!mounted) return;
+      setState(() {
+        _walletApplied = _parseMoney(preview['walletApplied']);
+        _gatewayAmount = _parseMoney(preview['gatewayAmount']);
+      });
+    } catch (_) {
+      // Optional breakdown — payment still works without preview.
+    } finally {
+      if (mounted) setState(() => _loadingWalletPreview = false);
+    }
+  }
+
+  void _onUseWalletChanged(bool value) {
+    setState(() => _useWallet = value);
+    _refreshUpgradeWalletPreview();
   }
 
 
@@ -314,37 +395,16 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
   }
 
   Future<void> _runPayment() async {
-
     final pay = context.read<PaymentProvider>();
-
-    final subs = pay.activeSubscriptions;
-
-    if (_toMealSizeId == null || subs.isEmpty || _selectedSubIndex >= subs.length) return;
-
-
-
-    final sub = subs[_selectedSubIndex];
-
-    if (sub is! Map) return;
-
-
-
-    final et = _trim(sub['entity_type']);
-
-    final eid = _trim(sub['entity_id']);
-
-
+    final entity = _selectedEntity(pay);
+    if (_toMealSizeId == null || entity == null) return;
 
     final res = await pay.initiateMealSizeUpgrade(
-
-      entityType: et,
-
-      entityId: eid,
-
+      entityType: entity['entity_type']!,
+      entityId: entity['entity_id']!,
       toMealSizeId: _toMealSizeId!,
-
       isSandbox: ApiEndpoints.isSandboxPayment,
-
+      useWallet: _useWallet,
     );
 
 
@@ -362,7 +422,7 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
     final txnId = res?['merchantTransactionId']?.toString() ?? pay.lastTxnId ?? '';
     final orderId = res?['orderId']?.toString() ?? '';
 
-    if (sdkStatus == 'SUCCESS' || sdkStatus == 'INTERRUPTED') {
+    if (sdkStatus == 'SUCCESS') {
       if (!mounted) return;
       await Navigator.pushReplacement(
         context,
@@ -377,9 +437,53 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
       return;
     }
 
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Payment did not complete. You can retry when ready.')),
+      SnackBar(
+        content: Text(
+          sdkStatus == 'INTERRUPTED'
+              ? 'Payment cancelled. Wallet balance has been restored.'
+              : 'Payment did not complete. You can retry when ready.',
+        ),
+      ),
     );
+  }
+
+  Future<void> _runDowngrade() async {
+    final pay = context.read<PaymentProvider>();
+    final entity = _selectedEntity(pay);
+    if (_toMealSizeId == null || entity == null) return;
+
+    final result = await pay.applyMealSizeDowngrade(
+      entityType: entity['entity_type']!,
+      entityId: entity['entity_id']!,
+      toMealSizeId: _toMealSizeId!,
+    );
+
+    if (!mounted) return;
+
+    if (pay.error != null && result == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(pay.error!)));
+      return;
+    }
+
+    final message = result?['message']?.toString() ??
+        'Meal pack resized. Wallet credited.';
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    setState(() {
+      _toMealSizeId = null;
+      _walletBalance = pay.walletBalance;
+    });
+    await _loadOptionsForSelected();
+  }
+
+  Future<void> _confirmAction() async {
+    final direction = _selectedDirection();
+    if (direction == 'downgrade') {
+      await _runDowngrade();
+    } else {
+      await _runPayment();
+    }
   }
 
 
@@ -408,7 +512,10 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
 
 
 
-    final targets = _targetOptions();
+    final upgrades = _optionsForDirection('upgrade');
+    final downgrades = _optionsForDirection('downgrade');
+    final hasAnyOptions = upgrades.isNotEmpty || downgrades.isNotEmpty;
+    final selectedDirection = _selectedDirection();
 
     final currentSize =
         (_currentSizeName != null && _currentSizeName!.isNotEmpty)
@@ -484,7 +591,7 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
 
                   Text(
 
-                    'Change your meal pack size. Active and upcoming subscriptions qualify.',
+                    'Move to a larger pack and pay a one-time fee, or downsize and receive the amount in your wallet.',
 
                     style: TextStyle(
 
@@ -500,11 +607,61 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
 
                   const SizedBox(height: 20),
 
+                  if (_walletBalance != null && _walletBalance!.isNotEmpty)
+                    Material(
+                      color: isDark ? AppTheme.surfaceDark : Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: () => Navigator.push(
+                          context,
+                          CupertinoPageRoute(builder: (_) => const WalletScreen()),
+                        ),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.25)),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(CupertinoIcons.money_dollar_circle_fill, color: AppTheme.primaryColor, size: 28),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Wallet balance',
+                                      style: TextStyle(fontSize: 12, color: isDark ? Colors.white54 : AppTheme.textSecondaryLight),
+                                    ),
+                                    Text(
+                                      '₹${MoneyFormat.display(_walletBalance)}',
+                                      style: TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w900,
+                                        color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Icon(CupertinoIcons.chevron_right, color: isDark ? Colors.white54 : Colors.grey),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                  if (_walletBalance != null && _walletBalance!.isNotEmpty)
+                    const SizedBox(height: 20),
+
                   if (subs.isEmpty)
 
                     Text(
 
-                      'No active or upcoming subscriptions found. Subscribe first, then you can resize your meal pack.',
+                      'No active or upcoming paid subscriptions found. Complete a subscription payment first, then you can resize the meal pack.',
 
                       style: TextStyle(
 
@@ -668,7 +825,7 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
                               padding: EdgeInsets.symmetric(vertical: 24),
                               child: Center(child: CupertinoActivityIndicator()),
                             )
-                          else if (targets.isEmpty)
+                          else if (!hasAnyOptions)
 
                       Container(
 
@@ -686,7 +843,9 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
 
                         child: Text(
 
-                          'No resizing path is published from your current size yet. Contact support if you need to change your pack.',
+                          !_eligible
+                              ? 'This profile does not have a completed subscription payment yet. Pay for a plan first, then resize options will appear here.'
+                              : 'No resizing path is published from your current size yet. Contact support if you need to change your pack.',
 
                           style: TextStyle(fontWeight: FontWeight.w700, color: isDark ? Colors.white70 : AppTheme.textPrimaryLight),
 
@@ -694,121 +853,35 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
 
                       )
 
-                    else
-
-                      ...targets.map((t) {
-
-                        final id = _int(t['to_id']);
-
-                        if (id == null) return const SizedBox.shrink();
-
-                        final selected = _toMealSizeId == id;
-
-                        return Padding(
-
-                          padding: const EdgeInsets.only(bottom: 10),
-
-                          child: Material(
-
-                            color: selected
-
-                                ? AppTheme.primaryColor.withValues(alpha: isDark ? 0.2 : 0.1)
-
-                                : (isDark ? AppTheme.surfaceDark : Colors.white),
-
-                            borderRadius: BorderRadius.circular(14),
-
-                            child: InkWell(
-
-                              onTap: () => setState(() => _toMealSizeId = id),
-
-                              borderRadius: BorderRadius.circular(14),
-
-                              child: Container(
-
-                                padding: const EdgeInsets.all(16),
-
-                                decoration: BoxDecoration(
-
-                                  borderRadius: BorderRadius.circular(14),
-
-                                  border: Border.all(
-
-                                    color: selected ? AppTheme.primaryColor : (isDark ? Colors.white12 : Colors.grey.shade300),
-
-                                    width: selected ? 2 : 1,
-
-                                  ),
-
-                                ),
-
-                                child: Row(
-
-                                  children: [
-
-                                    Icon(
-
-                                      selected ? CupertinoIcons.checkmark_circle_fill : CupertinoIcons.circle,
-
-                                      color: selected ? AppTheme.primaryColor : Colors.grey,
-
-                                    ),
-
-                                    const SizedBox(width: 12),
-
-                                    Expanded(
-
-                                      child: Column(
-
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-
-                                        children: [
-
-                                          Text(
-
-                                            _trim(t['label']),
-
-                                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-
-                                          ),
-
-                                          Text(
-
-                                            _trim(t['subtitle']),
-
-                                            style: TextStyle(fontSize: 12, color: isDark ? Colors.white54 : AppTheme.textSecondaryLight),
-
-                                          ),
-
-                                        ],
-
-                                      ),
-
-                                    ),
-
-                                    Text(
-
-                                      '₹${_trim(t['price'])}',
-
-                                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: AppTheme.primaryColor),
-
-                                    ),
-
-                                  ],
-
-                                ),
-
-                              ),
-
-                            ),
-
-                          ),
-
-                        );
-
-                      }),
+                    else ...[
+                      if (upgrades.isNotEmpty) ...[
+                        _sectionTitle(context, 'Larger packs (pay)'),
+                        const SizedBox(height: 8),
+                        ..._buildOptionTiles(upgrades, isDark),
+                        const SizedBox(height: 16),
+                      ],
+                      if (downgrades.isNotEmpty) ...[
+                        _sectionTitle(context, 'Smaller packs (wallet credit)'),
+                        const SizedBox(height: 8),
+                        ..._buildOptionTiles(downgrades, isDark),
+                      ],
+                    ],
 
                     const SizedBox(height: 8),
+
+                    if (selectedDirection == 'upgrade' && _selectedUpgradePrice() != null)
+                      WalletCheckoutSection(
+                        useWallet: _useWallet,
+                        onUseWalletChanged: _onUseWalletChanged,
+                        walletBalance: _walletBalance ?? pay.walletBalance,
+                        walletApplied: _walletApplied,
+                        gatewayAmount: _gatewayAmount,
+                        totalAmount: _selectedUpgradePrice(),
+                        loadingPreview: _loadingWalletPreview,
+                      ),
+
+                    if (selectedDirection == 'upgrade' && _selectedUpgradePrice() != null)
+                      const SizedBox(height: 8),
 
                     SizedBox(
 
@@ -816,7 +889,7 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
 
                       child: ElevatedButton(
 
-                        onPressed: pay.isLoading || _toMealSizeId == null || targets.isEmpty ? null : _runPayment,
+                        onPressed: pay.isLoading || _toMealSizeId == null || !hasAnyOptions || !_eligible ? null : _confirmAction,
 
                         style: ElevatedButton.styleFrom(
 
@@ -830,7 +903,13 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
 
                         ),
 
-                        child: Text(pay.isLoading ? 'Please wait…' : 'Pay'),
+                        child: Text(
+                          pay.isLoading
+                              ? 'Please wait…'
+                              : selectedDirection == 'downgrade'
+                                  ? 'Confirm & credit wallet'
+                                  : 'Pay',
+                        ),
 
                       ),
 
@@ -929,5 +1008,72 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
 
   }
 
+  List<Widget> _buildOptionTiles(List<Map<String, dynamic>> options, bool isDark) {
+    return options.map((t) {
+      final id = _int(t['to_id']);
+      if (id == null) return const SizedBox.shrink();
+      final selected = _toMealSizeId == id;
+      final isDowngrade = _trim(t['direction']) == 'downgrade';
+
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Material(
+          color: selected
+              ? AppTheme.primaryColor.withValues(alpha: isDark ? 0.2 : 0.1)
+              : (isDark ? AppTheme.surfaceDark : Colors.white),
+          borderRadius: BorderRadius.circular(14),
+          child: InkWell(
+            onTap: () {
+              setState(() => _toMealSizeId = id);
+              _refreshUpgradeWalletPreview();
+            },
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: selected ? AppTheme.primaryColor : (isDark ? Colors.white12 : Colors.grey.shade300),
+                  width: selected ? 2 : 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    selected ? CupertinoIcons.checkmark_circle_fill : CupertinoIcons.circle,
+                    color: selected ? AppTheme.primaryColor : Colors.grey,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _trim(t['label']),
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                        ),
+                        Text(
+                          _trim(t['subtitle']),
+                          style: TextStyle(fontSize: 12, color: isDark ? Colors.white54 : AppTheme.textSecondaryLight),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    isDowngrade ? '+₹${_trim(t['price'])}' : '₹${_trim(t['price'])}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                      color: isDowngrade ? Colors.green : AppTheme.primaryColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }).toList();
+  }
 }
 

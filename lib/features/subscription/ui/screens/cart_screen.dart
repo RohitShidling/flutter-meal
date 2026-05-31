@@ -13,6 +13,8 @@ import 'package:meal_app/core/network/api_endpoints.dart';
 import 'package:meal_app/core/utils/error_handler.dart';
 import 'package:meal_app/features/subscription/ui/screens/payment_status_screen.dart';
 import 'package:meal_app/features/subscription/ui/screens/payment_webview_screen.dart';
+import 'package:meal_app/core/providers/payment_provider.dart';
+import 'package:meal_app/core/widgets/wallet_checkout_section.dart';
 import 'package:meal_app/core/services/network_status_service.dart';
 import 'package:meal_app/core/services/app_route_tracker.dart';
 
@@ -24,8 +26,20 @@ class CartScreen extends StatefulWidget {
 }
 
 class _CartScreenState extends State<CartScreen> {
+  bool _useWallet = true;
+  bool _loadingWalletPreview = false;
+  double? _walletApplied;
+  double? _gatewayAmount;
+  CartProvider? _cartProvider;
+
+  static double _parseMoney(dynamic value) {
+    if (value == null) return 0;
+    return double.tryParse(value.toString().replaceAll(',', '')) ?? 0;
+  }
+
   @override
   void dispose() {
+    _cartProvider?.removeListener(_scheduleWalletPreview);
     AppRouteTracker.instance.clearIfCurrent(AppScreen.cart);
     super.dispose();
   }
@@ -37,10 +51,66 @@ class _CartScreenState extends State<CartScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await NetworkStatusService.instance.refreshNow();
       if (!mounted) return;
-      context.read<CartProvider>().fetchCart(force: true);
-      context.read<CartProvider>().syncOfflineItemsIfAny();
+      final cart = context.read<CartProvider>();
+      _cartProvider = cart;
+      cart.addListener(_scheduleWalletPreview);
+      await context.read<PaymentProvider>().fetchWallet(silent: true);
+      await cart.fetchCart(force: true);
+      cart.syncOfflineItemsIfAny();
+      if (!mounted) return;
       context.read<SubscriptionProvider>().fetchSubscriptions(force: true, silent: true);
+      _refreshWalletPreview(cart);
     });
+  }
+
+  void _scheduleWalletPreview() {
+    if (!mounted || _cartProvider == null) return;
+    _refreshWalletPreview(_cartProvider!);
+  }
+
+  Future<void> _refreshWalletPreview(CartProvider cart) async {
+    if (!mounted) return;
+    final total = cart.totalAmount;
+    if (total <= 0) {
+      setState(() {
+        _walletApplied = 0;
+        _gatewayAmount = 0;
+      });
+      return;
+    }
+
+    setState(() => _loadingWalletPreview = true);
+    try {
+      final pay = context.read<PaymentProvider>();
+      final preview = await pay.previewWalletForTotal(total, useWallet: _useWallet);
+      if (!mounted) return;
+      setState(() {
+        _walletApplied = _parseMoney(preview['walletApplied']);
+        _gatewayAmount = _parseMoney(preview['gatewayAmount']);
+      });
+    } catch (_) {
+      // Preview is optional — checkout still works without breakdown.
+    } finally {
+      if (mounted) setState(() => _loadingWalletPreview = false);
+    }
+  }
+
+  void _onUseWalletChanged(bool value) {
+    final total = _cartProvider?.totalAmount ?? 0;
+    setState(() {
+      _useWallet = value;
+      if (!value) {
+        _walletApplied = 0;
+        _gatewayAmount = total;
+      }
+    });
+    if (_cartProvider != null) _refreshWalletPreview(_cartProvider!);
+  }
+
+  double _amountDueNow(CartProvider cart) {
+    if (!_useWallet) return cart.totalAmount;
+    if (_gatewayAmount != null) return _gatewayAmount!;
+    return cart.totalAmount;
   }
 
   /// Match cart line to catalog plan so we can show per-variant duration (with vs without Saturday).
@@ -325,6 +395,7 @@ class _CartScreenState extends State<CartScreen> {
 
   Widget _buildCheckoutBar(BuildContext context, CartProvider cartProvider, bool isDark) {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final pay = context.watch<PaymentProvider>();
     return Container(
       padding: EdgeInsets.fromLTRB(24, 20, 24, bottomPadding > 0 ? bottomPadding + 10 : 20),
       decoration: BoxDecoration(
@@ -335,12 +406,46 @@ class _CartScreenState extends State<CartScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          WalletCheckoutSection(
+            useWallet: _useWallet,
+            onUseWalletChanged: _onUseWalletChanged,
+            walletBalance: pay.walletBalance,
+            walletApplied: _walletApplied,
+            gatewayAmount: _gatewayAmount,
+            totalAmount: cartProvider.totalAmount,
+            loadingPreview: _loadingWalletPreview,
+          ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('${cartProvider.itemCount} ${cartProvider.itemCount == 1 ? 'item' : 'items'}', style: TextStyle(fontSize: 14, color: isDark ? Colors.white54 : AppTheme.textSecondaryLight)),
-              Text('Total Amount', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight)),
-              Text('₹${cartProvider.totalAmount.toStringAsFixed(0)}', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: isDark ? Colors.white : AppTheme.textPrimaryLight)),
+              Text(
+                '${cartProvider.itemCount} ${cartProvider.itemCount == 1 ? 'item' : 'items'}',
+                style: TextStyle(fontSize: 14, color: isDark ? Colors.white54 : AppTheme.textSecondaryLight),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (_useWallet && (_walletApplied ?? 0) > 0) ...[
+                    Text(
+                      'Order total ₹${cartProvider.totalAmount.toStringAsFixed(0)}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        decoration: TextDecoration.lineThrough,
+                        color: isDark ? Colors.white38 : AppTheme.textSecondaryLight,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                  ],
+                  Text(
+                    _useWallet && (_walletApplied ?? 0) > 0 ? 'You pay now' : 'Total amount',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
+                  ),
+                  Text(
+                    '₹${_amountDueNow(cartProvider).toStringAsFixed(0)}',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: isDark ? Colors.white : AppTheme.textPrimaryLight),
+                  ),
+                ],
+              ),
             ],
           ),
           const SizedBox(height: 20),
@@ -349,7 +454,12 @@ class _CartScreenState extends State<CartScreen> {
             child: ElevatedButton(
               onPressed: cartProvider.isLoading ? null : () => _handleCheckout(context, cartProvider),
               style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 18), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))),
-              child: const Text('Checkout & Pay', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+              child: Text(
+                _amountDueNow(cartProvider) <= 0.009 && _useWallet
+                    ? 'Complete with wallet'
+                    : 'Pay ₹${_amountDueNow(cartProvider).toStringAsFixed(0)}',
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+              ),
             ),
           ),
         ],
@@ -370,11 +480,48 @@ class _CartScreenState extends State<CartScreen> {
       ),
     );
 
-    final result = await cartProvider.checkoutAll(isSandbox: ApiEndpoints.isSandboxPayment);
+    var result = await cartProvider.checkoutAll(
+      isSandbox: ApiEndpoints.isSandboxPayment,
+      useWallet: _useWallet,
+    );
+    if (result == null && context.mounted) {
+      final err = cartProvider.error ?? '';
+      if (err.toLowerCase().contains('pending')) {
+        await context.read<PaymentProvider>().abandonPendingPayment(cancelPendingCart: true);
+        if (context.mounted) {
+          await cartProvider.fetchCart(force: true);
+          result = await cartProvider.checkoutAll(
+            isSandbox: ApiEndpoints.isSandboxPayment,
+            useWallet: _useWallet,
+          );
+        }
+      }
+    }
     if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
-    if (!context.mounted || result == null) return;
+    if (!context.mounted || result == null) {
+      if (context.mounted && cartProvider.error != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(cartProvider.error!),
+            backgroundColor: Colors.red.shade700,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
 
+    final pay = context.read<PaymentProvider>();
     final sdkStatus = result['sdkStatus']?.toString() ?? 'FAILURE';
+    if (sdkStatus != 'SUCCESS') {
+      await pay.abandonPendingPayment(
+        orderId: result['orderId']?.toString(),
+        merchantTransactionId: result['merchantTransactionId']?.toString(),
+      );
+    } else {
+      await pay.fetchWallet(silent: true);
+    }
+
     final txnId = result['merchantTransactionId']?.toString() ?? '';
     final orderId = result['orderId']?.toString() ?? '';
     final paymentUrl = result['paymentUrl']?.toString() ?? '';
@@ -407,13 +554,19 @@ class _CartScreenState extends State<CartScreen> {
           );
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['sdkError']?.toString() ?? 'Payment failed or was cancelled.'),
-            backgroundColor: Colors.red.shade700,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                sdkStatus == 'INTERRUPTED'
+                    ? 'Payment cancelled. Wallet balance has been restored.'
+                    : (result['sdkError']?.toString() ?? 'Payment failed or was cancelled.'),
+              ),
+              backgroundColor: sdkStatus == 'INTERRUPTED' ? Colors.orange.shade800 : Colors.red.shade700,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       }
     }
   }

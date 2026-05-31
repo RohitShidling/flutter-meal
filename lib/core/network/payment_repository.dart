@@ -13,6 +13,7 @@ class PaymentRepository {
     required bool includeSaturday,
     String? startDate,
     String? customRedirectUrl,
+    bool useWallet = true,
   }) async {
     try {
       final response = await _dioClient.dio.post(
@@ -22,6 +23,7 @@ class PaymentRepository {
           'entityType': entityType,
           'entityId': entityId,
           'includeSaturday': includeSaturday,
+          'useWallet': useWallet,
           if (startDate != null) 'startDate': startDate,
           if (customRedirectUrl != null) 'redirectUrl': customRedirectUrl,
         },
@@ -71,6 +73,7 @@ class PaymentRepository {
     required String entityId,
     required int toMealSizeId,
     String? customRedirectUrl,
+    bool useWallet = true,
   }) async {
     try {
       final response = await _dioClient.dio.post(
@@ -79,6 +82,7 @@ class PaymentRepository {
           'entityType': entityType,
           'entityId': entityId,
           'toMealSizeId': toMealSizeId,
+          'useWallet': useWallet,
           if (customRedirectUrl != null) 'redirectUrl': customRedirectUrl,
         },
       );
@@ -91,12 +95,68 @@ class PaymentRepository {
     }
   }
 
-  Future<Map<String, dynamic>> checkoutCart({String? redirectUrl}) async {
+  Future<Map<String, dynamic>> applyMealSizeDowngrade({
+    required String entityType,
+    required String entityId,
+    required int toMealSizeId,
+  }) async {
+    final response = await _dioClient.dio.post(
+      ApiEndpoints.applyMealSizeDowngrade,
+      data: {
+        'entityType': entityType,
+        'entityId': entityId,
+        'toMealSizeId': toMealSizeId,
+      },
+    );
+    if (response.data['success'] == true) {
+      return Map<String, dynamic>.from(response.data as Map);
+    }
+    throw response.data['message']?.toString() ?? 'Failed to apply downgrade';
+  }
+
+  Future<Map<String, dynamic>> getWallet() async {
+    final response = await _dioClient.dio.get(ApiEndpoints.wallet);
+    if (response.data['success'] == true) {
+      return Map<String, dynamic>.from((response.data['data'] as Map?) ?? {});
+    }
+    throw response.data['message']?.toString() ?? 'Failed to load wallet';
+  }
+
+  Future<Map<String, dynamic>> previewWalletApply({
+    required double total,
+    bool useWallet = true,
+  }) async {
+    final response = await _dioClient.dio.get(
+      ApiEndpoints.walletPreview,
+      queryParameters: {
+        'total': total,
+        'useWallet': useWallet,
+      },
+    );
+    if (response.data['success'] == true) {
+      return Map<String, dynamic>.from((response.data['data'] as Map?) ?? {});
+    }
+    throw response.data['message']?.toString() ?? 'Failed to preview wallet';
+  }
+
+  Future<List<dynamic>> getWalletTransactions({int limit = 50}) async {
+    final response = await _dioClient.dio.get(
+      ApiEndpoints.walletTransactions,
+      queryParameters: {'limit': limit},
+    );
+    if (response.data['success'] == true) {
+      return response.data['data'] ?? [];
+    }
+    throw response.data['message']?.toString() ?? 'Failed to load wallet history';
+  }
+
+  Future<Map<String, dynamic>> checkoutCart({String? redirectUrl, bool useWallet = true}) async {
     try {
       final response = await _dioClient.dio.post(
         ApiEndpoints.checkoutCart,
         data: {
           if (redirectUrl != null) 'redirectUrl': redirectUrl,
+          'useWallet': useWallet,
         },
       );
 
@@ -108,6 +168,26 @@ class PaymentRepository {
     } catch (e) {
       rethrow;
     }
+  }
+
+  Future<Map<String, dynamic>> abandonPendingPayment({
+    String? orderId,
+    String? merchantTransactionId,
+    bool cancelPendingCart = false,
+  }) async {
+    final response = await _dioClient.dio.post(
+      ApiEndpoints.abandonPayment,
+      data: {
+        if (orderId != null && orderId.isNotEmpty) 'orderId': orderId,
+        if (merchantTransactionId != null && merchantTransactionId.isNotEmpty)
+          'merchantTransactionId': merchantTransactionId,
+        if (cancelPendingCart) 'cancelPendingCart': true,
+      },
+    );
+    if (response.data['success'] == true) {
+      return Map<String, dynamic>.from((response.data['data'] as Map?) ?? {});
+    }
+    throw response.data['message']?.toString() ?? 'Failed to cancel payment';
   }
 
   Future<Map<String, dynamic>> getPaymentStatus(String txnId) async {

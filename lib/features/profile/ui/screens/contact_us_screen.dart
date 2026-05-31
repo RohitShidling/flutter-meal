@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:meal_app/core/theme/app_theme.dart';
 import 'package:meal_app/core/utils/error_handler.dart';
 import 'package:meal_app/core/providers/lookup_provider.dart';
@@ -45,6 +46,19 @@ class _ContactUsScreenState extends State<ContactUsScreen> {
   void _copyText(BuildContext context, String label, String value) {
     Clipboard.setData(ClipboardData(text: value));
     ErrorHandler.showSuccess(context, '$label copied');
+  }
+
+  Future<void> _openWhatsApp(BuildContext context, String phone) async {
+    // Strip everything except digits
+    final digits = phone.replaceAll(RegExp(r'[^\d]'), '');
+    final uri = Uri.parse('https://wa.me/$digits');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      if (context.mounted) {
+        ErrorHandler.showError(context, 'Could not open WhatsApp');
+      }
+    }
   }
 
   @override
@@ -128,6 +142,14 @@ class _ContactUsScreenState extends State<ContactUsScreen> {
                     value: phone,
                     isDark: isDark,
                     onCopy: () => _copyText(context, 'Phone', phone),
+                    extraAction: TextButton.icon(
+                      onPressed: () => _openWhatsApp(context, phone),
+                      icon: const Icon(Icons.chat, size: 16, color: Color(0xFF25D366)),
+                      label: const Text(
+                        'WhatsApp',
+                        style: TextStyle(color: Color(0xFF25D366), fontWeight: FontWeight.w700),
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 18),
                 ],
@@ -151,6 +173,7 @@ class _ContactUsScreenState extends State<ContactUsScreen> {
     required String value,
     required bool isDark,
     required VoidCallback onCopy,
+    Widget? extraAction,
   }) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -189,6 +212,7 @@ class _ContactUsScreenState extends State<ContactUsScreen> {
               ],
             ),
           ),
+          if (extraAction != null) extraAction,
           TextButton.icon(
             onPressed: onCopy,
             icon: const Icon(CupertinoIcons.doc_on_doc, size: 16),

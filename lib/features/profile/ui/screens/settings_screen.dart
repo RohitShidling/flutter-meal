@@ -9,19 +9,37 @@ import 'package:meal_app/features/subscription/ui/screens/subscription_managemen
 import 'package:meal_app/features/subscription/ui/screens/meal_skip_screen.dart';
 import 'package:meal_app/features/subscription/ui/screens/cart_screen.dart';
 import 'package:meal_app/features/subscription/ui/screens/meal_size_upgrade_screen.dart';
+import 'package:meal_app/features/subscription/ui/screens/wallet_screen.dart';
+import 'package:meal_app/core/providers/payment_provider.dart';
 import 'package:meal_app/features/bulk_order/ui/screens/bulk_delivery_address_settings_screen.dart';
 import 'package:meal_app/core/providers/cart_provider.dart';
 import 'package:meal_app/core/utils/error_handler.dart';
 import 'package:meal_app/features/profile/ui/screens/contact_us_screen.dart';
 import 'package:meal_app/features/profile/ui/screens/legal_screen.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<PaymentProvider>().fetchWallet(silent: true);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
     final authProvider = context.read<AuthProvider>();
+    final pay = context.watch<PaymentProvider>();
+    final walletBalance = pay.walletBalance;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
@@ -59,8 +77,16 @@ class SettingsScreen extends StatelessWidget {
               );
             }
           ),
-          const SizedBox(height: 30),
-          
+          const SizedBox(height: 8),
+          _buildNavigationTile(
+            context,
+            CupertinoIcons.money_dollar_circle_fill,
+            walletBalance != null && walletBalance.isNotEmpty
+                ? 'My Wallet — ₹$walletBalance'
+                : 'My Wallet',
+            isDark,
+            () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const WalletScreen())),
+          ),
           const SizedBox(height: 30),
 
           _buildSectionHeader('Meal Management', isDark),

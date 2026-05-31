@@ -83,11 +83,12 @@ class CartRepository {
   }
 
   /// POST /api/client/payment/checkout-cart — Checkout entire cart.
-  Future<Map<String, dynamic>> checkoutCart({String? redirectUrl}) async {
+  Future<Map<String, dynamic>> checkoutCart({String? redirectUrl, bool useWallet = true}) async {
     final response = await _dioClient.dio.post(
       ApiEndpoints.checkoutCart,
       data: {
         if (redirectUrl != null) 'redirectUrl': redirectUrl,
+        'useWallet': useWallet,
       },
     );
     if (response.data['success'] == true) {

@@ -344,15 +344,17 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
         final payment = provider.paymentHistory[index];
         
         // Safe type conversion — prevents "type X is not a subtype of type String"
-        final isUpgrade = (payment['order_type'] ?? payment['orderType'] ?? '')
+        final orderType = (payment['order_type'] ?? payment['orderType'] ?? '')
             .toString()
-            .toLowerCase() ==
-            'meal_size_upgrade';
-        final planName = isUpgrade
-            ? 'Meal pack resize'
+            .toLowerCase();
+        final isResize = orderType == 'meal_size_upgrade' || orderType == 'meal_size_downgrade';
+        final planName = isResize
+            ? (orderType == 'meal_size_downgrade' ? 'Meal pack downsize (wallet)' : 'Meal pack resize')
             : _safeString(payment['plan_name'] ?? payment['entity_name'], 'Subscription');
         final entityName = _safeString(payment['entity_name'], '');
         final amount = _safeNumString(payment['amount']);
+        final walletApplied = _parseMoney(payment['wallet_amount_applied']);
+        final gatewayAmount = _parseMoney(payment['gateway_amount']);
         final pStatus = _safeString(
           payment['payment_status'] ?? payment['order_status'] ?? payment['status'],
           'PENDING',
@@ -431,6 +433,17 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
                         fontSize: 11,
                       ),
                     ),
+                    if (walletApplied > 0)
+                      Text(
+                        gatewayAmount > 0
+                            ? 'Wallet ₹${walletApplied.toStringAsFixed(0)} • PhonePe ₹${gatewayAmount.toStringAsFixed(0)}'
+                            : 'Paid fully from wallet',
+                        style: TextStyle(
+                          color: Colors.green.shade700,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -515,5 +528,11 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
     if (value == null) return '0';
     if (value is num) return value.toStringAsFixed(value.truncateToDouble() == value ? 0 : 2);
     return value.toString();
+  }
+
+  double _parseMoney(dynamic value) {
+    if (value == null) return 0;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString().replaceAll(',', '')) ?? 0;
   }
 }

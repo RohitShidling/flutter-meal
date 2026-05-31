@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:meal_app/core/network/payment_repository.dart';
 import 'package:meal_app/core/network/api_endpoints.dart';
-import 'package:meal_app/core/services/phonepe_service.dart';
+import 'package:meal_app/core/utils/wallet_payment_flow.dart';
 import 'package:meal_app/core/storage/local_cache.dart';
 import 'package:meal_app/core/utils/error_handler.dart';
 
@@ -49,6 +49,12 @@ class PaymentProvider with ChangeNotifier {
 
   List<dynamic> _activeSubscriptions = [];
   List<dynamic> get activeSubscriptions => _activeSubscriptions;
+
+  String? _walletBalance;
+  String? get walletBalance => _walletBalance;
+
+  List<dynamic> _walletTransactions = [];
+  List<dynamic> get walletTransactions => _walletTransactions;
 
   // ─── Payment History ───────────────────────────────────────────────────────
 
@@ -125,14 +131,98 @@ class PaymentProvider with ChangeNotifier {
     try {
       _error = null;
       notifyListeners();
-      return await _repository.fetchMealSizeUpgradeOptions(
+      final payload = await _repository.fetchMealSizeUpgradeOptions(
         entityType: entityType,
         entityId: entityId,
       );
+      final balance = payload['wallet_balance']?.toString();
+      if (balance != null && balance.isNotEmpty) {
+        _walletBalance = balance;
+        notifyListeners();
+      }
+      return payload;
     } catch (e) {
       _error = ErrorHandler.getErrorMessage(e);
       notifyListeners();
       rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>?> applyMealSizeDowngrade({
+    required String entityType,
+    required String entityId,
+    required int toMealSizeId,
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final result = await _repository.applyMealSizeDowngrade(
+        entityType: entityType,
+        entityId: entityId,
+        toMealSizeId: toMealSizeId,
+      );
+      final data = result['data'];
+      if (data is Map) {
+        final balance = data['walletBalance']?.toString();
+        if (balance != null && balance.isNotEmpty) {
+          _walletBalance = balance;
+        }
+      }
+      await fetchWallet(silent: true);
+      await fetchPaymentHistory(silent: true);
+      await fetchActiveSubscriptions(silent: true, force: true);
+      return result;
+    } catch (e) {
+      _error = ErrorHandler.getErrorMessage(e);
+      return null;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<Map<String, dynamic>> previewWalletForTotal(double total, {bool useWallet = true}) async {
+    return _repository.previewWalletApply(total: total, useWallet: useWallet);
+  }
+
+  Future<void> fetchWallet({bool silent = false}) async {
+    if (!silent) {
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
+    }
+
+    try {
+      final data = await _repository.getWallet();
+      _walletBalance = data['balance']?.toString();
+    } catch (e) {
+      if (!silent) _error = ErrorHandler.getErrorMessage(e);
+    } finally {
+      if (!silent) {
+        _isLoading = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> fetchWalletTransactions({bool silent = false}) async {
+    if (!silent) {
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
+    }
+
+    try {
+      _walletTransactions = await _repository.getWalletTransactions();
+    } catch (e) {
+      if (!silent) _error = ErrorHandler.getErrorMessage(e);
+    } finally {
+      if (!silent) {
+        _isLoading = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -160,7 +250,8 @@ class PaymentProvider with ChangeNotifier {
     required String entityId,
     required bool includeSaturday,
     String? startDate,
-    bool isSandbox = true, // set false for production
+    bool isSandbox = true,
+    bool useWallet = true,
   }) async {
     _isLoading = true;
     _paymentStatus = PaymentStatus.processing;
@@ -176,44 +267,18 @@ class PaymentProvider with ChangeNotifier {
         includeSaturday: includeSaturday,
         startDate: startDate,
         customRedirectUrl: ApiEndpoints.paymentStatusPage,
+        useWallet: useWallet,
       );
 
-      final String? paymentUrl = paymentData['paymentUrl'];
-      final String orderId = paymentData['orderId'] ?? '';
-      final String txnId = paymentData['merchantTransactionId'] ?? '';
-      final String? backendToken = paymentData['token'] ?? paymentData['orderToken'];
-      final String? backendMerchantId = paymentData['merchantId'];
+      _lastTxnId = paymentData['merchantTransactionId']?.toString();
 
-      if ((paymentUrl == null || paymentUrl.isEmpty) && backendToken == null) {
-        throw Exception('Payment information not received from gateway');
-      }
-
-      _lastTxnId = txnId;
-
-      // Step 2: Trigger the native PhonePe SDK
-      final sdkResult = await PhonePeService.pay(
-        orderId: orderId,
-        paymentUrl: paymentUrl,
-        backendToken: backendToken,
-        backendMerchantId: backendMerchantId,
+      final result = await WalletPaymentFlow.completeAfterInit(
+        paymentData: paymentData,
         isSandbox: isSandbox,
+        paymentRepository: _repository,
       );
 
-      // Step 3: Map SDK status to enum
-      final status = sdkResult['status'] as String? ?? 'FAILURE';
-      if (status == 'SUCCESS') {
-        _paymentStatus = PaymentStatus.success;
-      } else if (status == 'INTERRUPTED') {
-        _paymentStatus = PaymentStatus.interrupted;
-      } else {
-        _paymentStatus = PaymentStatus.failure;
-      }
-
-      return {
-        ...paymentData,
-        'sdkStatus': status,
-        'sdkError': sdkResult['error'],
-      };
+      return _finalizeCheckoutResult(result);
     } catch (e) {
       _error = ErrorHandler.getErrorMessage(e);
       _paymentStatus = PaymentStatus.failure;
@@ -230,6 +295,7 @@ class PaymentProvider with ChangeNotifier {
     required String entityId,
     required int toMealSizeId,
     bool isSandbox = true,
+    bool useWallet = true,
   }) async {
     _isLoading = true;
     _paymentStatus = PaymentStatus.processing;
@@ -242,42 +308,18 @@ class PaymentProvider with ChangeNotifier {
         entityId: entityId,
         toMealSizeId: toMealSizeId,
         customRedirectUrl: ApiEndpoints.paymentStatusPage,
+        useWallet: useWallet,
       );
 
-      final String? paymentUrl = paymentData['paymentUrl'];
-      final String orderId = paymentData['orderId'] ?? '';
-      final String txnId = paymentData['merchantTransactionId'] ?? '';
-      final String? backendToken = paymentData['token'] ?? paymentData['orderToken'];
-      final String? backendMerchantId = paymentData['merchantId'];
+      _lastTxnId = paymentData['merchantTransactionId']?.toString();
 
-      if ((paymentUrl == null || paymentUrl.isEmpty) && backendToken == null) {
-        throw Exception('Payment information not received from gateway');
-      }
-
-      _lastTxnId = txnId;
-
-      final sdkResult = await PhonePeService.pay(
-        orderId: orderId,
-        paymentUrl: paymentUrl,
-        backendToken: backendToken,
-        backendMerchantId: backendMerchantId,
+      final result = await WalletPaymentFlow.completeAfterInit(
+        paymentData: paymentData,
         isSandbox: isSandbox,
+        paymentRepository: _repository,
       );
 
-      final status = sdkResult['status'] as String? ?? 'FAILURE';
-      if (status == 'SUCCESS') {
-        _paymentStatus = PaymentStatus.success;
-      } else if (status == 'INTERRUPTED') {
-        _paymentStatus = PaymentStatus.interrupted;
-      } else {
-        _paymentStatus = PaymentStatus.failure;
-      }
-
-      return {
-        ...paymentData,
-        'sdkStatus': status,
-        'sdkError': sdkResult['error'],
-      };
+      return _finalizeCheckoutResult(result);
     } catch (e) {
       _error = ErrorHandler.getErrorMessage(e);
       _paymentStatus = PaymentStatus.failure;
@@ -285,6 +327,38 @@ class PaymentProvider with ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  Map<String, dynamic>? _finalizeCheckoutResult(Map<String, dynamic> result) {
+    final status = result['sdkStatus'] as String? ?? 'FAILURE';
+    if (status == 'SUCCESS') {
+      _paymentStatus = PaymentStatus.success;
+      fetchWallet(silent: true);
+    } else if (status == 'INTERRUPTED') {
+      _paymentStatus = PaymentStatus.interrupted;
+      fetchWallet(silent: true);
+    } else {
+      _paymentStatus = PaymentStatus.failure;
+      fetchWallet(silent: true);
+    }
+    return result;
+  }
+
+  Future<void> abandonPendingPayment({
+    String? orderId,
+    String? merchantTransactionId,
+    bool cancelPendingCart = false,
+  }) async {
+    try {
+      await _repository.abandonPendingPayment(
+        orderId: orderId,
+        merchantTransactionId: merchantTransactionId,
+        cancelPendingCart: cancelPendingCart,
+      );
+      await fetchWallet(silent: true);
+    } catch (e) {
+      _error = ErrorHandler.getErrorMessage(e);
     }
   }
 

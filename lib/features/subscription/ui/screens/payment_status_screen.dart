@@ -47,6 +47,7 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
   final int _maxRetries = 10;
   bool _postSuccessHandled = false;
   bool _pendingForceSyncAttempted = false;
+  bool _abandonAttempted = false;
   String? _lastPollingError;
 
   @override
@@ -110,7 +111,21 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
       _postSuccessHandled = true;
       // Schedule after current frame so providers have settled
       WidgetsBinding.instance.addPostFrameCallback((_) => _onPaymentConfirmedSuccess());
+    } else if (mounted && _currentStatus == 'FAILED') {
+      await _abandonPendingIfNeeded();
     }
+  }
+
+  Future<void> _abandonPendingIfNeeded() async {
+    if (_abandonAttempted || !mounted) return;
+    if (_currentStatus == 'SUCCESS') return;
+    _abandonAttempted = true;
+    try {
+      await context.read<PaymentProvider>().abandonPendingPayment(
+        orderId: widget.orderId,
+        merchantTransactionId: widget.txnId,
+      );
+    } catch (_) {}
   }
 
   void _handle401Redirect(String? reason) {
@@ -237,7 +252,13 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final status = _currentStatus;
 
-    return Scaffold(
+    return PopScope(
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop && status != 'SUCCESS') {
+          _abandonPendingIfNeeded();
+        }
+      },
+      child: Scaffold(
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -256,7 +277,12 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
               ),
               if (!_isPolling)
                 ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () async {
+                    if (status != 'SUCCESS') {
+                      await _abandonPendingIfNeeded();
+                    }
+                    if (context.mounted) Navigator.pop(context);
+                  },
                   style: ElevatedButton.styleFrom(
                     minimumSize: const Size(double.infinity, 56),
                     backgroundColor: AppTheme.primaryColor,
@@ -270,6 +296,7 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 

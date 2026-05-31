@@ -21,6 +21,8 @@ import 'package:meal_app/core/providers/cart_provider.dart';
 import 'package:meal_app/core/widgets/cart_overlay_body.dart';
 import 'package:meal_app/core/services/app_route_tracker.dart';
 import 'package:meal_app/features/subscription/ui/widgets/plan_picker_bottom_sheet.dart';
+import 'package:meal_app/core/utils/error_handler.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ChildrenManagementScreen extends StatefulWidget {
   final String? renewChildId;
@@ -871,6 +873,25 @@ class _ChildFormState extends State<_ChildForm> {
                   ),
                 ),
               ],
+              // "Not listed?" WhatsApp redirect
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: GestureDetector(
+                  onTap: () => _openSupportWhatsApp(context),
+                  child: RichText(
+                    text: TextSpan(
+                      style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.primary),
+                      children: const [
+                        TextSpan(text: "Can't find your school? "),
+                        TextSpan(
+                          text: 'Contact us on WhatsApp',
+                          style: TextStyle(fontWeight: FontWeight.w700, decoration: TextDecoration.underline),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
               const SizedBox(height: 16),
               // 4. Standard
               SearchableDropdown<StandardModel>(
@@ -1103,5 +1124,17 @@ class _ChildFormState extends State<_ChildForm> {
       onSave: _submitForm,
       child: formBody,
     );
+  }
+}
+
+Future<void> _openSupportWhatsApp(BuildContext context) async {
+  const phone = '7090115155';
+  final uri = Uri.parse('https://wa.me/$phone');
+  if (await canLaunchUrl(uri)) {
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    return;
+  }
+  if (context.mounted) {
+    ErrorHandler.showError(context, 'Could not open WhatsApp');
   }
 }

@@ -1,4 +1,4 @@
-/// Filters payment history rows for paid meal-size upgrades.
+/// Filters payment history rows for meal pack resize (upgrade pay + downgrade credit).
 List<Map<String, dynamic>> filterMealSizeUpgradePayments(List<dynamic> payments) {
   final out = <Map<String, dynamic>>[];
   for (final raw in payments) {
@@ -7,7 +7,7 @@ List<Map<String, dynamic>> filterMealSizeUpgradePayments(List<dynamic> payments)
     final type = (m['order_type'] ?? m['orderType'] ?? m['payment_type'] ?? '')
         .toString()
         .toLowerCase();
-    if (type == 'meal_size_upgrade') out.add(m);
+    if (type == 'meal_size_upgrade' || type == 'meal_size_downgrade') out.add(m);
   }
   return out;
 }

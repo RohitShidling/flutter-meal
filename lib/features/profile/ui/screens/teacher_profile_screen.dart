@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:meal_app/core/utils/error_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:meal_app/core/theme/app_theme.dart';
 import 'package:meal_app/features/profile/providers/profile_provider.dart';
 import 'package:meal_app/features/profile/data/models/profile_models.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:meal_app/core/utils/error_handler.dart';
 import 'package:meal_app/core/utils/validators.dart';
 import 'package:meal_app/core/providers/lookup_provider.dart';
@@ -413,9 +415,26 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
                         });
                       },
                     ),
+                    // Not listed link
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: GestureDetector(
+                        onTap: () => _openSupportWhatsApp(context),
+                        child: RichText(
+                          text: TextSpan(
+                            style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.primary),
+                            children: const [
+                              TextSpan(text: "Can't find your school? "),
+                              TextSpan(
+                                text: 'Contact us on WhatsApp',
+                                style: TextStyle(fontWeight: FontWeight.w700, decoration: TextDecoration.underline),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 20),
-
-                    // 2.5 Standard (Optional)
                     SearchableDropdown<StandardModel>(
                       label: 'Standard (Optional)',
                       items: lookupProvider.standards,
@@ -457,6 +476,20 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
                         });
                       },
                     ),
+                    if (_selectedDivision != null) ...[
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          onPressed: () => setState(() => _selectedDivision = null),
+                          icon: const Icon(CupertinoIcons.xmark_circle, size: 18),
+                          label: const Text('Remove division'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.orange.shade800,
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 20),
 
                     // 3. State
@@ -879,5 +912,17 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
         ],
       ),
     );
+  }
+}
+
+Future<void> _openSupportWhatsApp(BuildContext context) async {
+  const phone = '7090115155';
+  final uri = Uri.parse('https://wa.me/$phone');
+  if (await canLaunchUrl(uri)) {
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    return;
+  }
+  if (context.mounted) {
+    ErrorHandler.showError(context, 'Could not open WhatsApp');
   }
 }

@@ -3,7 +3,7 @@ import 'package:meal_app/core/network/cart_repository.dart';
 import 'package:meal_app/core/network/api_endpoints.dart';
 import 'package:meal_app/core/services/network_status_service.dart';
 import 'package:meal_app/core/services/offline_queue.dart';
-import 'package:meal_app/core/services/phonepe_service.dart';
+import 'package:meal_app/core/utils/wallet_payment_flow.dart';
 import 'package:meal_app/core/storage/cache_store.dart';
 import 'package:meal_app/core/storage/local_cache.dart';
 import 'package:meal_app/core/utils/meal_date.dart';
@@ -592,7 +592,7 @@ class CartProvider with ChangeNotifier {
 
   // ─── Cart Checkout via PhonePe SDK ──────────────────────────────────────────
 
-  Future<Map<String, dynamic>?> checkoutAll({bool isSandbox = true}) async {
+  Future<Map<String, dynamic>?> checkoutAll({bool isSandbox = true, bool useWallet = true}) async {
     if (!NetworkStatusService.instance.canAttemptApi) {
       _error = 'No internet connection. Connect to the internet to complete payment.';
       notifyListeners();
@@ -617,44 +617,15 @@ class CartProvider with ChangeNotifier {
     try {
       final paymentData = await _repository.checkoutCart(
         redirectUrl: ApiEndpoints.paymentStatusPage,
+        useWallet: useWallet,
       );
 
-      final String? paymentUrl = paymentData['paymentUrl'];
-      final String orderId = paymentData['orderId']?.toString() ?? '';
-      final String? backendToken = paymentData['token']?.toString() ?? paymentData['orderToken']?.toString();
-      final String? backendMerchantId = paymentData['merchantId']?.toString();
+      final result = await WalletPaymentFlow.completeAfterInit(
+        paymentData: paymentData,
+        isSandbox: isSandbox,
+      );
 
-      if ((paymentUrl == null || paymentUrl.isEmpty) && backendToken == null) {
-        throw Exception('Payment information not received from gateway');
-      }
-
-      String status = 'FAILURE';
-      String? sdkError;
-      try {
-        final sdkResult = await PhonePeService.pay(
-          orderId: orderId,
-          paymentUrl: paymentUrl,
-          backendToken: backendToken,
-          backendMerchantId: backendMerchantId,
-          isSandbox: isSandbox,
-        );
-        status = sdkResult['status'] ?? 'FAILURE';
-        sdkError = sdkResult['error'];
-      } catch (sdkEx) {
-        sdkError = sdkEx.toString();
-      }
-
-      // IMPORTANT: do NOT clear local cart here. The cart must remain intact
-      // until the backend confirms the payment as SUCCESS in PaymentStatusScreen.
-      // SDK SUCCESS only means the PhonePe app reported success; the order
-      // is still marked `pending` in our DB until callback/webhook/polling
-      // syncs the actual gateway state.
-
-      return {
-        ...paymentData,
-        'sdkStatus': status,
-        'sdkError': sdkError,
-      };
+      return result;
     } catch (e) {
       _error = _extractErrorMessage(e);
       return null;

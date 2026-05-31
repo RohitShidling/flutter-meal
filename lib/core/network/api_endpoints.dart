@@ -89,8 +89,13 @@ class ApiEndpoints {
   static const String initiatePayment = '/api/client/payment/initiate';
   static const String initiateMealSizeUpgrade = '/api/client/payment/meal-size-upgrade/initiate';
   static const String mealSizeUpgradeOptions = '/api/client/payment/meal-size-upgrade/options';
+  static const String applyMealSizeDowngrade = '/api/client/payment/meal-size-downgrade/apply';
   static const String mealSizeUpgradePrices = '/api/client/meals/meal-size-upgrade-prices';
+  static const String wallet = '/api/client/wallet';
+  static const String walletPreview = '/api/client/wallet/preview';
+  static const String walletTransactions = '/api/client/wallet/transactions';
   static const String checkoutCart = '/api/client/payment/checkout-cart';
+  static const String abandonPayment = '/api/client/payment/abandon';
   static String paymentStatus(String txnId) => '/api/client/payment/status/$txnId';
   static const String paymentHistory = '/api/client/payment/history';
   static const String activeSubscriptions = '/api/client/payment/active-subscriptions';
