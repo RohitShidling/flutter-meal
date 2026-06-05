@@ -3,8 +3,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:meal_app/core/theme/app_theme.dart';
-import 'package:meal_app/core/utils/error_handler.dart';
-import 'package:meal_app/features/bulk_order/data/models/bulk_order_config.dart';
 import 'package:meal_app/features/bulk_order/data/models/bulk_variety_category.dart';
 import 'package:meal_app/features/bulk_order/providers/bulk_order_provider.dart';
 import 'package:meal_app/features/bulk_order/ui/screens/bulk_order_cart_screen.dart';
@@ -39,14 +37,10 @@ class _BulkOrderVarietyCategoriesScreenState extends State<BulkOrderVarietyCateg
     final filtered = _filterCategoryId == null
         ? categories
         : categories.where((c) => c.id == _filterCategoryId).toList();
+    final titleText = cfg?.varietyTierTitle?.isNotEmpty == true ? cfg!.varietyTierTitle! : 'Large event bulk';
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          cfg?.varietyTierTitle?.isNotEmpty == true ? cfg!.varietyTierTitle! : 'Large event bulk',
-          style: TextStyle(color: isDark ? Colors.white : AppTheme.textPrimaryLight),
-        ),
-      ),
+      backgroundColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
       floatingActionButton: p.bulkCartTotalMeals > 0
           ? FloatingActionButton.extended(
               heroTag: 'variety_cart_fab',
@@ -59,84 +53,131 @@ class _BulkOrderVarietyCategoriesScreenState extends State<BulkOrderVarietyCateg
             )
           : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      body: p.isLoading && p.varietyCategories.isEmpty
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Custom Header with rounded bottom corners
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.black26 : const Color(0xFFF3EBE0),
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
+              ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (cfg?.varietyTierDescription?.isNotEmpty == true)
-                    Text(
-                      cfg!.varietyTierDescription!,
-                      style: TextStyle(
-                        fontSize: 15,
-                        height: 1.4,
-                        color: isDark ? Colors.white70 : AppTheme.textSecondaryLight,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        icon: const Icon(CupertinoIcons.back, color: Color(0xFF8B7A66)),
+                        onPressed: () => Navigator.pop(context),
                       ),
-                    ),
+                      Text(
+                        'Buuttii',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                      const SizedBox(width: 48),
+                    ],
+                  ),
                   const SizedBox(height: 12),
                   Text(
-                    'Choose categories and add meal portions. Delivery details are collected when you pay.',
+                    titleText,
                     style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white70 : AppTheme.textSecondaryLight,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? Colors.white : const Color(0xFF5A4D42),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Categories',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 10),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        FilterChip(
-                          label: const Text('All'),
-                          selected: _filterCategoryId == null,
-                          onSelected: (_) => setState(() => _filterCategoryId = null),
-                        ),
-                        ...categories.map(
-                          (c) => Padding(
-                            padding: const EdgeInsets.only(left: 8),
-                            child: FilterChip(
-                              label: Text(c.name),
-                              selected: _filterCategoryId == c.id,
-                              onSelected: (_) => setState(() => _filterCategoryId = c.id),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  if (filtered.isEmpty)
-                    Text(
-                      'No categories available yet.',
-                      style: TextStyle(color: Colors.orange.shade700),
-                    ),
-                  ...filtered.map((c) => _CategoryCard(
-                        category: c,
-                        isDark: isDark,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            CupertinoPageRoute(
-                              builder: (_) => BulkOrderCategoryMealsScreen(
-                                categoryId: c.id,
-                                categoryName: c.name,
-                              ),
-                            ),
-                          );
-                        },
-                      )),
-                  // Extra bottom padding for FAB
-                  if (sum > 0) const SizedBox(height: 72),
                 ],
               ),
             ),
+            Expanded(
+              child: p.isLoading && p.varietyCategories.isEmpty
+                  ? const Center(child: CircularProgressIndicator())
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (cfg?.varietyTierDescription?.isNotEmpty == true)
+                            Text(
+                              cfg!.varietyTierDescription!,
+                              style: TextStyle(
+                                fontSize: 15,
+                                height: 1.4,
+                                color: isDark ? Colors.white70 : AppTheme.textSecondaryLight,
+                              ),
+                            ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Choose categories and add meal portions. Delivery details are collected when you pay.',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white70 : AppTheme.textSecondaryLight,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Categories',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 10),
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: [
+                                FilterChip(
+                                  label: const Text('All'),
+                                  selected: _filterCategoryId == null,
+                                  onSelected: (_) => setState(() => _filterCategoryId = null),
+                                ),
+                                ...categories.map(
+                                  (c) => Padding(
+                                    padding: const EdgeInsets.only(left: 8),
+                                    child: FilterChip(
+                                      label: Text(c.name),
+                                      selected: _filterCategoryId == c.id,
+                                      onSelected: (_) => setState(() => _filterCategoryId = c.id),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          if (filtered.isEmpty)
+                            Text(
+                              'No categories available yet.',
+                              style: TextStyle(color: Colors.orange.shade700),
+                            ),
+                          ...filtered.map((c) => _CategoryCard(
+                                category: c,
+                                isDark: isDark,
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    CupertinoPageRoute(
+                                      builder: (_) => BulkOrderCategoryMealsScreen(
+                                        categoryId: c.id,
+                                        categoryName: c.name,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              )),
+                          // Extra bottom padding for FAB
+                          if (sum > 0) const SizedBox(height: 72),
+                        ],
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -164,7 +205,7 @@ class _CategoryCard extends StatelessWidget {
           onTap: onTap,
           child: Ink(
             decoration: BoxDecoration(
-              border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.2)),
+              border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight, width: 1.5),
               borderRadius: BorderRadius.circular(14),
             ),
             child: Column(

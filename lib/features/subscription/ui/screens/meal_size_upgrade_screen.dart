@@ -525,37 +525,58 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
 
 
     return Scaffold(
-
-      appBar: AppBar(
-
-        title: const Text('Resize meal pack', style: TextStyle(fontWeight: FontWeight.w800)),
-
-        leading: IconButton(
-
-          icon: const Icon(CupertinoIcons.back),
-
-          onPressed: () => Navigator.pop(context),
-
-        ),
-
-      ),
-
+      backgroundColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
       body: SafeArea(
         child: _loading && subs.isEmpty
-
             ? const Center(child: CupertinoActivityIndicator())
-
-            : RefreshIndicator(
-
-              onRefresh: _load,
-
-              child: ListView(
-
-                physics: const AlwaysScrollableScrollPhysics(),
-
-                padding: const EdgeInsets.all(20),
-
+            : Column(
                 children: [
+                  // Custom Header with rounded bottom corners
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.black26 : const Color(0xFFF3EBE0),
+                      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            IconButton(
+                              icon: const Icon(CupertinoIcons.back, color: Color(0xFF8B7A66)),
+                              onPressed: () => Navigator.pop(context),
+                            ),
+                            Text(
+                              'Buuttii',
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w900,
+                                color: AppTheme.primaryColor,
+                              ),
+                            ),
+                            const SizedBox(width: 48),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Resize meal pack',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? Colors.white : const Color(0xFF5A4D42),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: RefreshIndicator(
+                      onRefresh: _load,
+                      child: ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.all(20),
+                        children: [
 
                   if (_error != null)
 
@@ -621,8 +642,11 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
                           width: double.infinity,
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.25)),
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(
+                              color: isDark ? AppTheme.borderDark : AppTheme.borderLight,
+                              width: 1.5,
+                            ),
                           ),
                           child: Row(
                             children: [
@@ -689,9 +713,10 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(24),
                             border: Border.all(
-                              color: isDark ? Colors.white12 : Colors.grey.shade300,
+                              color: isDark ? AppTheme.borderDark : AppTheme.borderLight,
+                              width: 1.5,
                             ),
                           ),
                           child: Row(
@@ -751,13 +776,12 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
                         padding: const EdgeInsets.all(14),
 
                         decoration: BoxDecoration(
-
-                          color: isDark ? AppTheme.surfaceDark : AppTheme.primaryColor.withValues(alpha: 0.08),
-
-                          borderRadius: BorderRadius.circular(14),
-
-                          border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.25)),
-
+                          color: isDark ? AppTheme.surfaceDark : Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: isDark ? AppTheme.borderDark : AppTheme.borderLight,
+                            width: 1.5,
+                          ),
                         ),
 
                         child: Row(
@@ -937,10 +961,16 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
 
                       final plan = _trim(h['plan_name'] ?? h['planName']);
 
-                      return Card(
-
-                        margin: const EdgeInsets.only(bottom: 8),
-
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: isDark ? AppTheme.surfaceDark : Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: isDark ? AppTheme.borderDark.withValues(alpha: 0.5) : AppTheme.borderLight,
+                            width: 1.5,
+                          ),
+                        ),
                         child: ListTile(
 
                           title: Text(who.isNotEmpty ? who : plan, style: const TextStyle(fontWeight: FontWeight.w700)),
@@ -972,16 +1002,14 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
                   ],
 
                   const SizedBox(height: 24),
-
                 ],
-
               ),
-
             ),
+          ),
+        ],
       ),
-
-    );
-
+    ),
+  );
   }
 
 
@@ -1021,20 +1049,20 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
           color: selected
               ? AppTheme.primaryColor.withValues(alpha: isDark ? 0.2 : 0.1)
               : (isDark ? AppTheme.surfaceDark : Colors.white),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(24),
           child: InkWell(
             onTap: () {
               setState(() => _toMealSizeId = id);
               _refreshUpgradeWalletPreview();
             },
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(24),
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(24),
                 border: Border.all(
-                  color: selected ? AppTheme.primaryColor : (isDark ? Colors.white12 : Colors.grey.shade300),
-                  width: selected ? 2 : 1,
+                  color: selected ? AppTheme.primaryColor : (isDark ? AppTheme.borderDark.withValues(alpha: 0.5) : AppTheme.borderLight),
+                  width: selected ? 2.5 : 1.5,
                 ),
               ),
               child: Row(

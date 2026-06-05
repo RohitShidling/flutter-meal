@@ -29,10 +29,10 @@ class PlanFeaturesRow extends StatelessWidget {
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
             decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withValues(alpha: isDark ? 0.18 : 0.1),
-              borderRadius: BorderRadius.circular(20),
+              color: isDark ? const Color(0xFF282828) : const Color(0xFFF0EBE1),
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: AppTheme.primaryColor.withValues(alpha: isDark ? 0.35 : 0.22),
+                color: isDark ? const Color(0xFF383838) : const Color(0xFFE0D8C8),
               ),
             ),
             child: Text(

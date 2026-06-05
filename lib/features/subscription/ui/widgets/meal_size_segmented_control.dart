@@ -45,9 +45,7 @@ class MealSizeSegmentedControl extends StatelessWidget {
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () => onChanged(index),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOutCubic,
+                child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   decoration: BoxDecoration(
                     color: selected ? selectedBg : Colors.transparent,
@@ -122,37 +120,28 @@ class MealSizeSegmentedControlWrap extends StatelessWidget {
         alignment: WrapAlignment.spaceEvenly,
         children: List.generate(options.length, (index) {
           final selected = index == selectedIndex;
-          return Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () => onChanged(index),
-              borderRadius: BorderRadius.circular(12),
-              splashColor: colorScheme.primary.withValues(alpha: 0.12),
-              highlightColor: colorScheme.primary.withValues(alpha: 0.08),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 280),
-                curve: Curves.easeInOutCubic,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-                decoration: BoxDecoration(
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => onChanged(index),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+              decoration: BoxDecoration(
+                color: selected ? selectedBg : Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
                   color: selected
-                      ? selectedBg
+                      ? colorScheme.primary.withValues(alpha: isDark ? 0.45 : 0.35)
                       : Colors.transparent,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: selected
-                        ? colorScheme.primary.withValues(alpha: isDark ? 0.45 : 0.35)
-                        : Colors.transparent,
-                  ),
                 ),
-                child: Text(
-                  options[index],
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                    color: selected
-                        ? (isDark ? Colors.white : AppTheme.textPrimaryLight)
-                        : (isDark ? Colors.white54 : AppTheme.textSecondaryLight),
-                  ),
+              ),
+              child: Text(
+                options[index],
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                  color: selected
+                      ? (isDark ? Colors.white : AppTheme.textPrimaryLight)
+                      : (isDark ? Colors.white54 : AppTheme.textSecondaryLight),
                 ),
               ),
             ),

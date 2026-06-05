@@ -161,16 +161,15 @@ class NetworkStatusService with ChangeNotifier {
     try {
       final dio = Dio(BaseOptions(
         baseUrl: ApiEndpoints.baseUrl,
-        connectTimeout: const Duration(seconds: 4),
-        receiveTimeout: const Duration(seconds: 4),
-        sendTimeout: const Duration(seconds: 4),
+        connectTimeout: const Duration(seconds: 8),
+        receiveTimeout: const Duration(seconds: 8),
+        sendTimeout: const Duration(seconds: 8),
       ));
       final res = await dio.get(ApiEndpoints.health);
-      if (res.statusCode == 200) {
-        if (_healthBodyOk(res.data)) return true;
+      if (res.statusCode != null && res.statusCode! >= 200 && res.statusCode! < 300) {
         return true;
       }
-      return res.statusCode != null && res.statusCode! >= 200 && res.statusCode! < 500;
+      return false;
     } catch (_) {
       return false;
     }

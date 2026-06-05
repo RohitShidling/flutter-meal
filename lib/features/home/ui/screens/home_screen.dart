@@ -4,30 +4,27 @@ import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:meal_app/features/auth/providers/auth_provider.dart';
 import 'package:meal_app/core/theme/app_theme.dart';
-import 'package:meal_app/core/widgets/apple_card.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:meal_app/features/profile/providers/profile_provider.dart';
 import 'package:meal_app/features/children/providers/children_provider.dart';
 import 'package:meal_app/features/children/ui/screens/children_management_screen.dart';
 import 'package:meal_app/features/profile/ui/screens/teacher_profile_screen.dart';
 import 'package:meal_app/features/profile/ui/screens/professional_profile_screen.dart';
-import 'package:meal_app/features/profile/ui/screens/settings_screen.dart';
 import 'package:meal_app/features/home/providers/homepage_provider.dart';
-import 'package:meal_app/features/home/data/models/homepage_entry.dart';
 import 'package:meal_app/features/home/providers/menu_provider.dart';
-import 'package:meal_app/features/home/ui/screens/weekly_menu_screen.dart';
 import 'package:meal_app/core/providers/meal_provider.dart';
 import 'package:meal_app/core/providers/cart_provider.dart';
 import 'package:meal_app/core/providers/subscription_provider.dart';
+import 'package:meal_app/core/providers/lookup_provider.dart';
 import 'package:meal_app/features/subscription/ui/screens/view_all_plans_screen.dart';
 import 'package:meal_app/features/bulk_order/providers/bulk_order_provider.dart';
 import 'package:meal_app/features/bulk_order/ui/screens/bulk_order_cart_screen.dart';
-import 'package:meal_app/features/bulk_order/ui/screens/bulk_order_screen.dart';
-import 'package:meal_app/features/subscription/ui/screens/meal_skip_screen.dart';
+import 'package:meal_app/features/bulk_order/ui/screens/bulk_order_hub_screen.dart';
 import 'package:meal_app/features/subscription/ui/screens/cart_screen.dart';
 import 'package:meal_app/core/widgets/image_preview_dialog.dart';
 import 'package:meal_app/features/subscription/ui/screens/subscription_management_screen.dart';
-
+import 'package:meal_app/features/home/ui/widgets/bottom_footer_nav.dart';
+import 'package:meal_app/core/navigation/app_routes.dart';
 
 import 'package:meal_app/core/services/network_status_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -52,7 +49,10 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     AppRouteTracker.instance.setCurrent(AppScreen.home);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _bootstrapHome());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _bootstrapHome();
+      context.read<LookupProvider>().fetchContactUsInfo();
+    });
   }
 
   @override
@@ -60,7 +60,6 @@ class _HomeScreenState extends State<HomeScreen> {
     AppRouteTracker.instance.clearIfCurrent(AppScreen.home);
     super.dispose();
   }
-
 
   /// Cold start / return-to-home: cache-first essentials, then meal bundle only when online.
   Future<void> _bootstrapHome() async {
@@ -208,6 +207,20 @@ class _HomeScreenState extends State<HomeScreen> {
         systemNavigationBarDividerColor: Colors.transparent,
       ),
       child: Scaffold(
+      backgroundColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
+      bottomNavigationBar: BuuttiiFooterNav(
+        currentIndex: 0,
+        onHomeTap: () {},
+        onWeekMenuTap: () {
+          Navigator.of(context).pushReplacementNamed(AppRoutes.weeklyMenu);
+        },
+        onMealSkipTap: () {
+          Navigator.of(context).pushReplacementNamed(AppRoutes.mealSkip);
+        },
+        onSettingsTap: () {
+          Navigator.of(context).pushReplacementNamed(AppRoutes.settings);
+        },
+      ),
       body: RefreshIndicator(
         onRefresh: () async {
           if (!mounted) return;
@@ -228,23 +241,23 @@ class _HomeScreenState extends State<HomeScreen> {
         },
         child: Container(
           decoration: BoxDecoration(
-            color: Theme.of(context).scaffoldBackgroundColor,
+            color: isDark ? AppTheme.backgroundDark : const Color(0xFFFAF8F5),
           ),
           child: SafeArea(
             child: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
-                _buildAppBar(context),
                 SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                   sliver: SliverList(
                     delegate: SliverChildListDelegate([
-                      _buildWelcomeSection(context, isDark),
+                      _buildWelcomeHeader(context, isDark),
+                      const SizedBox(height: 12),
                       _buildUpcomingPlanCard(context, isDark),
                       _buildTodayMealCard(context, isDark),
                       _buildAlertsBanner(context, isDark),
-                      _buildFeatureCards(context),
-                      const SizedBox(height: 20),
+                      _buildFeatureQuickLinks(context, isDark),
+                      const SizedBox(height: 10),
                       _buildQuickStatus(context),
                       const SizedBox(height: 18),
                       _buildAboutBuuttiiCard(context, isDark),
@@ -261,42 +274,44 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildAppBar(BuildContext context) {
-    return SliverAppBar(
-      floating: true,
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      centerTitle: false,
-      title: const Text(
-        'Buuttii',
-        style: TextStyle(
-          fontSize: 26,
-          fontWeight: FontWeight.w900,
-          letterSpacing: -1.5,
-        ),
+  Widget _buildWelcomeHeader(BuildContext context, bool isDark) {
+    final name = _displayName.isNotEmpty ? _displayName.trim() : 'User';
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Hi, $name!',
+                  style: TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w900,
+                    color: isDark ? Colors.white : const Color(0xFF5A4D42),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (context.watch<BulkOrderProvider>().hasBulkCartItems) ...[
+                _buildBulkCartActionButton(context),
+                const SizedBox(width: 4),
+              ],
+              if (context.watch<CartProvider>().itemCount > 0) ...[
+                _buildCartActionButton(context),
+                const SizedBox(width: 4),
+              ],
+              _buildPlansButton(context),
+            ],
+          ),
+        ],
       ),
-      actions: [
-        _buildPlansButton(context),
-        if (context.watch<BulkOrderProvider>().hasBulkCartItems) ...[
-          const SizedBox(width: 6),
-          _buildBulkCartActionButton(context),
-        ],
-        if (context.watch<CartProvider>().itemCount > 0) ...[
-          const SizedBox(width: 6),
-          _buildCartActionButton(context),
-        ],
-        const SizedBox(width: 4),
-        IconButton(
-          icon: const Icon(CupertinoIcons.settings_solid, size: 24),
-          onPressed: () {
-            Navigator.push(
-              context,
-              CupertinoPageRoute(builder: (context) => const SettingsScreen()),
-            );
-          },
-        ),
-        const SizedBox(width: 12),
-      ],
     );
   }
 
@@ -446,30 +461,31 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 10),
       child: GestureDetector(
-        onTap: () {
-          context.read<SubscriptionProvider>().fetchSubscriptions(silent: true);
-          Navigator.push(
-            context,
-            CupertinoPageRoute(builder: (_) => const ViewAllPlansScreen()),
-
-          );
+        onTap: () async {
+          try {
+            await context.read<SubscriptionProvider>().fetchSubscriptions(silent: true);
+            if (!mounted) return;
+            Navigator.push(
+              context,
+              CupertinoPageRoute(builder: (_) => const ViewAllPlansScreen()),
+            );
+          } catch (e) {
+            // Silently handle navigation errors
+          }
         },
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFFFF4D00), Color(0xFFFF8533)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+            color: AppTheme.primaryColor,
             borderRadius: BorderRadius.circular(18),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFFFF4D00).withValues(alpha: 0.3),
+                color: AppTheme.primaryColor.withValues(alpha: 0.14),
                 blurRadius: 8,
                 offset: const Offset(0, 3),
               ),
             ],
+            border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.18)),
           ),
           child: const Row(
             mainAxisSize: MainAxisSize.min,
@@ -493,202 +509,119 @@ class _HomeScreenState extends State<HomeScreen> {
     .animate(onPlay: (controller) => controller.repeat())
     .shimmer(duration: 2500.ms, color: Colors.white.withValues(alpha: 0.4))
     .scale(duration: 2000.ms, begin: const Offset(1, 1), end: const Offset(1.02, 1.02), curve: Curves.easeInOut);
-
   }
 
-  Widget _buildWelcomeSection(BuildContext context, bool isDark) {
-    final textTheme = Theme.of(context).textTheme;
-    final colorScheme = Theme.of(context).colorScheme;
-    final name = _displayName.isNotEmpty ? _displayName.trim() : 'User';
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isDark 
-            ? [AppTheme.primaryColor.withValues(alpha: 0.2), Colors.transparent]
-            : [AppTheme.primaryColor.withValues(alpha: 0.05), Colors.transparent],
-
-        ),
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Row(
-        children: [
-          Text(
-            'Welcome Back, ',
-            style: textTheme.titleMedium?.copyWith(
-              fontSize: 18,
-              color: colorScheme.onSurface.withValues(alpha: 0.8),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          Expanded(
-            child: Text(
-              name,
-              maxLines: 2,
-              softWrap: true,
-              style: textTheme.titleMedium?.copyWith(
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-                color: colorScheme.onSurface,
-              ),
-            ),
-          ),
-        ],
-      ),
-    ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0);
-  }
-
-  /// Separate card below welcome — upcoming plan start date (industry-style status card).
   Widget _buildUpcomingPlanCard(BuildContext context, bool isDark) {
     final statusData = context.watch<MealProvider>().subscriptionStatusData;
-    if (!SubscriptionStatusNormalizer.accountHasOnlyUpcoming(statusData)) {
+    if (statusData == null) return const SizedBox.shrink();
+
+    final list = statusData['entities'] is List
+        ? statusData['entities'] as List
+        : (statusData['data'] is List ? statusData['data'] as List : const []);
+
+    final today = MealDate.sessionTodayYmd();
+    final upcomingRows = list.whereType<Map<String, dynamic>>().where((row) {
+      return SubscriptionStatusNormalizer.rowIsUpcoming(row, today);
+    }).toList();
+
+    if (upcomingRows.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    final upcomingStart = SubscriptionStatusNormalizer.earliestUpcomingStartYmd(statusData);
-    final upcomingLabel = upcomingStart != null ? MealDate.formatDisplay(upcomingStart) : null;
-    if (upcomingLabel == null) return const SizedBox.shrink();
-    final upcomingMessage = _upcomingPlanMessage(statusData, upcomingStart, upcomingLabel);
+    // Sort upcoming rows by start date so the earliest shows first
+    upcomingRows.sort((a, b) {
+      final aStart = a['start_date']?.toString() ?? '';
+      final bStart = b['start_date']?.toString() ?? '';
+      return aStart.compareTo(bStart);
+    });
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: AppleCard(
-        margin: EdgeInsets.zero,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        borderRadius: 18,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    final widgets = <Widget>[];
+    for (final row in upcomingRows) {
+      final startYmd = row['start_date']?.toString();
+      if (startYmd == null) continue;
+
+      final formattedDate = MealDate.formatDisplay(startYmd);
+
+      // Determine name
+      String name = '';
+      final rawName = row['entity_name'] ?? row['name'] ?? row['child_name'];
+      if (rawName != null && rawName.toString().trim().isNotEmpty) {
+        name = rawName.toString().trim();
+      } else {
+        final entityType = row['entity_type']?.toString();
+        final entityId = row['entity_id']?.toString();
+        if (entityType == 'child' && entityId != null) {
+          final child = context.read<ChildrenProvider>().children.where((c) => c.id?.toString() == entityId).firstOrNull;
+          if (child != null) name = child.name;
+        } else if (entityType == 'teacher') {
+          final tp = context.read<ProfileProvider>().teacherProfile;
+          if (tp != null) name = tp.name;
+        } else if (entityType == 'professional') {
+          final pp = context.read<ProfileProvider>().professionalProfile;
+          if (pp != null) name = pp.name;
+        }
+      }
+
+      if (name.isEmpty) {
+        name = 'Profile';
+      }
+
+      final message = "$name will start receiving meals from $formattedDate";
+
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isDark ? AppTheme.surfaceDark : Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isDark ? AppTheme.borderDark : AppTheme.borderLight,
+                width: 1.5,
+              ),
+            ),
+            child: Row(
               children: [
                 Container(
                   width: 42,
                   height: 42,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEAB308).withOpacity(0.15),
+                    color: isDark ? Colors.white.withValues(alpha: 0.1) : const Color(0xFFFFF4EC),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(CupertinoIcons.calendar_badge_plus, color: Color(0xFFEAB308), size: 20),
+                  child: const Icon(CupertinoIcons.calendar_today, color: AppTheme.primaryColor, size: 20),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Upcoming plan',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        upcomingMessage,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                          height: 1.3,
-                          color: isDark ? Colors.white : AppTheme.textPrimaryLight,
-                        ),
-                      ),
-                    ],
+                  child: Text(
+                    message,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? Colors.white : const Color(0xFF5A4D42),
+                    ),
                   ),
                 ),
               ],
             ),
-          ],
+          ),
         ),
-      ),
-    ).animate().fadeIn(duration: 350.ms).slideY(begin: 0.06, end: 0);
-  }
-
-  String _upcomingPlanMessage(
-    Map<String, dynamic>? statusData,
-    String? upcomingStart,
-    String upcomingLabel,
-  ) {
-    final groups = _upcomingPlanGroups(statusData);
-    if (groups.isEmpty) {
-      if (upcomingStart == null) return 'Your plan starts receiving meals soon';
-      return 'Your plan starts receiving meals from $upcomingLabel';
-    }
-
-    final parts = <String>[];
-    for (final group in groups.take(2)) {
-      final names = List<String>.from(group['names'] as List);
-      final label = group['label'] as String;
-      final profileLabel = _formatUpcomingNames(names);
-      final isPlural = names.length > 1;
-      parts.add(
-        isPlural
-            ? '$profileLabel start receiving meals from $label'
-            : '$profileLabel starts receiving meals from $label',
       );
     }
 
-    if (groups.length > 2) {
-      parts.add('${groups.length - 2} more upcoming plan(s) scheduled after that');
+    if (widgets.isEmpty) {
+      return const SizedBox.shrink();
     }
 
-    return parts.join('. ');
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: widgets,
+    );
   }
 
-  List<Map<String, dynamic>> _upcomingPlanGroups(Map<String, dynamic>? statusData) {
-    if (statusData == null) return const [];
-    final rows = statusData['entities'] is List
-        ? statusData['entities'] as List
-        : (statusData['data'] is List ? statusData['data'] as List : const []);
-    final today = MealDate.sessionTodayYmd();
-    final grouped = <String, List<String>>{};
-
-    for (final row in rows) {
-      if (row is! Map) continue;
-      final map = Map<String, dynamic>.from(row);
-      if (!SubscriptionStatusNormalizer.rowIsUpcoming(map, today)) continue;
-      final start = map['start_date']?.toString();
-      final startYmd = (start != null && start.length >= 10) ? start.substring(0, 10) : null;
-      if (startYmd == null) continue;
-      final name = map['entity_name']?.toString().trim();
-      if (name != null && name.isNotEmpty) {
-        final names = grouped.putIfAbsent(startYmd, () => <String>[]);
-        if (!names.contains(name)) {
-          names.add(name);
-        }
-      }
-    }
-
-    final sortedKeys = grouped.keys.toList()..sort();
-    return sortedKeys
-        .map((ymd) => {
-              'start': ymd,
-              'label': MealDate.formatDisplay(ymd),
-              'names': grouped[ymd]!,
-            })
-        .toList();
-  }
-
-  String _formatUpcomingNames(List<String> names) {
-    if (names.isEmpty) return 'Your plan';
-    if (names.length == 1) return names.first;
-    if (names.length == 2) return '${names[0]} and ${names[1]}';
-    return '${names[0]} +${names.length - 1} more';
-  }
-
-  /// Today's meal card — ONLY shown when user has active subscription.
-  /// Shows today's meal image and a "One Week Meal" button.
-  /// If not subscribed, returns SizedBox.shrink() (no gap).
   Widget _buildTodayMealCard(BuildContext context, bool isDark) {
     final menuProvider = context.watch<MenuProvider>();
-    final mealProvider = context.watch<MealProvider>();
-
-    if (!mealProvider.isSubscribed) return const SizedBox.shrink();
-
     final msg = menuProvider.homeMealMessage?.trim() ?? '';
     if (menuProvider.isLoading && menuProvider.todayMenu == null && msg.isEmpty) {
       return TodayMealCardSkeleton(isDark: isDark);
@@ -697,56 +630,33 @@ class _HomeScreenState extends State<HomeScreen> {
     if (msg.isNotEmpty) {
       return Padding(
         padding: const EdgeInsets.only(bottom: 16),
-        child: AppleCard(
-          margin: EdgeInsets.zero,
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-          borderRadius: 20,
-          child: Column(
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark ? AppTheme.surfaceDark : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight, width: 1.5),
+          ),
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(CupertinoIcons.info_circle_fill, color: AppTheme.primaryColor, size: 22),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      msg,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                        height: 1.35,
-                        color: isDark ? Colors.white : AppTheme.textPrimaryLight,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      CupertinoPageRoute(builder: (_) => const WeeklyMenuScreen()),
-                    );
-                  },
-                  icon: const Icon(CupertinoIcons.calendar, size: 18),
-                  label: const Text(
-                    'One Week Meal',
-                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              Icon(CupertinoIcons.info_circle_fill, color: AppTheme.primaryColor, size: 22),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  msg,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    height: 1.35,
+                    color: isDark ? Colors.white : AppTheme.textPrimaryLight,
                   ),
                 ),
               ),
             ],
           ),
         ),
-      ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.05, end: 0);
+      );
     }
 
     if (menuProvider.todayMenu == null) return const SizedBox.shrink();
@@ -754,7 +664,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final menu = menuProvider.todayMenu!;
     final imageUrl = menu['image_url']?.toString();
     final items = menu['items']?.toString() ?? menu['item_name']?.toString() ?? 'Today\'s Meal';
-    final menuDate = menu['menu_date']?.toString() ?? '';
     final nutritionPoints = (menu['nutrition_points'] as List?)
             ?.map((e) => e.toString())
             .where((e) => e.trim().isNotEmpty)
@@ -762,158 +671,113 @@ class _HomeScreenState extends State<HomeScreen> {
         [];
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          gradient: LinearGradient(
-            colors: isDark
-                ? [const Color(0xFF1E293B), const Color(0xFF0F172A)]
-                : [Colors.white, const Color(0xFFF8FAFC)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.primaryColor.withValues(alpha: 0.08),
-              blurRadius: 20,
-              offset: const Offset(0, 6),
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "Today's Meal",
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+              color: isDark ? Colors.white : const Color(0xFF5A4D42),
             ),
-          ],
-          border: Border.all(
-            color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.grey.withValues(alpha: 0.1),
           ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Meal image — tappable for preview
-            GestureDetector(
-              onTap: () {
-                if (imageUrl != null && imageUrl.isNotEmpty) {
-                  ImagePreviewDialog.show(context, imageUrl, title: items);
-                }
-              },
-              child: _buildMealImage(imageUrl, 140),
+          const SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              color: isDark ? AppTheme.surfaceDark : Colors.white,
+              border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight, width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
-
-            // Meal info row + button — compact
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Meal name + TODAY badge — compact single row
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          items,
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w900,
-                            color: isDark ? Colors.white : AppTheme.textPrimaryLight,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Stack(
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        if (imageUrl != null && imageUrl.isNotEmpty) {
+                          ImagePreviewDialog.show(context, imageUrl, title: items);
+                        }
+                      },
+                      child: _buildMealImage(imageUrl, 180),
+                    ),
+                    if (nutritionPoints.isNotEmpty)
+                      Positioned(
+                        bottom: 12,
+                        left: 12,
+                        child: Wrap(
+                          spacing: 6,
+                          children: nutritionPoints.take(3).map((point) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: Colors.teal.withValues(alpha: 0.85),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                point,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            );
+                          }).toList(),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
+                  ],
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        items,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: isDark ? Colors.white : AppTheme.textPrimaryLight,
                         ),
-                        child: Text(
-                          menuDate.isNotEmpty ? 'TODAY' : 'MEAL',
-                          style: const TextStyle(
-                            color: AppTheme.primaryColor,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 10,
-                            letterSpacing: 1,
-                          ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Freshly prepared daily for our subscribers',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: isDark ? Colors.white54 : AppTheme.textSecondaryLight,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  if (nutritionPoints.isNotEmpty) ...[
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: nutritionPoints.map((point) {
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8.0),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primaryColor.withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.2)),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(CupertinoIcons.leaf_arrow_circlepath, size: 14, color: AppTheme.primaryColor),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    point,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: isDark ? Colors.white : AppTheme.textPrimaryLight,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          CupertinoPageRoute(builder: (_) => const WeeklyMenuScreen()),
-                        );
-                      },
-                      icon: const Icon(CupertinoIcons.calendar, size: 18),
-                      label: const Text(
-                        'One Week Meal',
-                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ).animate().fadeIn(duration: 500.ms).slideY(begin: 0.05, end: 0),
+          ),
+        ],
+      ),
     );
   }
 
-  /// Builds the meal image with placeholder fallback (reusable).
   Widget _buildMealImage(String? imageUrl, double height) {
     if (imageUrl != null && imageUrl.isNotEmpty) {
       return ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         child: ColoredBox(
           color: Theme.of(context).brightness == Brightness.dark
               ? AppTheme.surfaceDark
-              : AppTheme.primaryColor.withValues(alpha: 0.05),
+              : const Color(0xFFF7F2EA),
           child: CachedNetworkImage(
             imageUrl: imageUrl,
             width: double.infinity,
@@ -926,7 +790,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
     return ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       child: _buildMealPlaceholder(height),
     );
   }
@@ -934,7 +798,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildMealPlaceholder(double height) {
     return SkeletonBone(
       height: height,
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
     );
   }
 
@@ -955,9 +819,9 @@ class _HomeScreenState extends State<HomeScreen> {
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.orange.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+            color: isDark ? const Color(0xFF2E2008) : const Color(0xFFFFF5E6),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: isDark ? const Color(0xFF5C4010) : const Color(0xFFFFDFA6)),
           ),
           child: Row(
             children: [
@@ -1025,253 +889,146 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Quick actions — conditionally shown:
-  /// - Meal Skips: only when user has active subscription
-  Widget _buildQuickActions(BuildContext context, bool isDark) {
-    final mealProvider = context.watch<MealProvider>();
-    final isSubscribed = mealProvider.isSubscribed;
-
-    if (!isSubscribed) return const SizedBox.shrink();
-
+  Widget _buildFeatureQuickLinks(BuildContext context, bool isDark) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: _buildQuickActionTile(
-              context,
-              'Meal Skips',
-              CupertinoIcons.calendar_badge_minus,
-              Colors.orange,
-              isDark,
-              () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const MealSkipScreen())),
+          Text(
+            'Explore Plans',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+              color: isDark ? Colors.white : const Color(0xFF5A4D42),
             ),
           ),
+          const SizedBox(height: 12),
+          Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildQuickLinkCard(
+                      context: context,
+                      title: 'Manage Child',
+                      icon: CupertinoIcons.person_3_fill,
+                      bgColor: isDark ? const Color(0xFF1E3A8A) : const Color(0xFFDBEAFE),
+                      iconColor: const Color(0xFF3B82F6),
+                      isDark: isDark,
+                      onTap: () {
+                        Navigator.push(context, CupertinoPageRoute(builder: (_) => const ChildrenManagementScreen()));
+                        if (NetworkStatusService.instance.isOnline) context.read<ChildrenProvider>().fetchChildren(silent: true);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildQuickLinkCard(
+                      context: context,
+                      title: 'Teacher Plan',
+                      icon: CupertinoIcons.book_fill,
+                      bgColor: isDark ? const Color(0xFF78350F) : const Color(0xFFFDE68A),
+                      iconColor: const Color(0xFFD97706),
+                      isDark: isDark,
+                      onTap: () {
+                        Navigator.push(context, CupertinoPageRoute(builder: (_) => const TeacherProfileScreen()));
+                        if (NetworkStatusService.instance.isOnline) context.read<ProfileProvider>().fetchProfiles(silent: true);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildQuickLinkCard(
+                      context: context,
+                      title: 'Professional Plan',
+                      icon: CupertinoIcons.briefcase_fill,
+                      bgColor: isDark ? const Color(0xFF4C1D95) : const Color(0xFFE9D5FF),
+                      iconColor: const Color(0xFF8B5CF6),
+                      isDark: isDark,
+                      onTap: () {
+                        Navigator.push(context, CupertinoPageRoute(builder: (_) => const ProfessionalProfileScreen()));
+                        if (NetworkStatusService.instance.isOnline) context.read<ProfileProvider>().fetchProfiles(silent: true);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildQuickLinkCard(
+                      context: context,
+                      title: 'Bulk Order',
+                      icon: CupertinoIcons.square_stack_3d_up_fill,
+                      bgColor: isDark ? const Color(0xFF064E3B) : const Color(0xFFD1FAE5),
+                      iconColor: const Color(0xFF10B981),
+                      isDark: isDark,
+                      onTap: () {
+                        Navigator.push(context, CupertinoPageRoute(builder: (_) => const BulkOrderHubScreen()));
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ],
-      ).animate().fadeIn(delay: 200.ms),
-    );
-  }
-
-  Widget _buildQuickActionTile(BuildContext context, String label, IconData icon, Color color, bool isDark, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-        decoration: BoxDecoration(
-          color: isDark ? AppTheme.surfaceDark : Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.1)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: color, size: 18),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                  color: isDark ? Colors.white : AppTheme.textPrimaryLight,
-                ),
-              ),
-            ),
-            Icon(CupertinoIcons.chevron_right, size: 14, color: isDark ? Colors.white38 : Colors.grey),
-          ],
-        ),
       ),
     );
   }
 
-  Widget _buildFeatureCards(BuildContext context) {
-    final homepageProvider = context.watch<HomepageProvider>();
-
-    // Show cached data immediately; only show spinner if truly empty and loading.
-    if (homepageProvider.entries.isEmpty && homepageProvider.isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (homepageProvider.entries.isEmpty) {
-      return const Center(child: Text('No features available'));
-    }
-
-    final profileProvider = context.watch<ProfileProvider>();
-    return Column(
-      children: homepageProvider.entries.map((entry) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8.0),
-          child: _buildFeatureCard(
-            context,
-            entry.name,
-            _featureSubtitle(entry, profileProvider),
-            _getIconForEntry(entry),
-            _getColorForEntry(entry),
-            () => _handleCardTap(context, entry),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  IconData _getIconForEntry(HomepageEntry entry) {
-    switch (entry.entityId) {
-      case 'ENT-1':
-        return CupertinoIcons.person_3_fill;
-      case 'ENT-2':
-        return CupertinoIcons.book_fill;
-      case 'ENT-3':
-        return CupertinoIcons.briefcase_fill;
-      default:
-        return CupertinoIcons.square_grid_2x2_fill;
-    }
-  }
-
-  Color _getColorForEntry(HomepageEntry entry) {
-    switch (entry.entityId) {
-      case 'ENT-1':
-        return Colors.blue;
-      case 'ENT-2':
-        return Colors.green;
-      case 'ENT-3':
-        return Colors.orange;
-      default:
-        return AppTheme.primaryColor;
-    }
-  }
-
-  /// Stable, entity-id–based routing (no more fuzzy name matching).
-  /// Backend returns `entity_id` like `ENT-1` (child), `ENT-2` (teacher),
-  /// `ENT-3` (professional). Anything else is treated as not-yet-supported.
-  void _handleCardTap(BuildContext context, HomepageEntry entry) {
-    if ((entry.entityName ?? '').trim().toLowerCase() == 'bulk') {
-      Navigator.push(context, CupertinoPageRoute(builder: (_) => const BulkOrderHubScreen()));
-      return;
-    }
-    switch (entry.entityId) {
-      case 'ENT-1':
-        Navigator.push(context, CupertinoPageRoute(builder: (_) => const ChildrenManagementScreen()));
-        if (NetworkStatusService.instance.isOnline) context.read<ChildrenProvider>().fetchChildren(silent: true);
-        return;
-      case 'ENT-2':
-        Navigator.push(context, CupertinoPageRoute(builder: (_) => const TeacherProfileScreen()));
-        if (NetworkStatusService.instance.isOnline) context.read<ProfileProvider>().fetchProfiles(silent: true);
-        return;
-      case 'ENT-3':
-        Navigator.push(context, CupertinoPageRoute(builder: (_) => const ProfessionalProfileScreen()));
-        if (NetworkStatusService.instance.isOnline) context.read<ProfileProvider>().fetchProfiles(silent: true);
-        return;
-      default:
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('This feature is coming soon.')),
-        );
-    }
-  }
-
-  Future<void> _openSubscribeCartForHomeEntry(BuildContext context, HomepageEntry entry) async {
-    await Future.wait([
-      context.read<ChildrenProvider>().fetchChildren(silent: true),
-      context.read<ProfileProvider>().fetchProfiles(silent: true),
-    ]);
-    if (!context.mounted) return;
-    switch (entry.entityId) {
-      case 'ENT-1':
-        _navigateToChildrenManage(context);
-        return;
-      case 'ENT-2':
-        _navigateToTeacherProfile(context);
-        return;
-      case 'ENT-3':
-        _navigateToProfessionalProfile(context);
-        return;
-      default:
-        await _openFirstAvailableManageScreen(context);
-    }
-  }
-
-  String _featureSubtitle(HomepageEntry entry, ProfileProvider profiles) {
-    switch (entry.entityId) {
-      case 'ENT-2':
-        final teacher = profiles.teacherProfile;
-        if (teacher != null && (teacher.id ?? '').toString().isNotEmpty) {
-          return 'Registered • ${teacher.name}';
-        }
-        return entry.description;
-      case 'ENT-3':
-        final pro = profiles.professionalProfile;
-        if (pro != null && (pro.id ?? '').toString().isNotEmpty) {
-          return 'Registered • ${pro.name}';
-        }
-        return entry.description;
-      default:
-        return entry.description;
-    }
-  }
-
-  Widget _buildFeatureCard(
-    BuildContext context,
-    String title,
-    String subtitle,
-    IconData icon,
-    Color color,
-    VoidCallback onTap, {
-    Widget? trailing,
+  Widget _buildQuickLinkCard({
+    required BuildContext context,
+    required String title,
+    required IconData icon,
+    required Color bgColor,
+    required Color iconColor,
+    required bool isDark,
+    required VoidCallback onTap,
   }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    
-    return AppleCard(
-      onTap: onTap,
-      margin: const EdgeInsets.symmetric(vertical: 2), // Tighter margin
-      color: isDark ? AppTheme.surfaceDark : Colors.white,
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Icon(icon, color: color, size: 30),
-          ),
-          const SizedBox(width: 20),
-          Expanded(
+    return Container(
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: iconColor, size: 22),
+                ),
+                const SizedBox(height: 12),
                 Text(
                   title,
+                  textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                  maxLines: 4,
-                  softWrap: true,
-                  overflow: TextOverflow.visible,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                    style: TextStyle(
-                      fontSize: 12,
-                    color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    height: 1.2,
+                    color: isDark ? Colors.white : const Color(0xFF1E293B),
                   ),
                 ),
               ],
             ),
           ),
-          if (trailing != null) trailing,
-          const Icon(CupertinoIcons.chevron_right, color: Colors.grey, size: 18),
-        ],
+        ),
       ),
-    ).animate().fadeIn().slideX(begin: 0.1, end: 0);
+    );
   }
 
   Widget _buildQuickStatus(BuildContext context) {
@@ -1292,7 +1049,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        // Compact, production-grade activity row — children count + plan status pill.
         _buildActivitySummary(
           context,
           isDark,
@@ -1302,89 +1058,75 @@ class _HomeScreenState extends State<HomeScreen> {
           hasUpcoming: mealProvider.subscriptionStatusData?['has_upcoming_subscription'] == true,
           statusData: mealProvider.subscriptionStatusData,
         ),
-
       ],
     ).animate().fadeIn(delay: 400.ms);
   }
 
   Widget _buildAboutBuuttiiCard(BuildContext context, bool isDark) {
-    return AppleCard(
-      margin: EdgeInsets.zero,
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
-      borderRadius: 20,
-      child: Column(
+    final provider = context.watch<LookupProvider>();
+    final contactInfo = provider.contactUsInfo;
+    final aboutTitle = contactInfo == null ? null : contactInfo.aboutTitle!.trim();
+    final aboutDescription = contactInfo == null ? null : contactInfo.aboutDescription!.trim();
+    final title = aboutTitle != null && aboutTitle.isNotEmpty ? aboutTitle : 'About Us';
+    final description = aboutDescription != null && aboutDescription.isNotEmpty
+        ? aboutDescription
+        : "We're committed to healthy, joyful eating for all.";
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.surfaceDark : const Color(0xFFF3EBE0),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight, width: 1.5),
+      ),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Icon(
-                  CupertinoIcons.info_circle_fill,
-                  color: AppTheme.primaryColor,
-                  size: 21,
-                ),
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Center(
+              child: Icon(
+                CupertinoIcons.heart_fill,
+                color: AppTheme.primaryColor,
+                size: 36,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'About Buuttii',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w900,
-                        color: isDark ? Colors.white : AppTheme.textPrimaryLight,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Healthy meals made simple',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Text(
-            'Buuttii helps families, teachers, professionals, and teams manage fresh meal plans with simple subscriptions, daily menu updates, nutrition highlights, and easy bulk ordering in one place.',
-            style: TextStyle(
-              fontSize: 13,
-              height: 1.5,
-              color: isDark ? Colors.white70 : AppTheme.textSecondaryLight,
             ),
           ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: const [
-              _AboutTag(icon: CupertinoIcons.calendar_today, label: 'Daily menus'),
-              _AboutTag(icon: CupertinoIcons.leaf_arrow_circlepath, label: 'Nutrition info'),
-              _AboutTag(icon: CupertinoIcons.person_3_fill, label: 'Multi-profile plans'),
-              _AboutTag(icon: CupertinoIcons.bag_fill, label: 'Bulk orders'),
-            ],
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: isDark ? Colors.white : const Color(0xFF5A4D42),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  description,
+                  style: TextStyle(
+                    fontSize: 14,
+                    height: 1.4,
+                    color: isDark ? Colors.white70 : const Color(0xFF8B7A66),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
-    ).animate().fadeIn(delay: 500.ms).slideY(begin: 0.08, end: 0);
+    );
   }
 
-  /// Compact single-card activity summary: children + plan status side by side.
-  /// Tapping the plan-status side navigates to subscription management when
-  /// active, or opens upgrade flow when inactive — never blocks the user.
   Widget _buildActivitySummary(
     BuildContext context,
     bool isDark, {
@@ -1393,7 +1135,6 @@ class _HomeScreenState extends State<HomeScreen> {
     required bool hasActive,
     required bool hasUpcoming,
     Map<String, dynamic>? statusData,
-
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -1412,7 +1153,6 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Left: Children
             Expanded(
               child: InkWell(
                 onTap: () {
@@ -1444,10 +1184,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             Text(
                               '$childrenCount',
                               style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w900,
-                                color: isDark ? Colors.white : AppTheme.textPrimaryLight,
-                              ),
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                  color: isDark ? Colors.white : AppTheme.textPrimaryLight),
                             ),
                             Text(
                               'Children',
@@ -1465,9 +1204,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-            // Vertical divider
             Container(width: 1, color: isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.12)),
-            // Right: Plan status pill — compact + tappable
             Expanded(
               child: _buildPlanStatusPill(
                 context,
@@ -1476,7 +1213,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 hasUpcoming: hasUpcoming,
                 statusData: statusData,
               ),
-
             ),
           ],
         ),
@@ -1565,46 +1301,6 @@ class _HomeScreenState extends State<HomeScreen> {
             Icon(CupertinoIcons.chevron_right, size: 14, color: isDark ? Colors.white38 : Colors.grey),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _AboutTag extends StatelessWidget {
-  const _AboutTag({
-    required this.icon,
-    required this.label,
-  });
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.04) : AppTheme.primaryColor.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isDark ? Colors.white.withValues(alpha: 0.08) : AppTheme.primaryColor.withValues(alpha: 0.14),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: AppTheme.primaryColor),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: isDark ? Colors.white70 : AppTheme.textPrimaryLight,
-            ),
-          ),
-        ],
       ),
     );
   }

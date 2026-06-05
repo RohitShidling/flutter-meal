@@ -285,17 +285,25 @@ class _PlanPickerSheetState extends State<_PlanPickerSheet> {
                   ),
                   if (isTrial)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                        color: Colors.orange.withValues(alpha: isDark ? 0.25 : 0.15),
+                        color: const Color(0xFFFF6B00),
                         borderRadius: BorderRadius.circular(8),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFF6B00).withValues(alpha: 0.3),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: Text(
-                        '${plan.trialDays}d trial',
+                        'TRIAL',
                         style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          color: isDark ? Colors.orange.shade200 : Colors.orange.shade900,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          letterSpacing: 0.5,
                         ),
                       ),
                     ),
@@ -342,7 +350,7 @@ class _PlanPickerSheetState extends State<_PlanPickerSheet> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
-        color: isDark ? Colors.white.withValues(alpha: 0.04) : AppTheme.primaryColor.withValues(alpha: 0.04),
+        color: isDark ? const Color(0xFF282828) : const Color(0xFFF7F2EA),
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
@@ -376,7 +384,7 @@ class _PlanPickerSheetState extends State<_PlanPickerSheet> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: AppTheme.primaryColor.withValues(alpha: isDark ? 0.2 : 0.12),
+                            color: isDark ? const Color(0xFF2E2420) : const Color(0xFFE8E0D0),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(

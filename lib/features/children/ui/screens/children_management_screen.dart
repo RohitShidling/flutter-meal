@@ -77,63 +77,119 @@ class _ChildrenManagementScreenState extends State<ChildrenManagementScreen> {
     final childrenProvider = context.watch<ChildrenProvider>();
     final children = childrenProvider.children;
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: const Text('Manage Children'),
-        leading: IconButton(
-          icon: const Icon(CupertinoIcons.back),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
+      backgroundColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
       body: SafeArea(
-        child: CartOverlayBody(
-          child: RefreshIndicator(
-            onRefresh: () async {
-              await Future.wait([
-                childrenProvider.fetchChildren(),
-                context.read<LookupProvider>().fetchInitialData(force: true),
-              ]);
-            },
-          child: childrenProvider.isLoading && children.isEmpty
-            ? const Center(child: CircularProgressIndicator())
-            : ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            // Custom Header with rounded bottom corners
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.black26 : const Color(0xFFF3EBE0),
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
+              ),
+              child: Column(
                 children: [
-                  if (children.isEmpty)
-                    _buildEmptyState()
-                  else
-                    ...children.map((child) => _buildChildCard(context, child)),
-                  
-                  if (children.length < 3)
-                    const SizedBox(height: 20),
-                  if (children.length < 3)
-                    ElevatedButton.icon(
-                      onPressed: () => _showChildForm(context),
-                      icon: const Icon(CupertinoIcons.add),
-                      label: const Text('Add Child'),
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 60),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        icon: const Icon(CupertinoIcons.back, color: Color(0xFF8B7A66)),
+                        onPressed: () => Navigator.pop(context),
                       ),
-                    ),
-                  const SizedBox(height: 72),
-                  if (children.length >= 3)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 20),
-                      child: Text(
-                        'Maximum 3 children allowed.',
-                        textAlign: TextAlign.center,
+                      Text(
+                        'Buuttii',
                         style: TextStyle(
-                          color: Theme.of(context).textTheme.bodyMedium?.color,
-                          fontStyle: FontStyle.italic,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          color: AppTheme.primaryColor,
                         ),
                       ),
+                      CircleAvatar(
+                        radius: 18,
+                        backgroundColor: isDark ? Colors.white12 : Colors.black12,
+                        child: const Icon(CupertinoIcons.person_fill, color: Colors.white, size: 20),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Manage Children',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? Colors.white : const Color(0xFF5A4D42),
                     ),
-                  const SizedBox(height: 80),
+                  ),
                 ],
               ),
             ),
+            Expanded(
+              child: CartOverlayBody(
+                child: RefreshIndicator(
+                  onRefresh: () async {
+                    await Future.wait([
+                      childrenProvider.fetchChildren(),
+                      context.read<LookupProvider>().fetchInitialData(force: true),
+                    ]);
+                  },
+                  child: childrenProvider.isLoading && children.isEmpty
+                      ? const Center(child: CircularProgressIndicator())
+                      : ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.all(20),
+                          children: [
+                            if (children.isEmpty)
+                              _buildEmptyState()
+                            else
+                              ...children.map((child) => _buildChildCard(context, child)),
+                            
+                            if (children.length < 3)
+                              const SizedBox(height: 20),
+                            if (children.length < 3)
+                              DashedAddButton(
+                                label: 'Add Child',
+                                onTap: () => _showChildForm(context),
+                              ),
+                            const SizedBox(height: 20),
+                            if (children.length >= 3)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 20),
+                                child: Text(
+                                  'Maximum 3 children allowed.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Theme.of(context).textTheme.bodyMedium?.color,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ),
+                            const SizedBox(height: 40),
+                          ],
+                        ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+        child: ElevatedButton.icon(
+          onPressed: () => _openSupportWhatsApp(context),
+          icon: const Icon(CupertinoIcons.phone_fill, color: Colors.white),
+          label: const Text("Can't find school? Chat on WhatsApp"),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF25D366),
+            foregroundColor: Colors.white,
+            minimumSize: const Size(double.infinity, 60),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
+            ),
+          ),
         ),
       ),
     );
@@ -178,38 +234,25 @@ class _ChildrenManagementScreenState extends State<ChildrenManagementScreen> {
         color: isDark ? AppTheme.surfaceDark : Colors.white,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
-          width: 1,
+          color: isDark ? Colors.orange.withValues(alpha: 0.4) : AppTheme.primaryColor,
+          width: 2.0,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(22),
         child: Column(
           children: [
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: isDark 
-                    ? [AppTheme.primaryColor.withValues(alpha: 0.2), Colors.transparent]
-                    : [AppTheme.primaryColor.withValues(alpha: 0.05), Colors.transparent],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                color: isDark ? Colors.black12 : const Color(0xFFFAF8F5),
               ),
               child: Row(
                 children: [
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                      color: isDark ? Colors.orange.withValues(alpha: 0.2) : const Color(0xFFFFF4EC),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(CupertinoIcons.person_fill, color: AppTheme.primaryColor),
@@ -873,25 +916,7 @@ class _ChildFormState extends State<_ChildForm> {
                   ),
                 ),
               ],
-              // "Not listed?" WhatsApp redirect
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: GestureDetector(
-                  onTap: () => _openSupportWhatsApp(context),
-                  child: RichText(
-                    text: TextSpan(
-                      style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.primary),
-                      children: const [
-                        TextSpan(text: "Can't find your school? "),
-                        TextSpan(
-                          text: 'Contact us on WhatsApp',
-                          style: TextStyle(fontWeight: FontWeight.w700, decoration: TextDecoration.underline),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+
               const SizedBox(height: 16),
               // 4. Standard
               SearchableDropdown<StandardModel>(
@@ -1137,4 +1162,90 @@ Future<void> _openSupportWhatsApp(BuildContext context) async {
   if (context.mounted) {
     ErrorHandler.showError(context, 'Could not open WhatsApp');
   }
+}
+
+class DashedAddButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+
+  const DashedAddButton({
+    super.key,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return GestureDetector(
+      onTap: onTap,
+      child: CustomPaint(
+        painter: _DashedBorderPainter(
+          color: isDark ? Colors.orange.withValues(alpha: 0.6) : AppTheme.primaryColor,
+          radius: 24,
+        ),
+        child: Container(
+          width: double.infinity,
+          height: 60,
+          alignment: Alignment.center,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(CupertinoIcons.add, color: AppTheme.primaryColor),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  color: AppTheme.primaryColor,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DashedBorderPainter extends CustomPainter {
+  final Color color;
+  final double radius;
+
+  _DashedBorderPainter({required this.color, required this.radius});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+
+    final path = Path()
+      ..addRRect(RRect.fromRectAndRadius(
+        Rect.fromLTWH(0, 0, size.width, size.height),
+        Radius.circular(radius),
+      ));
+
+    // Draw dashed path
+    const dashWidth = 8.0;
+    const dashSpace = 4.0;
+    
+    final pathMetrics = path.computeMetrics();
+    for (final metric in pathMetrics) {
+      double distance = 0.0;
+      while (distance < metric.length) {
+        final length = dashWidth;
+        canvas.drawPath(
+          metric.extractPath(distance, (distance + length).clamp(0, metric.length)),
+          paint,
+        );
+        distance += dashWidth + dashSpace;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

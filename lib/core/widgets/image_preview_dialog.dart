@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
@@ -20,7 +19,7 @@ class ImagePreviewDialog extends StatelessWidget {
     Navigator.of(context).push(
       PageRouteBuilder(
         opaque: false,
-        barrierColor: Colors.transparent, // Changed to transparent for blur effect
+        barrierColor: Colors.transparent,
         barrierDismissible: true,
         pageBuilder: (context, animation, secondaryAnimation) {
           return ImagePreviewDialog(imageUrl: imageUrl, title: title);
@@ -36,30 +35,20 @@ class ImagePreviewDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Blur background
+          // Solid dark scrim background — no blur
           GestureDetector(
             onTap: () => Navigator.of(context).pop(),
             child: TweenAnimationBuilder<double>(
               tween: Tween<double>(begin: 0.0, end: 1.0),
               duration: const Duration(milliseconds: 250),
               builder: (context, value, child) {
-                return BackdropFilter(
-                  filter: ColorFilter.mode(
-                    Colors.black.withValues(alpha: 0.6 * value),
-                    BlendMode.darken,
-                  ),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 10 * value, sigmaY: 10 * value),
-                    child: Container(
-                      color: Colors.transparent,
-                    ),
-                  ),
+                return Container(
+                  color: Colors.black.withValues(alpha: 0.85 * value),
                 );
               },
             ),

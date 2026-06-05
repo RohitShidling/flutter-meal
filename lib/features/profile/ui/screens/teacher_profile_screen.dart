@@ -6,7 +6,6 @@ import 'package:meal_app/core/theme/app_theme.dart';
 import 'package:meal_app/features/profile/providers/profile_provider.dart';
 import 'package:meal_app/features/profile/data/models/profile_models.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:meal_app/core/utils/error_handler.dart';
 import 'package:meal_app/core/utils/validators.dart';
 import 'package:meal_app/core/providers/lookup_provider.dart';
 import 'package:meal_app/core/widgets/searchable_dropdown.dart';
@@ -44,8 +43,6 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
   SchoolModel? _selectedSchool;
   StateModel? _selectedState;
   CityModel? _selectedCity;
-  StandardModel? _selectedStandard;
-  DivisionModel? _selectedDivision;
   MealSizeModel? _selectedMealSize;
   
   String _status = 'active';
@@ -64,8 +61,8 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
       _nameController.text.trim(),
       _schoolController.text.trim(),
       _selectedSchool?.id ?? '',
-      _selectedStandard?.id ?? '',
-      _selectedDivision?.id ?? '',
+      '',
+      '',
       _selectedMealSize?.id ?? '',
       _selectedState?.id ?? '',
       _selectedCity?.id ?? '',
@@ -124,8 +121,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
         // Match existing selections from lookup data
         _selectedSchool = lookupProvider.schools.where((s) => s.name == profile.schoolCollegeName).firstOrNull;
         _selectedState = lookupProvider.states.where((s) => s.name.toLowerCase() == profile.state.toLowerCase()).firstOrNull;
-        _selectedStandard = lookupProvider.standards.where((s) => s.id == profile.standardId).firstOrNull;
-        _selectedDivision = lookupProvider.divisions.where((d) => d.id == profile.divisionId).firstOrNull;
+
 
         // Trigger dependent fetches if values exist
         if (_selectedState != null) {
@@ -144,8 +140,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
             _status = profile.status;
             _timeController.text = profile.mealTime ?? '13:30';
             _selectedMealSize = lookupProvider.mealSizes.where((m) => m.id == profile.mealSizeId).firstOrNull;
-            _selectedStandard = lookupProvider.standards.where((s) => s.id == profile.standardId).firstOrNull;
-            _selectedDivision = lookupProvider.divisions.where((d) => d.id == profile.divisionId).firstOrNull;
+
             _isEditing = false;
             _isInitializing = false;
             _schoolLocksLocation = _selectedSchool != null;
@@ -278,8 +273,8 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
       status: _status,
       mealSizeId: _selectedMealSize!.id,
       mealTime: _timeController.text,
-      standardId: _selectedStandard?.id,
-      divisionId: _selectedDivision?.id,
+      standardId: null,
+      divisionId: null,
     );
     
     final success = await profileProvider.saveTeacherProfile(profile);
@@ -302,8 +297,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
           _status = saved.status;
           _timeController.text = saved.mealTime ?? '13:30';
           _selectedMealSize = context.read<LookupProvider>().mealSizes.where((m) => m.id == saved.mealSizeId).firstOrNull;
-          _selectedStandard = context.read<LookupProvider>().standards.where((s) => s.id == saved.standardId).firstOrNull;
-          _selectedDivision = context.read<LookupProvider>().divisions.where((d) => d.id == saved.divisionId).firstOrNull;
+
           _schoolLocksLocation = _selectedSchool != null;
         }
       });
@@ -321,33 +315,69 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
     final profile = profileProvider.teacherProfile;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Teacher Profile',
-          style: TextStyle(color: isDark ? Colors.white : AppTheme.textPrimaryLight),
-        ),
-        leading: IconButton(
-          icon: const Icon(CupertinoIcons.back),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
+      backgroundColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
       body: SafeArea(
-        child: CartOverlayBody(
-          child: (profileProvider.isLoading || _isInitializing)
-                ? const Center(child: CircularProgressIndicator())
-                : (profile != null && !_isEditing)
-                    ? _buildProfileCard(context, profile)
-                    : UnsavedFormGuard(
-                        isDirty: _isDirty,
-                        onDiscard: () {
-                          setState(() {
-                            _isEditing = false;
-                            // restore from original profile next time edit is opened
-                          });
-                        },
-                        child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Form(
+        child: Column(
+          children: [
+            // Custom Header
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.black26 : const Color(0xFFF3EBE0),
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        icon: const Icon(CupertinoIcons.back, color: Color(0xFF8B7A66)),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      Text(
+                        'Buuttii',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                      CircleAvatar(
+                        radius: 18,
+                        backgroundColor: isDark ? Colors.white12 : Colors.black12,
+                        child: const Icon(CupertinoIcons.person_fill, color: Colors.white, size: 20),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Teacher Profile',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? Colors.white : const Color(0xFF5A4D42),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: CartOverlayBody(
+                child: (profileProvider.isLoading || _isInitializing)
+                      ? const Center(child: CircularProgressIndicator())
+                      : (profile != null && !_isEditing)
+                          ? _buildProfileCard(context, profile)
+                          : UnsavedFormGuard(
+                              isDirty: _isDirty,
+                              onDiscard: () {
+                                setState(() {
+                                  _isEditing = false;
+                                });
+                              },
+                              child: SingleChildScrollView(
+                                padding: const EdgeInsets.all(24),
+                                child: Form(
                 key: _formKey,
                 autovalidateMode: _autovalidateMode,
                 child: Column(
@@ -415,81 +445,6 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
                         });
                       },
                     ),
-                    // Not listed link
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: GestureDetector(
-                        onTap: () => _openSupportWhatsApp(context),
-                        child: RichText(
-                          text: TextSpan(
-                            style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.primary),
-                            children: const [
-                              TextSpan(text: "Can't find your school? "),
-                              TextSpan(
-                                text: 'Contact us on WhatsApp',
-                                style: TextStyle(fontWeight: FontWeight.w700, decoration: TextDecoration.underline),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    SearchableDropdown<StandardModel>(
-                      label: 'Standard (Optional)',
-                      items: lookupProvider.standards,
-                      itemLabel: (s) => s.displayName,
-                      value: _selectedStandard,
-                      isLoading: lookupProvider.isLoading,
-                      listenable: lookupProvider,
-                      itemsGetter: () => lookupProvider.standards,
-                      loadingGetter: () => lookupProvider.isLoading,
-                      onInteraction: () {
-                        FocusScope.of(context).unfocus();
-                        lookupProvider.fetchInitialData();
-                      },
-                      onChanged: (v) {
-                        setState(() {
-                          _selectedStandard = v;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 20),
-
-                    // 2.6 Division (Optional)
-                    SearchableDropdown<DivisionModel>(
-                      label: 'Division (Optional)',
-                      items: lookupProvider.divisions,
-                      itemLabel: (d) => d.name,
-                      value: _selectedDivision,
-                      isLoading: lookupProvider.isLoading,
-                      listenable: lookupProvider,
-                      itemsGetter: () => lookupProvider.divisions,
-                      loadingGetter: () => lookupProvider.isLoading,
-                      onInteraction: () {
-                        FocusScope.of(context).unfocus();
-                        lookupProvider.fetchInitialData();
-                      },
-                      onChanged: (v) {
-                        setState(() {
-                          _selectedDivision = v;
-                        });
-                      },
-                    ),
-                    if (_selectedDivision != null) ...[
-                      const SizedBox(height: 8),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: TextButton.icon(
-                          onPressed: () => setState(() => _selectedDivision = null),
-                          icon: const Icon(CupertinoIcons.xmark_circle, size: 18),
-                          label: const Text('Remove division'),
-                          style: TextButton.styleFrom(
-                            foregroundColor: Colors.orange.shade800,
-                          ),
-                        ),
-                      ),
-                    ],
                     const SizedBox(height: 20),
 
                     // 3. State
@@ -656,6 +611,25 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
           ),
         ),
       ),
+            ],
+          ),
+        ),
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+        child: ElevatedButton.icon(
+          onPressed: () => _openSupportWhatsApp(context),
+          icon: const Icon(CupertinoIcons.phone_fill, color: Colors.white),
+          label: const Text("Can't find school/college? Chat on WhatsApp"),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF25D366),
+            foregroundColor: Colors.white,
+            minimumSize: const Size(double.infinity, 60),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -687,8 +661,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
                   _timeController.text = profile.mealTime ?? '13:30';
                   _selectedMealSize = context.read<LookupProvider>().mealSizes.where((m) => m.id == profile.mealSizeId).firstOrNull;
                   _selectedSchool = context.read<LookupProvider>().schools.where((s) => s.name == profile.schoolCollegeName).firstOrNull;
-                  _selectedStandard = context.read<LookupProvider>().standards.where((s) => s.id == profile.standardId).firstOrNull;
-                  _selectedDivision = context.read<LookupProvider>().divisions.where((d) => d.id == profile.divisionId).firstOrNull;
+
                   _schoolLocksLocation = _selectedSchool != null;
                   _captureSnapshot();
                 }
@@ -717,38 +690,25 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
               color: isDark ? AppTheme.surfaceDark : Colors.white,
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
-                color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
-                width: 1,
+                color: isDark ? Colors.orange.withValues(alpha: 0.4) : AppTheme.primaryColor,
+                width: 2.0,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(22),
               child: Column(
                 children: [
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: isDark 
-                          ? [AppTheme.primaryColor.withValues(alpha: 0.2), Colors.transparent]
-                          : [AppTheme.primaryColor.withValues(alpha: 0.05), Colors.transparent],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
+                      color: isDark ? Colors.black12 : const Color(0xFFFAF8F5),
                     ),
                     child: Row(
                       children: [
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                            color: isDark ? Colors.orange.withValues(alpha: 0.2) : const Color(0xFFFFF4EC),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(CupertinoIcons.person_crop_square_fill, color: AppTheme.primaryColor),

@@ -1,17 +1,21 @@
-import 'package:flutter/material.dart';
+import 'dart:convert';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
-import 'dart:convert';
-import 'package:provider/provider.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
-import 'package:meal_app/core/theme/app_theme.dart';
+import 'package:provider/provider.dart';
+
+import 'package:meal_app/core/navigation/app_routes.dart';
 import 'package:meal_app/core/providers/meal_provider.dart';
+import 'package:meal_app/core/services/app_route_tracker.dart';
+import 'package:meal_app/core/theme/app_theme.dart';
 import 'package:meal_app/core/utils/subscription_status_normalize.dart';
 import 'package:meal_app/core/widgets/app_skeleton.dart';
-import 'package:meal_app/features/home/providers/menu_provider.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:meal_app/core/widgets/image_preview_dialog.dart';
-import 'package:meal_app/core/services/app_route_tracker.dart';
+import 'package:meal_app/features/home/providers/menu_provider.dart';
+import 'package:meal_app/features/home/ui/widgets/bottom_footer_nav.dart';
 
 class WeeklyMenuScreen extends StatefulWidget {
   const WeeklyMenuScreen({super.key});
@@ -27,16 +31,10 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
       final text = raw.trim();
       if (text.isEmpty) return [];
       try {
-        final decoded = jsonDecode(
-          text.startsWith('{') ? '[${text.substring(1, text.length - 1).split(',').map((e) => jsonEncode(e.trim())).join(',')}]' : text,
-        );
+        final decoded = jsonDecode(text);
         return _nutritionPointsFrom({'nutrition_points': decoded});
       } catch (_) {
-        return text
-            .split(',')
-            .map((e) => e.trim())
-            .where((e) => e.isNotEmpty)
-            .toList();
+        return text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
       }
     }
     if (raw is! List) return [];
@@ -57,7 +55,7 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
     super.initState();
     AppRouteTracker.instance.setCurrent(AppScreen.weeklyMenu);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<MenuProvider>().fetchWeeklyMenuSilent(forceRefresh: true);
+      context.read<MenuProvider>().fetchWeeklyMenuSilent(forceRefresh: false);
     });
   }
 
@@ -72,47 +70,84 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
     final menuProvider = context.watch<MenuProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        Navigator.of(context).pushReplacementNamed(AppRoutes.home);
+      },
+      child: Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('One Week Meal', style: TextStyle(fontWeight: FontWeight.w800)),
-        leading: IconButton(
-          icon: const Icon(CupertinoIcons.back),
-          onPressed: () => Navigator.pop(context),
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: isDark ? Colors.white : AppTheme.textPrimaryLight,
+        scrolledUnderElevation: 0,
+        toolbarHeight: 84,
+        centerTitle: false,
+        titleSpacing: 20,
+        title: Text(
+          'Weekly Menu',
+          style: TextStyle(
+            fontSize: 32,
+            fontWeight: FontWeight.w500,
+            letterSpacing: -1.2,
+            color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+          ),
         ),
       ),
       body: RefreshIndicator(
-        onRefresh: () => context.read<MenuProvider>().fetchWeeklyMenu(),
+        onRefresh: () => context.read<MenuProvider>().fetchWeeklyMenu(forceRefresh: true),
         child: _buildBody(context, menuProvider, isDark),
       ),
+      bottomNavigationBar: BuuttiiFooterNav(
+        currentIndex: 1,
+        onHomeTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.home),
+        onWeekMenuTap: () {},
+        onMealSkipTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.mealSkip),
+        onSettingsTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.settings),
+      ),
+     ),
     );
   }
 
   Widget _buildBody(BuildContext context, MenuProvider menuProvider, bool isDark) {
-    // Show skeleton when loading and no data available (first load without cache)
     if (menuProvider.isLoading && menuProvider.weeklyMenu.isEmpty) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        children: List.generate(5, (_) => const Padding(
-              padding: EdgeInsets.only(bottom: 10),
-              child: WeeklyMealCardSkeleton(),
-            )),
+        padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
+        children: List.generate(
+          5,
+          (_) => const Padding(
+            padding: EdgeInsets.only(bottom: 14),
+            child: WeeklyMealCardSkeleton(),
+          ),
+        ),
       );
     }
 
     if (menuProvider.error != null && menuProvider.weeklyMenu.isEmpty) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(20),
         children: [
           SizedBox(
-            height: MediaQuery.sizeOf(context).height * 0.45,
+            height: MediaQuery.sizeOf(context).height * 0.55,
             child: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(CupertinoIcons.exclamationmark_triangle, size: 48, color: Colors.orange.withValues(alpha: 0.6)),
+                  Icon(CupertinoIcons.exclamationmark_triangle, size: 48, color: Colors.black.withValues(alpha: 0.5)),
                   const SizedBox(height: 16),
-                  Text('Could not load menu', style: TextStyle(fontWeight: FontWeight.w700, color: isDark ? Colors.white : AppTheme.textPrimaryLight)),
+                  Text(
+                    'Could not load menu',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   TextButton(
                     onPressed: () => context.read<MenuProvider>().fetchWeeklyMenu(),
@@ -133,18 +168,26 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
     if (!canViewWeekly) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(20),
         children: [
           SizedBox(
-            height: MediaQuery.sizeOf(context).height * 0.45,
+            height: MediaQuery.sizeOf(context).height * 0.55,
             child: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(CupertinoIcons.lock_fill, size: 48, color: isDark ? Colors.white24 : Colors.grey.withValues(alpha: 0.4)),
+                  Icon(CupertinoIcons.lock_fill, size: 48, color: isDark ? Colors.white38 : Colors.black.withValues(alpha: 0.35)),
                   const SizedBox(height: 16),
-                  Text('Subscription Required', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: isDark ? Colors.white : AppTheme.textPrimaryLight)),
+                  Text(
+                    'Subscription Required',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: isDark ? Colors.white : AppTheme.textPrimaryLight),
+                  ),
                   const SizedBox(height: 8),
-                  Text('Subscribe to view the weekly meal plan.', style: TextStyle(color: isDark ? Colors.white54 : AppTheme.textSecondaryLight)),
+                  Text(
+                    'Subscribe to view the weekly meal plan.',
+                    style: TextStyle(color: isDark ? Colors.white60 : Colors.black.withValues(alpha: 0.55)),
+                    textAlign: TextAlign.center,
+                  ),
                 ],
               ),
             ),
@@ -156,16 +199,20 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
     if (menuProvider.weeklyMenu.isEmpty) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(20),
         children: [
           SizedBox(
-            height: MediaQuery.sizeOf(context).height * 0.45,
+            height: MediaQuery.sizeOf(context).height * 0.55,
             child: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(CupertinoIcons.calendar, size: 48, color: isDark ? Colors.white24 : Colors.grey.withValues(alpha: 0.4)),
+                  Icon(CupertinoIcons.calendar, size: 48, color: isDark ? Colors.white38 : Colors.black.withValues(alpha: 0.35)),
                   const SizedBox(height: 16),
-                  Text('No weekly menu available', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: isDark ? Colors.white : AppTheme.textPrimaryLight)),
+                  Text(
+                    'No weekly menu available',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: isDark ? Colors.white : AppTheme.textPrimaryLight),
+                  ),
                 ],
               ),
             ),
@@ -176,7 +223,7 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
 
     return ListView.builder(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
       itemCount: menuProvider.weeklyMenu.length,
       itemBuilder: (context, index) {
         final menu = menuProvider.weeklyMenu[index];
@@ -190,143 +237,152 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
     final items = menu['items']?.toString() ?? menu['item_name']?.toString() ?? 'Meal';
     final menuDateRaw = menu['menu_date']?.toString() ?? '';
     final nutritionPoints = _nutritionPointsFrom(menu);
-    String formattedDate = menuDateRaw;
 
-    // Parse date to get day name
+    String formattedDate = menuDateRaw;
     String dayLabel = 'Day ${index + 1}';
     if (menuDateRaw.isNotEmpty) {
       final parsed = DateTime.tryParse(menuDateRaw);
       if (parsed != null) {
-        dayLabel = DateFormat('EEEE').format(parsed);
+        dayLabel = DateFormat('EEE').format(parsed);
         formattedDate = DateFormat('dd MMM yyyy').format(parsed);
       }
     }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
         color: isDark ? AppTheme.surfaceDark : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.1)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 3))],
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.12 : 0.04),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.08 : 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Image — tappable for preview
-          if (imageUrl != null && imageUrl.isNotEmpty)
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             GestureDetector(
-              onTap: () => ImagePreviewDialog.show(context, imageUrl, title: '$dayLabel — $items'),
+              onTap: imageUrl != null && imageUrl.isNotEmpty
+                  ? () => ImagePreviewDialog.show(context, imageUrl, title: '$dayLabel — $items')
+                  : null,
               child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                borderRadius: BorderRadius.circular(20),
                 child: ColoredBox(
-                  color: isDark
-                      ? AppTheme.surfaceDark
-                      : AppTheme.primaryColor.withValues(alpha: 0.05),
-                  child: CachedNetworkImage(
-                    imageUrl: imageUrl,
-                    width: double.infinity,
-                    height: 160,
-                    fit: BoxFit.contain,
-                    placeholder: (_, __) => const SkeletonBone(
-                      height: 160,
-                      borderRadius: BorderRadius.zero,
-                    ),
-                    errorWidget: (_, __, ___) => const SkeletonBone(
-                      height: 160,
-                      borderRadius: BorderRadius.zero,
-                    ),
-                  ),
+                  // Keep the image panel warm in light mode and muted in dark mode.
+                  color: isDark ? const Color(0xFF2A241E) : const Color(0xFFF4EFE4),
+                  child: imageUrl != null && imageUrl.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: imageUrl,
+                          width: 112,
+                          height: 112,
+                          fit: BoxFit.cover,
+                          placeholder: (_, __) => const SkeletonBone(
+                            height: 112,
+                            width: 112,
+                            borderRadius: BorderRadius.zero,
+                          ),
+                          errorWidget: (_, __, ___) => const SkeletonBone(
+                            height: 112,
+                            width: 112,
+                            borderRadius: BorderRadius.zero,
+                          ),
+                        )
+                      : const SizedBox(width: 112, height: 112),
                 ),
               ),
             ),
-          // Info section — compact
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Day badge + date — single compact row
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        dayLabel.toUpperCase(),
-                        style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 0.5),
-                      ),
-                    ),
-                    const Spacer(),
-                    if (formattedDate.isNotEmpty)
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
                       Text(
-                        formattedDate,
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? Colors.white70 : AppTheme.textSecondaryLight),
+                        dayLabel.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: isDark ? Colors.white : Colors.black87,
+                            letterSpacing: 0.3,
+                          ),
                       ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                // Meal name
-                Text(
-                  items,
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: isDark ? Colors.white : AppTheme.textPrimaryLight),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 10),
-                if (nutritionPoints.isNotEmpty)
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
+                      const Spacer(),
+                      if (formattedDate.isNotEmpty)
+                        Text(
+                          formattedDate.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: isDark ? Colors.white60 : Colors.black.withValues(alpha: 0.45),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    items,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      height: 1.15,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 12),
+                  if (nutritionPoints.isNotEmpty)
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
                       children: nutritionPoints.map((point) {
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8.0),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryColor.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.2)),
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF2E2420) : const Color(0xFFF2ECE0),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                              color: isDark ? const Color(0xFF42342C) : const Color(0xFFE6DBC5),
+                              width: 1,
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(CupertinoIcons.leaf_arrow_circlepath, size: 14, color: AppTheme.primaryColor),
-                                const SizedBox(width: 6),
-                                Text(
-                                  point,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: isDark ? Colors.white : AppTheme.textPrimaryLight,
-                                  ),
-                                ),
-                              ],
+                          ),
+                          child: Text(
+                            point,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: isDark ? Colors.white : Colors.black87,
                             ),
                           ),
                         );
                       }).toList(),
+                    )
+                  else if (!isLoading)
+                    Text(
+                      'Nutrition info not available',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: isDark ? Colors.white54 : Colors.black.withValues(alpha: 0.45),
+                      ),
                     ),
-                  )
-                else if (!isLoading)
-                  Text(
-                    'Nutrition info not available',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white38 : AppTheme.textSecondaryLight,
-                    ),
-                  ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ).animate().fadeIn(delay: (index * 60).ms).slideY(begin: 0.04, end: 0);
+    ).animate().fadeIn(delay: (index * 60).ms).slideY(begin: 0.03, end: 0);
   }
 }

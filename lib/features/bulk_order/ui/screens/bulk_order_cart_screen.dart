@@ -50,115 +50,159 @@ class _BulkOrderCartScreenState extends State<BulkOrderCartScreen> {
     final isStandard = standardQty > 0;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Bulk Cart'),
-        actions: [
-          if (p.hasBulkCartItems)
-            TextButton.icon(
-              onPressed: () {
-                p.clearBulkCart();
-                Navigator.pop(context);
-              },
-              icon: const Icon(CupertinoIcons.trash, size: 16),
-              label: const Text('Clear'),
-            ),
-        ],
-      ),
-      body: !p.hasBulkCartItems
-          ? _buildEmptyCart(isDark)
-          : Column(
-              children: [
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.all(16),
+      backgroundColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Custom Header with rounded bottom corners
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.black26 : const Color(0xFFF3EBE0),
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      if (isStandard) ...[
-                        _sectionHeader(
-                          context,
-                          'Standard Bulk',
-                          CupertinoIcons.person_3_fill,
-                          AppTheme.primaryColor,
+                      IconButton(
+                        icon: const Icon(CupertinoIcons.back, color: Color(0xFF8B7A66)),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      Text(
+                        'Buuttii',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          color: AppTheme.primaryColor,
                         ),
-                        const SizedBox(height: 10),
-                        _StandardCartCard(
-                          menuName: p.deliveryMenu?.items ?? 'Daily menu',
-                          imageUrl: p.deliveryMenu?.imageUrl,
-                          quantity: standardQty,
-                          pricePerMeal: (p.deliveryMenu?.pricePerMeal != null &&
-                                  p.deliveryMenu!.pricePerMeal! > 0)
-                              ? p.deliveryMenu!.pricePerMeal!
-                              : cfg.pricePerMealUnderThreshold,
-                          isDark: isDark,
-                          deliveryDate: p.standardDeliveryDate,
-                          onIncrement: () => p.setStandardDraft(standardQty + 1),
-                          onDecrement: () {
-                            if (standardQty > 1) p.setStandardDraft(standardQty - 1);
+                      ),
+                      if (p.hasBulkCartItems)
+                        TextButton.icon(
+                          onPressed: () {
+                            p.clearBulkCart();
+                            Navigator.pop(context);
                           },
-                          onRemove: () => p.setStandardDraft(0),
-                        ),
-                        const SizedBox(height: 20),
-                      ],
-                      if (isVariety) ...[
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _sectionHeader(
-                                context,
-                                'Large Event Bulk',
-                                CupertinoIcons.square_stack_3d_up_fill,
-                                Colors.deepOrange,
-                              ),
-                            ),
-                            TextButton.icon(
-                              onPressed: () => Navigator.push(
-                                context,
-                                CupertinoPageRoute(
-                                  builder: (_) => const BulkOrderVarietyCategoriesScreen(),
-                                ),
-                              ),
-                              icon: const Icon(CupertinoIcons.plus_circle, size: 16),
-                              label: const Text('Add more'),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        ...varietyLines.map((e) {
-                          final meal = p.mealById(e.key);
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: _VarietyCartCard(
-                              mealName: meal?.items ?? e.key,
-                              imageUrl: meal?.imageUrl,
-                              categoryName: p.categoryNameForMeal(e.key),
-                              quantity: e.value,
-                              pricePerMeal: meal?.pricePerMeal,
-                              isDark: isDark,
-                              onIncrement: () => p.setVarietyQty(e.key, e.value + 1),
-                              onDecrement: () {
-                                if (e.value > 1) {
-                                  p.setVarietyQty(e.key, e.value - 1);
-                                }
-                              },
-                              onRemove: () => p.setVarietyQty(e.key, 0),
-                            ),
-                          );
-                        }),
-                        const SizedBox(height: 8),
-                        _totalPortionsInfo(p.varietyLineSum, cfg.tierThreshold, isDark),
-                      ],
-                      const SizedBox(height: 16),
-                      _PriceSummary(provider: p, config: cfg, isDark: isDark),
+                          icon: const Icon(CupertinoIcons.trash, color: Color(0xFF8B7A66), size: 16),
+                          label: const Text('Clear', style: TextStyle(color: Color(0xFF8B7A66))),
+                        )
+                      else
+                        const SizedBox(width: 48),
                     ],
                   ),
-                ),
-                _BottomPayBar(
-                  totalMeals: p.bulkCartTotalMeals,
-                  isLoading: p.isLoading,
-                  onPay: () => _startPay(context, p, cfg),
-                  isDark: isDark,
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  Text(
+                    'Bulk Cart',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? Colors.white : const Color(0xFF5A4D42),
+                    ),
+                  ),
+                ],
+              ),
             ),
+            Expanded(
+              child: !p.hasBulkCartItems
+                  ? _buildEmptyCart(isDark)
+                  : Column(
+                      children: [
+                        Expanded(
+                          child: ListView(
+                            padding: const EdgeInsets.all(16),
+                            children: [
+                              if (isStandard) ...[
+                                _sectionHeader(
+                                  context,
+                                  'Standard Bulk',
+                                  CupertinoIcons.person_3_fill,
+                                  AppTheme.primaryColor,
+                                ),
+                                const SizedBox(height: 10),
+                                _StandardCartCard(
+                                  menuName: p.deliveryMenu?.items ?? 'Daily menu',
+                                  imageUrl: p.deliveryMenu?.imageUrl,
+                                  quantity: standardQty,
+                                  pricePerMeal: (p.deliveryMenu?.pricePerMeal != null &&
+                                          p.deliveryMenu!.pricePerMeal! > 0)
+                                      ? p.deliveryMenu!.pricePerMeal!
+                                      : cfg.pricePerMealUnderThreshold,
+                                  isDark: isDark,
+                                  deliveryDate: p.standardDeliveryDate,
+                                  onIncrement: () => p.setStandardDraft(standardQty + 1),
+                                  onDecrement: () {
+                                    if (standardQty > 1) p.setStandardDraft(standardQty - 1);
+                                  },
+                                  onRemove: () => p.setStandardDraft(0),
+                                ),
+                                const SizedBox(height: 20),
+                              ],
+                              if (isVariety) ...[
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _sectionHeader(
+                                        context,
+                                        'Large Event Bulk',
+                                        CupertinoIcons.square_stack_3d_up_fill,
+                                        Colors.deepOrange,
+                                      ),
+                                    ),
+                                    TextButton.icon(
+                                      onPressed: () => Navigator.push(
+                                        context,
+                                        CupertinoPageRoute(
+                                          builder: (_) => const BulkOrderVarietyCategoriesScreen(),
+                                        ),
+                                      ),
+                                      icon: const Icon(CupertinoIcons.plus_circle, size: 16),
+                                      label: const Text('Add more'),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                ...varietyLines.map((e) {
+                                  final meal = p.mealById(e.key);
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 10),
+                                    child: _VarietyCartCard(
+                                      mealName: meal?.items ?? e.key,
+                                      imageUrl: meal?.imageUrl,
+                                      categoryName: p.categoryNameForMeal(e.key),
+                                      quantity: e.value,
+                                      pricePerMeal: meal?.pricePerMeal,
+                                      isDark: isDark,
+                                      onIncrement: () => p.setVarietyQty(e.key, e.value + 1),
+                                      onDecrement: () {
+                                        if (e.value > 1) {
+                                          p.setVarietyQty(e.key, e.value - 1);
+                                        }
+                                      },
+                                      onRemove: () => p.setVarietyQty(e.key, 0),
+                                    ),
+                                  );
+                                }),
+                                const SizedBox(height: 8),
+                                _totalPortionsInfo(p.varietyLineSum, cfg.tierThreshold, isDark),
+                              ],
+                              const SizedBox(height: 16),
+                              _PriceSummary(provider: p, config: cfg, isDark: isDark),
+                            ],
+                          ),
+                        ),
+                        _BottomPayBar(
+                          totalMeals: p.bulkCartTotalMeals,
+                          isLoading: p.isLoading,
+                          onPay: () => _startPay(context, p, cfg),
+                          isDark: isDark,
+                        ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -378,7 +422,7 @@ class _StandardCartCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: isDark ? AppTheme.surfaceDark : Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.15)),
+        border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight, width: 1.5),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -537,7 +581,7 @@ class _VarietyCartCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: isDark ? AppTheme.surfaceDark : Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.deepOrange.withValues(alpha: 0.15)),
+        border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight, width: 1.5),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -707,7 +751,7 @@ class _PriceSummary extends StatelessWidget {
       decoration: BoxDecoration(
         color: isDark ? AppTheme.surfaceDark : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.12)),
+        border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight, width: 1.5),
       ),
       child: Column(
         children: [

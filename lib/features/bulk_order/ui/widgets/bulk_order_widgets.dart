@@ -149,7 +149,7 @@ class BulkOrderTypeCard extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: color.withValues(alpha: isDark ? 0.35 : 0.25),
+              color: isDark ? AppTheme.borderDark : AppTheme.borderLight,
               width: 1.5,
             ),
           ),

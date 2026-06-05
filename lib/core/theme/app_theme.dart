@@ -8,15 +8,15 @@ class AppTheme {
   static const Color accentColor = Color(0xFFF43F5E); // Rose 500
   
   // Light Theme Colors
-  static const Color backgroundLight = Color(0xFFF8FAFC); // Slate 50
-  static const Color surfaceLight = Colors.white;
+  static const Color backgroundLight = Color(0xFFF6F0E6); // warm paper
+  static const Color surfaceLight = Color(0xFFFFFFFF);
   static const Color textPrimaryLight = Color(0xFF0F172A); // Slate 900
   static const Color textSecondaryLight = Color(0xFF475569); // Slate 600
   static const Color borderLight = Color(0xFFE2E8F0); // Slate 200
   static const Color borderDark = Color(0xFF334155); // Slate 700 — PURE WHITE text for readability
-  static const Color backgroundDark = Color(0xFF020617); // Obsidian / Slate 950
-  static const Color surfaceDark = Color(0xFF0F172A); // Slate 900
-  static const Color textPrimaryDark = Color(0xFFFFFFFF); // Pure White
+  static const Color backgroundDark = Color(0xFF121214); // deep charcoal
+  static const Color surfaceDark = Color(0xFF1C1C1E); // elevated dark surface
+  static const Color textPrimaryDark = Color(0xFFF3F4F6); // crisp off-white
   static const Color textSecondaryDark = Color(0xFFCBD5E1); // Slate 300 — brighter secondary
   // Segmented plan picker (meal size tabs)
   static const Color segmentedTrackLight = Color(0xFFE8EEF4);
@@ -64,6 +64,7 @@ class AppTheme {
         secondary: accentColor,
         surface: surface,
       ),
+      cardColor: surface,
       appBarTheme: AppBarTheme(
         backgroundColor: background,
         elevation: 0,
@@ -102,16 +103,16 @@ class AppTheme {
         filled: true,
         fillColor: isDark ? border.withValues(alpha: 0.3) : Colors.white,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: border),
+          borderRadius: BorderRadius.circular(24),
+          borderSide: BorderSide(color: isDark ? border.withValues(alpha: 0.5) : border, width: 1.5),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: border),
+          borderRadius: BorderRadius.circular(24),
+          borderSide: BorderSide(color: isDark ? border.withValues(alpha: 0.5) : border, width: 1.5),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: primaryColor, width: 2),
+          borderRadius: BorderRadius.circular(24),
+          borderSide: const BorderSide(color: primaryColor, width: 2.5),
         ),
         labelStyle: TextStyle(color: textSecondary),
         prefixIconColor: textSecondary,

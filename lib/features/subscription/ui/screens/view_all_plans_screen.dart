@@ -61,8 +61,8 @@ class _ViewAllPlansScreenState extends State<ViewAllPlansScreen> {
     if (ctx != null) {
       await Scrollable.ensureVisible(
         ctx,
-        duration: const Duration(milliseconds: 420),
-        curve: Curves.easeInOutCubic,
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOutCubic,
         alignment: 0.08,
       );
     }
@@ -83,14 +83,43 @@ class _ViewAllPlansScreenState extends State<ViewAllPlansScreen> {
     }
 
     return Scaffold(
+      backgroundColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
       body: CustomScrollView(
         controller: _scrollController,
         slivers: [
-          SliverAppBar(
-            pinned: true,
-            title: const Text(
-              'All plans',
-              style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: -0.3),
+          SliverToBoxAdapter(
+            child: SafeArea(
+              bottom: false,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.black26 : const Color(0xFFF3EBE0),
+                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(CupertinoIcons.back, color: Color(0xFF8B7A66)),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                        const Expanded(child: SizedBox()),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'All Plans',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? Colors.white : const Color(0xFF5A4D42),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
           if (segments.length >= 2)
@@ -105,37 +134,47 @@ class _ViewAllPlansScreenState extends State<ViewAllPlansScreen> {
                     onChanged: (i) => _scrollToSection(i, segments),
                   ),
                 ),
-                backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                backgroundColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
               ),
             ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                if (plans.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 48),
-                    child: Center(
-                      child: Text(
-                        'Plans are unavailable right now. Pull down to retry.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? Colors.white70 : AppTheme.textSecondaryLight,
-                        ),
-                      ),
+          if (plans.isEmpty)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 48, 20, 32),
+                child: Center(
+                  child: Text(
+                    'Plans are unavailable right now. Pull down to retry.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white70 : AppTheme.textSecondaryLight,
                     ),
-                  )
-                else if (segments.isEmpty)
-                  ...plans.map(
-                    (p) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _PlanCatalogTile(plan: p, isDark: isDark),
-                    ),
-                  )
-                else
-                  ...segments.expand((seg) {
-                    final sectionPlans = plans.where((p) => p.mealSizeId == seg.id).toList()
+                  ),
+                ),
+              ),
+            )
+          else if (segments.isEmpty)
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _PlanCatalogTile(plan: plans[index], isDark: isDark),
+                  ),
+                  childCount: plans.length,
+                ),
+              ),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate(
+                  segments.expand((seg) {
+                    final sectionPlans = plans
+                        .where((p) => p.mealSizeId == seg.id)
+                        .toList()
                       ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
                     if (sectionPlans.isEmpty) return <Widget>[];
                     return [
@@ -155,10 +194,10 @@ class _ViewAllPlansScreenState extends State<ViewAllPlansScreen> {
                         ),
                       ),
                     ];
-                  }),
-              ]),
+                  }).toList(),
+                ),
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -179,10 +218,7 @@ class _SegmentHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return ColoredBox(
-      color: backgroundColor,
-      child: child,
-    );
+    return ColoredBox(color: backgroundColor, child: child);
   }
 
   @override
@@ -206,12 +242,13 @@ class _PlanCatalogTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final isTrial = plan.trialDays > 0;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: isDark ? AppTheme.surfaceDark : Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.withValues(alpha: 0.12),
+          color: isDark ? AppTheme.borderDark : AppTheme.borderLight,
+          width: 1.5,
         ),
       ),
       child: Stack(
@@ -317,25 +354,30 @@ class _PlanCatalogTile extends StatelessWidget {
             top: 0,
             right: 0,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: isTrial ? const Color(0xFFFFC107) : const Color(0xFFFF9800),
-                borderRadius: BorderRadius.circular(8),
+                color: isTrial ? const Color(0xFFFF6B00) : const Color(0xFFFF9800),
+                borderRadius: BorderRadius.circular(10),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.08),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
+                    color: isTrial 
+                        ? const Color(0xFFFF6B00).withValues(alpha: 0.4)
+                        : Colors.black.withValues(alpha: isDark ? 0.25 : 0.08),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
                 ],
+                border: isTrial 
+                    ? Border.all(color: Colors.white, width: 2)
+                    : null,
               ),
               child: Text(
-                isTrial ? 'Trial plan' : 'Regular plan',
+                isTrial ? 'TRIAL' : 'Regular',
                 style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  color: isTrial ? const Color(0xFF5D4037) : Colors.white,
-                  letterSpacing: 0.2,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                  letterSpacing: 0.5,
                 ),
               ),
             ),
@@ -347,10 +389,14 @@ class _PlanCatalogTile extends StatelessWidget {
 
   Widget _priceLine(bool isDark, String label, String rupee, int days) {
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.05) : AppTheme.primaryColor.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(12),
+        color: isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFFFF4EC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? AppTheme.borderDark.withValues(alpha: 0.5) : AppTheme.borderLight,
+          width: 1.2,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

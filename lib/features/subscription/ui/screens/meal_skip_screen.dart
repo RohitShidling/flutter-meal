@@ -11,6 +11,8 @@ import 'package:meal_app/core/services/network_status_service.dart';
 import 'package:meal_app/features/children/providers/children_provider.dart';
 import 'package:meal_app/features/profile/providers/profile_provider.dart';
 import 'package:meal_app/core/services/app_route_tracker.dart';
+import 'package:meal_app/features/home/ui/widgets/bottom_footer_nav.dart';
+import 'package:meal_app/core/navigation/app_routes.dart';
 
 /// Keys are `${entityType}_${entityId}` where type is child, teacher, or professional (G8).
 ({String type, String id})? parseMealSkipEntityKey(String key) {
@@ -70,30 +72,67 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
         mealProvider.mealStatus.isEmpty &&
         mealProvider.skips.isEmpty;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Meal Skips',
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-            color: isDark ? Colors.white : AppTheme.textPrimaryLight,
-          ),
-        ),
-        leading: IconButton(
-          icon: const Icon(CupertinoIcons.back),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        Navigator.of(context).pushReplacementNamed(AppRoutes.home);
+      },
+      child: Scaffold(
+        backgroundColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showSkipDialog(context),
         backgroundColor: AppTheme.primaryColor,
         icon: const Icon(CupertinoIcons.calendar_badge_plus, color: Colors.white),
         label: const Text('New Skip', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
       ),
-      body: showSpinner
-          ? const Center(child: CupertinoActivityIndicator())
-          : Column(
-              children: [
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Custom Header with rounded bottom corners
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.black26 : const Color(0xFFF3EBE0),
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        icon: const Icon(CupertinoIcons.back, color: Color(0xFF8B7A66)),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      Text(
+                        'Buuttii',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                      const SizedBox(width: 48),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Meal Skips',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? Colors.white : const Color(0xFF5A4D42),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: showSpinner
+                  ? const Center(child: CupertinoActivityIndicator())
+                  : Column(
+                      children: [
                 // Meal status section
                 if (mealProvider.mealStatus.isNotEmpty)
                   SizedBox(
@@ -110,8 +149,11 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
                             color: isDark ? AppTheme.surfaceDark : Colors.white,
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(color: isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.1)),
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(
+                              color: isDark ? AppTheme.borderDark : AppTheme.borderLight,
+                              width: 1.5,
+                            ),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -256,6 +298,18 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
                 ),
               ],
             ),
+          ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: BuuttiiFooterNav(
+        currentIndex: 2,
+        onHomeTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.home),
+        onWeekMenuTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.weeklyMenu),
+        onMealSkipTap: () {},
+        onSettingsTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.settings),
+      ),
+     ),
     );
   }
 

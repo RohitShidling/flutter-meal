@@ -98,9 +98,7 @@ class _BulkOrderStandardScreenState extends State<BulkOrderStandardScreen> {
     final canAdd = _selectedDate != null && p.deliveryMenu != null && !p.isLoading;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Standard Bulk', style: TextStyle(color: isDark ? Colors.white : AppTheme.textPrimaryLight)),
-      ),
+      backgroundColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
       floatingActionButton: cartTotal > 0
           ? FloatingActionButton.extended(
               heroTag: 'standard_bulk_cart_fab',
@@ -113,9 +111,49 @@ class _BulkOrderStandardScreenState extends State<BulkOrderStandardScreen> {
             )
           : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      body: Column(
-        children: [
-          Expanded(
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Custom Header with rounded bottom corners
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.black26 : const Color(0xFFF3EBE0),
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        icon: const Icon(CupertinoIcons.back, color: Color(0xFF8B7A66)),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      Text(
+                        'Buuttii',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                      const SizedBox(width: 48),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Standard Bulk',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? Colors.white : const Color(0xFF5A4D42),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(20),
               child: Column(
@@ -185,19 +223,20 @@ class _BulkOrderStandardScreenState extends State<BulkOrderStandardScreen> {
                                 constraints: const BoxConstraints(minWidth: 80),
                                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.primaryColor.withValues(alpha: 0.08),
-                                  borderRadius: BorderRadius.circular(14),
+                                  color: isDark ? AppTheme.surfaceDark : Colors.white,
+                                  borderRadius: BorderRadius.circular(24),
                                   border: Border.all(
-                                    color: AppTheme.primaryColor.withValues(alpha: 0.2),
+                                    color: isDark ? AppTheme.borderDark : AppTheme.borderLight,
+                                    width: 1.5,
                                   ),
                                 ),
                                 child: Text(
                                   '$_qty',
                                   textAlign: TextAlign.center,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 28,
                                     fontWeight: FontWeight.w900,
-                                    color: AppTheme.primaryColor,
+                                    color: isDark ? Colors.white : AppTheme.textPrimaryLight,
                                   ),
                                 ),
                               ),
@@ -222,7 +261,7 @@ class _BulkOrderStandardScreenState extends State<BulkOrderStandardScreen> {
                       decoration: BoxDecoration(
                         color: isDark ? AppTheme.surfaceDark : const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.12)),
+                        border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight, width: 1.5),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -267,8 +306,9 @@ class _BulkOrderStandardScreenState extends State<BulkOrderStandardScreen> {
             ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 class _StepperButton extends StatelessWidget {
@@ -279,6 +319,7 @@ class _StepperButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = onTap != null;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -286,10 +327,19 @@ class _StepperButton extends StatelessWidget {
         height: 48,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: enabled ? AppTheme.primaryColor.withValues(alpha: 0.12) : Colors.grey.withValues(alpha: 0.1),
-          border: Border.all(color: enabled ? AppTheme.primaryColor.withValues(alpha: 0.3) : Colors.grey.withValues(alpha: 0.2)),
+          color: enabled ? (isDark ? AppTheme.borderDark.withValues(alpha: 0.3) : const Color(0xFFF3EBE0)) : Colors.grey.withValues(alpha: 0.1),
+          border: Border.all(
+            color: enabled 
+                ? (isDark ? AppTheme.borderDark : AppTheme.borderLight) 
+                : Colors.grey.withValues(alpha: 0.2),
+            width: 1.5,
+          ),
         ),
-        child: Icon(icon, color: enabled ? AppTheme.primaryColor : Colors.grey, size: 22),
+        child: Icon(
+          icon,
+          color: enabled ? (isDark ? Colors.white : const Color(0xFF5A4D42)) : Colors.grey,
+          size: 22,
+        ),
       ),
     );
   }

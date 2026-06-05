@@ -140,6 +140,7 @@ class _CartScreenState extends State<CartScreen> {
     final items = cartProvider.items;
 
     return Scaffold(
+      backgroundColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
       appBar: AppBar(
         title: Text('Cart', style: TextStyle(fontWeight: FontWeight.w800, color: isDark ? Colors.white : AppTheme.textPrimaryLight)),
         leading: IconButton(icon: const Icon(CupertinoIcons.back), onPressed: () => Navigator.pop(context)),
@@ -401,7 +402,12 @@ class _CartScreenState extends State<CartScreen> {
       decoration: BoxDecoration(
         color: isDark ? AppTheme.surfaceDark : Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 20, offset: const Offset(0, -4))],
+        border: Border(
+          top: BorderSide(
+            color: isDark ? Colors.orange.withValues(alpha: 0.4) : AppTheme.primaryColor,
+            width: 2.0,
+          ),
+        ),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

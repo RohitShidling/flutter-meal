@@ -127,9 +127,9 @@ class _WalletScreenState extends State<WalletScreen> {
                         ? DateFormat('d MMM yyyy, h:mm a').format(DateTime.parse(whenRaw))
                         : whenRaw)
                     : '';
-                // Strip internal order IDs (e.g. "ORD-123") from user-facing description
+                // Strip internal order IDs (e.g. "ORD-123" or "Order ID: ...") from user-facing description
                 final rawDesc = (tx['description'] ?? 'Wallet credit').toString();
-                final desc = rawDesc.replaceAll(RegExp(r'\s*\(?ORD-[^\)\s]+\)?'), '').trim();
+                final desc = rawDesc.replaceAll(RegExp(r'(?i)\s*\(?(?:ORD-|Order\s*ID:?|Order\s*#)[^\)\s]+\)?'), '').trim();
 
                 return Card(
                   margin: const EdgeInsets.only(bottom: 10),

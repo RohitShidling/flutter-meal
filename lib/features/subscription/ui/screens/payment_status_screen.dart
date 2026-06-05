@@ -259,6 +259,7 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
         }
       },
       child: Scaffold(
+        backgroundColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -517,11 +518,14 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? AppTheme.surfaceDark : Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
+        color: isDark ? AppTheme.surfaceDark : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isDark ? AppTheme.borderDark : AppTheme.borderLight,
+          width: 1.5,
+        ),
       ),
       child: Row(
         children: [

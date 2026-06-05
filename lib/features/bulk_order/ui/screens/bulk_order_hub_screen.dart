@@ -38,74 +38,116 @@ class _BulkOrderHubScreenState extends State<BulkOrderHubScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Bulk order',
-          style: TextStyle(color: isDark ? Colors.white : AppTheme.textPrimaryLight),
-        ),
-      ),
-      body: p.isLoading && cfg == null
-          ? const Center(child: CircularProgressIndicator())
-          : cfg == null
-              ? Center(child: Text(p.error ?? 'Bulk ordering is unavailable'))
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+      backgroundColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Custom Header with rounded bottom corners
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.black26 : const Color(0xFFF3EBE0),
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
+                      IconButton(
+                        icon: const Icon(CupertinoIcons.back, color: Color(0xFF8B7A66)),
+                        onPressed: () => Navigator.pop(context),
+                      ),
                       Text(
-                        cfg.hubIntroText?.isNotEmpty == true
-                            ? cfg.hubIntroText!
-                            : 'Choose the type of bulk order that fits your group size.',
+                        'Buuttii',
                         style: TextStyle(
-                          fontSize: 15,
-                          height: 1.45,
-                          color: isDark ? Colors.white70 : AppTheme.textSecondaryLight,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          color: AppTheme.primaryColor,
                         ),
                       ),
-                      const SizedBox(height: 24),
-                      BulkOrderTypeCard(
-                        title: cfg.standardTierTitle?.isNotEmpty == true
-                            ? cfg.standardTierTitle!
-                            : 'Standard bulk',
-                        subtitle: cfg.standardTierSubtitle?.isNotEmpty == true
-                            ? cfg.standardTierSubtitle!
-                            : '${cfg.minQuantity}+ meals',
-                        detail: cfg.standardTierDescription?.isNotEmpty == true
-                            ? cfg.standardTierDescription!
-                            : 'One meal for your delivery date — the same dish for everyone.',
-                        icon: CupertinoIcons.person_3_fill,
-                        color: AppTheme.primaryColor,
-                        onTap: () => Navigator.push(
-                          context,
-                          CupertinoPageRoute(
-                            builder: (_) => const BulkOrderStandardScreen(),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      BulkOrderTypeCard(
-                        title: cfg.varietyTierTitle?.isNotEmpty == true
-                            ? cfg.varietyTierTitle!
-                            : 'Large event bulk',
-                        subtitle: cfg.varietyTierSubtitle?.isNotEmpty == true
-                            ? cfg.varietyTierSubtitle!
-                            : '${cfg.tierThreshold}+ meals',
-                        detail: cfg.varietyTierDescription?.isNotEmpty == true
-                            ? cfg.varietyTierDescription!
-                            : 'Browse meal categories and set portions for each dish.',
-                        icon: CupertinoIcons.square_stack_3d_up_fill,
-                        color: Colors.deepOrange,
-                        onTap: () => Navigator.push(
-                          context,
-                          CupertinoPageRoute(
-                            builder: (_) => const BulkOrderVarietyCategoriesScreen(),
-                          ),
-                        ),
-                      ),
+                      const SizedBox(width: 48),
                     ],
                   ),
-                ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Bulk Order',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? Colors.white : const Color(0xFF5A4D42),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: p.isLoading && cfg == null
+                  ? const Center(child: CupertinoActivityIndicator())
+                  : cfg == null
+                      ? Center(child: Text(p.error ?? 'Bulk ordering is unavailable'))
+                      : SingleChildScrollView(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Text(
+                                cfg.hubIntroText?.isNotEmpty == true
+                                    ? cfg.hubIntroText!
+                                    : 'Choose the type of bulk order that fits your group size.',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  height: 1.45,
+                                  color: isDark ? Colors.white70 : AppTheme.textSecondaryLight,
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              BulkOrderTypeCard(
+                                title: cfg.standardTierTitle?.isNotEmpty == true
+                                    ? cfg.standardTierTitle!
+                                    : 'Standard bulk',
+                                subtitle: cfg.standardTierSubtitle?.isNotEmpty == true
+                                    ? cfg.standardTierSubtitle!
+                                    : '${cfg.minQuantity}+ meals',
+                                detail: cfg.standardTierDescription?.isNotEmpty == true
+                                    ? cfg.standardTierDescription!
+                                    : 'One meal for your delivery date — the same dish for everyone.',
+                                icon: CupertinoIcons.person_3_fill,
+                                color: AppTheme.primaryColor,
+                                onTap: () => Navigator.push(
+                                  context,
+                                  CupertinoPageRoute(
+                                    builder: (_) => const BulkOrderStandardScreen(),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              BulkOrderTypeCard(
+                                title: cfg.varietyTierTitle?.isNotEmpty == true
+                                    ? cfg.varietyTierTitle!
+                                    : 'Large event bulk',
+                                subtitle: cfg.varietyTierSubtitle?.isNotEmpty == true
+                                    ? cfg.varietyTierSubtitle!
+                                    : '${cfg.tierThreshold}+ meals',
+                                detail: cfg.varietyTierDescription?.isNotEmpty == true
+                                    ? cfg.varietyTierDescription!
+                                    : 'Browse meal categories and set portions for each dish.',
+                                icon: CupertinoIcons.square_stack_3d_up_fill,
+                                color: Colors.deepOrange,
+                                onTap: () => Navigator.push(
+                                  context,
+                                  CupertinoPageRoute(
+                                    builder: (_) => const BulkOrderVarietyCategoriesScreen(),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

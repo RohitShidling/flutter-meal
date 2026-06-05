@@ -88,6 +88,7 @@ class LookupProvider with ChangeNotifier {
   List<StateModel> _states = [];
   List<CityModel> _cities = [];
   List<CompanyModel> _companies = [];
+  ContactUsModel? _contactUsInfo;
 
   bool _isLoading = false;
   DateTime? _lastFetchedAt;
@@ -102,6 +103,7 @@ class LookupProvider with ChangeNotifier {
   List<StateModel> get states => _states;
   List<CityModel> get cities => _cities;
   List<CompanyModel> get companies => _companies;
+  ContactUsModel? get contactUsInfo => _contactUsInfo;
   bool get isLoading => _isLoading;
 
 
@@ -202,6 +204,9 @@ class LookupProvider with ChangeNotifier {
   }
 
   Future<ContactUsModel?> fetchContactUsInfo() async {
-    return await _repository.getContactUsInfo();
+    final info = await _repository.getContactUsInfo();
+    _contactUsInfo = info;
+    notifyListeners();
+    return info;
   }
 }

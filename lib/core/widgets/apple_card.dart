@@ -21,23 +21,16 @@ class AppleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: margin ?? const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
-        color: color ?? (Theme.of(context).brightness == Brightness.dark ? AppTheme.surfaceDark : Colors.white),
+        color: color ?? (isDark ? AppTheme.surfaceDark : Colors.white),
         borderRadius: BorderRadius.circular(borderRadius),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 5,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(
+          color: isDark ? AppTheme.borderDark : AppTheme.borderLight,
+          width: 1.5,
+        ),
       ),
       child: Material(
         color: Colors.transparent,

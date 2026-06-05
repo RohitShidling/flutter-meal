@@ -9,7 +9,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:meal_app/core/providers/lookup_provider.dart';
 import 'package:meal_app/core/widgets/searchable_dropdown.dart';
 import 'package:meal_app/core/models/lookup_models.dart';
-import 'package:meal_app/core/utils/error_handler.dart';
 import 'package:meal_app/core/utils/time_utils.dart';
 import 'package:meal_app/core/utils/validators.dart';
 import 'package:meal_app/core/providers/meal_provider.dart';
@@ -304,33 +303,69 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
     final profile = profileProvider.professionalProfile;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Professional Profile',
-          style: TextStyle(color: isDark ? Colors.white : AppTheme.textPrimaryLight),
-        ),
-        leading: IconButton(
-          icon: const Icon(CupertinoIcons.back),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
+      backgroundColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
       body: SafeArea(
-        child: CartOverlayBody(
-          child: (profileProvider.isLoading || _isInitializing)
-                ? const Center(child: CircularProgressIndicator())
-                : (profile != null && !_isEditing)
-                    ? _buildProfileCard(context, profile)
-                    : UnsavedFormGuard(
-                        isDirty: _isDirty,
-                        onDiscard: () {
-                          setState(() {
-                            _isEditing = false;
-                            // restore from original profile next time edit is opened
-                          });
-                        },
-                        child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Form(
+        child: Column(
+          children: [
+            // Custom Header
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.black26 : const Color(0xFFF3EBE0),
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        icon: const Icon(CupertinoIcons.back, color: Color(0xFF8B7A66)),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      Text(
+                        'Buuttii',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                      CircleAvatar(
+                        radius: 18,
+                        backgroundColor: isDark ? Colors.white12 : Colors.black12,
+                        child: const Icon(CupertinoIcons.person_fill, color: Colors.white, size: 20),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Professional Profile',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? Colors.white : const Color(0xFF5A4D42),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: CartOverlayBody(
+                child: (profileProvider.isLoading || _isInitializing)
+                      ? const Center(child: CircularProgressIndicator())
+                      : (profile != null && !_isEditing)
+                          ? _buildProfileCard(context, profile)
+                          : UnsavedFormGuard(
+                              isDirty: _isDirty,
+                              onDiscard: () {
+                                setState(() {
+                                  _isEditing = false;
+                                });
+                              },
+                              child: SingleChildScrollView(
+                                padding: const EdgeInsets.all(24),
+                                child: Form(
                 key: _formKey,
                 autovalidateMode: _autovalidateMode,
                 child: Column(
@@ -392,25 +427,6 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                           }
                         });
                       },
-                    ),
-                    // Not listed link
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: GestureDetector(
-                        onTap: () => _openSupportWhatsApp(context),
-                        child: RichText(
-                          text: TextSpan(
-                            style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.primary),
-                            children: const [
-                              TextSpan(text: "Can't find your company? "),
-                              TextSpan(
-                                text: 'Contact us on WhatsApp',
-                                style: TextStyle(fontWeight: FontWeight.w700, decoration: TextDecoration.underline),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
                     ),
                     const SizedBox(height: 20),
                     // 3. State
@@ -568,6 +584,25 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
           ),
         ),
       ),
+            ],
+          ),
+        ),
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+        child: ElevatedButton.icon(
+          onPressed: () => _openSupportWhatsApp(context),
+          icon: const Icon(CupertinoIcons.phone_fill, color: Colors.white),
+          label: const Text("Can't find company? Chat on WhatsApp"),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF25D366),
+            foregroundColor: Colors.white,
+            minimumSize: const Size(double.infinity, 60),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -629,38 +664,25 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
               color: isDark ? AppTheme.surfaceDark : Colors.white,
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
-                color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
-                width: 1,
+                color: isDark ? Colors.orange.withValues(alpha: 0.4) : AppTheme.primaryColor,
+                width: 2.0,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(22),
               child: Column(
                 children: [
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: isDark 
-                          ? [AppTheme.primaryColor.withValues(alpha: 0.2), Colors.transparent]
-                          : [AppTheme.primaryColor.withValues(alpha: 0.05), Colors.transparent],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
+                      color: isDark ? Colors.black12 : const Color(0xFFFAF8F5),
                     ),
                     child: Row(
                       children: [
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                            color: isDark ? Colors.orange.withValues(alpha: 0.2) : const Color(0xFFFFF4EC),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(CupertinoIcons.briefcase_fill, color: AppTheme.primaryColor),

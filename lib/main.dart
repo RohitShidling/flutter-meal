@@ -14,12 +14,14 @@ import 'package:meal_app/features/auth/providers/auth_provider.dart';
 import 'package:meal_app/features/auth/ui/screens/login_screen.dart';
 import 'package:meal_app/core/theme/app_theme.dart';
 import 'package:meal_app/features/home/ui/screens/home_screen.dart';
+import 'package:meal_app/features/home/ui/screens/weekly_menu_screen.dart';
 import 'package:meal_app/core/network/lookup_repository.dart';
 import 'package:meal_app/core/providers/lookup_provider.dart';
 import 'package:meal_app/features/children/data/repositories/children_repository.dart';
 import 'package:meal_app/features/children/providers/children_provider.dart';
 import 'package:meal_app/features/profile/data/repositories/profile_repository.dart';
 import 'package:meal_app/features/profile/providers/profile_provider.dart';
+import 'package:meal_app/features/profile/ui/screens/settings_screen.dart';
 import 'package:meal_app/core/providers/theme_provider.dart';
 import 'package:meal_app/core/network/subscription_repository.dart';
 import 'package:meal_app/core/providers/subscription_provider.dart';
@@ -37,6 +39,9 @@ import 'package:meal_app/core/services/reconnect_refresh_service.dart';
 import 'package:meal_app/core/widgets/offline_banner.dart';
 import 'package:meal_app/features/bulk_order/data/repositories/bulk_order_repository.dart';
 import 'package:meal_app/features/bulk_order/providers/bulk_order_provider.dart';
+import 'package:meal_app/features/subscription/ui/screens/meal_skip_screen.dart';
+import 'package:meal_app/core/navigation/app_routes.dart';
+import 'package:meal_app/core/utils/no_transition_route.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -114,15 +119,35 @@ class MainApp extends StatelessWidget {
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
         themeMode: context.watch<ThemeProvider>().themeMode,
-        builder: (context, child) => ReconnectRefreshCoordinator(
-          child: OfflineBanner(
-            child: SafeArea(
-              top: false,
-              bottom: true,
-              child: child ?? const SizedBox.shrink(),
+        onGenerateRoute: (settings) {
+          switch (settings.name) {
+            case AppRoutes.home:
+              return noTransitionRoute(const HomeScreen());
+            case AppRoutes.weeklyMenu:
+              return noTransitionRoute(const WeeklyMenuScreen());
+            case AppRoutes.mealSkip:
+              return noTransitionRoute(const MealSkipScreen());
+            case AppRoutes.settings:
+              return noTransitionRoute(const SettingsScreen());
+            default:
+              return null;
+          }
+        },
+        builder: (context, child) {
+          final theme = Theme.of(context);
+          return ReconnectRefreshCoordinator(
+            child: OfflineBanner(
+              child: ColoredBox(
+                color: theme.scaffoldBackgroundColor,
+                child: SafeArea(
+                  top: true,
+                  bottom: true,
+                  child: child ?? const SizedBox.shrink(),
+                ),
+              ),
             ),
-          ),
-        ),
+          );
+        },
         // navigatorKey lets us show messages from the network layer if needed.
         home: const AuthWrapper(),
       ),

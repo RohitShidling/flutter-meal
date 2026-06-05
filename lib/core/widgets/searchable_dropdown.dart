@@ -99,9 +99,14 @@ class _SearchableDropdownState<T> extends State<SearchableDropdown<T>> {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 decoration: BoxDecoration(
                   color: isDark ? AppTheme.surfaceDark : Colors.white,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(24),
                   border: Border.all(
-                    color: hasError ? Colors.red : (isDark ? Colors.white10 : Colors.black12),
+                    color: hasError
+                        ? Colors.red
+                        : (isDark
+                            ? AppTheme.borderDark
+                            : AppTheme.borderLight),
+                    width: 1.5,
                   ),
                 ),
                 child: Row(

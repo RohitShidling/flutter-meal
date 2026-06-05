@@ -6,16 +6,20 @@ import 'package:meal_app/core/theme/app_theme.dart';
 import 'package:meal_app/core/providers/theme_provider.dart';
 import 'package:meal_app/features/auth/providers/auth_provider.dart';
 import 'package:meal_app/features/subscription/ui/screens/subscription_management_screen.dart';
-import 'package:meal_app/features/subscription/ui/screens/meal_skip_screen.dart';
 import 'package:meal_app/features/subscription/ui/screens/cart_screen.dart';
 import 'package:meal_app/features/subscription/ui/screens/meal_size_upgrade_screen.dart';
 import 'package:meal_app/features/subscription/ui/screens/wallet_screen.dart';
+import 'package:meal_app/features/profile/ui/screens/profile_details_screen.dart';
 import 'package:meal_app/core/providers/payment_provider.dart';
-import 'package:meal_app/features/bulk_order/ui/screens/bulk_delivery_address_settings_screen.dart';
 import 'package:meal_app/core/providers/cart_provider.dart';
+import 'package:meal_app/core/providers/lookup_provider.dart';
+import 'package:meal_app/core/models/lookup_models.dart';
 import 'package:meal_app/core/utils/error_handler.dart';
 import 'package:meal_app/features/profile/ui/screens/contact_us_screen.dart';
 import 'package:meal_app/features/profile/ui/screens/legal_screen.dart';
+import 'package:meal_app/features/auth/ui/screens/login_screen.dart';
+import 'package:meal_app/features/home/ui/widgets/bottom_footer_nav.dart';
+import 'package:meal_app/core/navigation/app_routes.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -25,13 +29,23 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  ContactUsModel? _contactInfo;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<PaymentProvider>().fetchWallet(silent: true);
+      _loadAboutConfig();
     });
+  }
+
+  Future<void> _loadAboutConfig() async {
+    try {
+      final info = await context.read<LookupProvider>().fetchContactUsInfo();
+      if (mounted) setState(() => _contactInfo = info);
+    } catch (_) {}
   }
 
   @override
@@ -42,155 +56,170 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final walletBalance = pay.walletBalance;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Settings',
-          style: TextStyle(color: isDark ? Colors.white : AppTheme.textPrimaryLight),
-        ),
-        leading: IconButton(
-          icon: const Icon(CupertinoIcons.back),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          _buildSectionHeader('Profile Details', isDark),
-          _buildNavigationTile(
-            context,
-            CupertinoIcons.person_crop_circle_fill,
-            'My Details',
-            isDark,
-            () => _showDetailsSheet(context, authProvider, isDark),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        Navigator.of(context).pushReplacementNamed(AppRoutes.home);
+      },
+      child: Scaffold(
+        backgroundColor: isDark ? AppTheme.backgroundDark : const Color(0xFFFAF8F5),
+        appBar: AppBar(
+          title: Text(
+            'Settings',
+            style: TextStyle(color: isDark ? Colors.white : AppTheme.textPrimaryLight),
           ),
-          const SizedBox(height: 8),
-          _buildNavigationTile(
-            context,
-            CupertinoIcons.creditcard_fill, 
-            'Subscriptions & Payments', 
-            isDark,
-            () {
-              Navigator.push(
+          leading: IconButton(
+            icon: const Icon(CupertinoIcons.back),
+            onPressed: () => Navigator.of(context).pushReplacementNamed(AppRoutes.home),
+          ),
+        ),
+        body: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            _buildSectionHeader('Profile Details', isDark),
+            _buildNavigationTile(
+              context,
+              CupertinoIcons.person_crop_circle_fill,
+              'My Profile',
+              isDark,
+              () {
+                Navigator.push(
+                  context,
+                  CupertinoPageRoute(builder: (context) => const ProfileDetailsScreen()),
+                );
+              },
+            ),
+            const SizedBox(height: 8),
+            _buildNavigationTile(
+              context,
+              CupertinoIcons.creditcard_fill, 
+              'Subscriptions & Payments', 
+              isDark,
+              () {
+                Navigator.push(
+                  context,
+                  CupertinoPageRoute(builder: (context) => const SubscriptionManagementScreen()),
+                );
+              }
+            ),
+            const SizedBox(height: 8),
+            _buildNavigationTile(
+              context,
+              CupertinoIcons.money_dollar_circle_fill,
+              walletBalance != null && walletBalance.isNotEmpty
+                  ? 'My Wallet — ₹$walletBalance'
+                  : 'My Wallet',
+              isDark,
+              () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const WalletScreen())),
+            ),
+            const SizedBox(height: 30),
+
+            _buildSectionHeader('Meal Management', isDark),
+            _buildNavigationTile(
+              context,
+              CupertinoIcons.calendar_badge_minus,
+              'Meal Skips',
+              isDark,
+              () => Navigator.of(context).pushReplacementNamed(AppRoutes.mealSkip),
+            ),
+            const SizedBox(height: 8),
+            _buildNavigationTile(
+              context,
+              CupertinoIcons.arrow_up_down_circle_fill,
+              'Resize your meal pack',
+              isDark,
+              () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const MealSizeUpgradeScreen())),
+            ),
+            const SizedBox(height: 8),
+            _buildNavigationTile(
+              context,
+              CupertinoIcons.cart_fill,
+              'Cart',
+              isDark,
+              () async {
+                await context.read<CartProvider>().fetchCart(force: true);
+                if (!context.mounted) return;
+                Navigator.push(context, CupertinoPageRoute(builder: (_) => const CartScreen()));
+              },
+            ),
+            const SizedBox(height: 30),
+
+            _buildSectionHeader('App Customization', isDark),
+            _buildThemeTile(context, themeProvider, isDark),
+            const SizedBox(height: 30),
+
+            _buildSectionHeader('Help & Support', isDark),
+            _buildNavigationTile(
+              context,
+              CupertinoIcons.mail_solid,
+              'Contact Us',
+              isDark,
+              () => Navigator.push(
                 context,
-                CupertinoPageRoute(builder: (context) => const SubscriptionManagementScreen()),
-              );
-            }
-          ),
-          const SizedBox(height: 8),
-          _buildNavigationTile(
-            context,
-            CupertinoIcons.money_dollar_circle_fill,
-            walletBalance != null && walletBalance.isNotEmpty
-                ? 'My Wallet — ₹$walletBalance'
-                : 'My Wallet',
-            isDark,
-            () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const WalletScreen())),
-          ),
-          const SizedBox(height: 30),
-
-          _buildSectionHeader('Meal Management', isDark),
-          _buildNavigationTile(
-            context,
-            CupertinoIcons.calendar_badge_minus,
-            'Meal Skips',
-            isDark,
-            () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const MealSkipScreen())),
-          ),
-          const SizedBox(height: 8),
-          _buildNavigationTile(
-            context,
-            CupertinoIcons.arrow_up_down_circle_fill,
-            'Resize your meal pack',
-            isDark,
-            () => Navigator.push(context, CupertinoPageRoute(builder: (_) => const MealSizeUpgradeScreen())),
-          ),
-          const SizedBox(height: 8),
-          _buildNavigationTile(
-            context,
-            CupertinoIcons.cart_fill,
-            'Cart',
-            isDark,
-            () async {
-              await context.read<CartProvider>().fetchCart(force: true);
-              if (!context.mounted) return;
-              Navigator.push(context, CupertinoPageRoute(builder: (_) => const CartScreen()));
-            },
-          ),
-          const SizedBox(height: 8),
-          _buildNavigationTile(
-            context,
-            CupertinoIcons.location_fill,
-            'Bulk delivery address',
-            isDark,
-            () => Navigator.push(
-              context,
-              CupertinoPageRoute(builder: (_) => const BulkDeliveryAddressSettingsScreen()),
+                CupertinoPageRoute(builder: (_) => const ContactUsScreen()),
+              ),
             ),
-          ),
-          const SizedBox(height: 30),
-
-          _buildSectionHeader('App Customization', isDark),
-          _buildThemeTile(context, themeProvider, isDark),
-          const SizedBox(height: 30),
-
-          _buildSectionHeader('Help & Support', isDark),
-          _buildNavigationTile(
-            context,
-            CupertinoIcons.mail_solid,
-            'Contact Us',
-            isDark,
-            () => Navigator.push(
+            const SizedBox(height: 8),
+            _buildNavigationTile(
               context,
-              CupertinoPageRoute(builder: (_) => const ContactUsScreen()),
+              CupertinoIcons.globe,
+              'Visit Website',
+              isDark,
+              () => _launchUrl(context, _contactInfo?.websiteUrl ?? 'https://buuttii.com/'),
             ),
-          ),
-          const SizedBox(height: 8),
-          _buildNavigationTile(
-            context,
-            CupertinoIcons.globe,
-            'Visit Website',
-            isDark,
-            () => _launchUrl(context, 'https://buuttii.com/'),
-          ),
-          const SizedBox(height: 30),
+            const SizedBox(height: 30),
 
-          _buildSectionHeader('Legal & Compliance', isDark),
-          _buildNavigationTile(
-            context,
-            CupertinoIcons.doc_text_fill,
-            'Terms & Conditions',
-            isDark,
-            () => Navigator.push(
+            _buildSectionHeader('Legal & Compliance', isDark),
+            _buildNavigationTile(
               context,
-              CupertinoPageRoute(builder: (_) => const LegalScreen(initialTabIndex: 0)),
+              CupertinoIcons.doc_text_fill,
+              'Terms & Conditions',
+              isDark,
+              () => Navigator.push(
+                context,
+                CupertinoPageRoute(builder: (_) => const LegalScreen(initialTabIndex: 0)),
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          _buildNavigationTile(
-            context,
-            CupertinoIcons.shield_fill,
-            'Privacy Policy',
-            isDark,
-            () => Navigator.push(
+            const SizedBox(height: 8),
+            _buildNavigationTile(
               context,
-              CupertinoPageRoute(builder: (_) => const LegalScreen(initialTabIndex: 1)),
+              CupertinoIcons.shield_fill,
+              'Privacy Policy',
+              isDark,
+              () => Navigator.push(
+                context,
+                CupertinoPageRoute(builder: (_) => const LegalScreen(initialTabIndex: 1)),
+              ),
             ),
-          ),
-          const SizedBox(height: 30),
-          
-          _buildSectionHeader('About', isDark),
-          _buildNavigationTile(
-            context,
-            CupertinoIcons.info_circle_fill, 
-            'About Buuttii',
-            isDark,
-            () => _showAboutDialog(context, isDark),
-          ),
-          const SizedBox(height: 50),
-          
-          _buildLogoutButton(context, authProvider),
-        ],
+            const SizedBox(height: 30),
+            
+            _buildSectionHeader('About', isDark),
+            _buildNavigationTile(
+              context,
+              CupertinoIcons.info_circle_fill,
+              (() {
+                final contactInfo = _contactInfo;
+                final aboutTitle = contactInfo == null ? null : contactInfo.aboutTitle?.trim();
+                if (aboutTitle != null && aboutTitle.isNotEmpty) return aboutTitle;
+                final appName = contactInfo == null ? null : contactInfo.appName?.trim();
+                return appName != null && appName.isNotEmpty ? 'About $appName' : 'About Us';
+              })(),
+              isDark,
+              () => _showAboutDialog(context, isDark),
+            ),
+            const SizedBox(height: 50),
+            
+            _buildLogoutButton(context, authProvider),
+          ],
+        ),
+        bottomNavigationBar: BuuttiiFooterNav(
+          currentIndex: 3,
+          onHomeTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.home),
+          onWeekMenuTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.weeklyMenu),
+          onMealSkipTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.mealSkip),
+          onSettingsTap: () {},
+        ),
       ),
     );
   }
@@ -210,91 +239,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _showDetailsSheet(BuildContext context, AuthProvider authProvider, bool isDark) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'My Details',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w800,
-                color: isDark ? Colors.white : AppTheme.textPrimaryLight,
-              ),
-            ),
-            const SizedBox(height: 24),
-            _buildInfoTile(CupertinoIcons.person_fill, 'Username', authProvider.username.isNotEmpty ? authProvider.username : 'User', isDark),
-            _buildInfoTile(CupertinoIcons.phone_fill, 'Phone Number', authProvider.phoneNumber, isDark),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
-              child: const Text('Close'),
-            ),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoTile(IconData icon, String title, String value, bool isDark) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: isDark ? AppTheme.surfaceDark : Colors.grey.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.1)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: AppTheme.primaryColor, size: 20),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isDark ? Colors.white54 : Colors.grey,
-                  ),
-                ),
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white : AppTheme.textPrimaryLight,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildThemeTile(BuildContext context, ThemeProvider themeProvider, bool isDark) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? AppTheme.surfaceDark : Colors.grey.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.1)),
+        color: isDark ? AppTheme.surfaceDark : const Color(0xFFF7F4EF),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.1),
+        ),
       ),
       child: Row(
         children: [
@@ -339,8 +292,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       trailing: const Icon(CupertinoIcons.chevron_right, size: 16, color: Colors.grey),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.1)),
+        borderRadius: BorderRadius.circular(20),
       ),
     );
   }
@@ -356,7 +308,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const Icon(CupertinoIcons.layers_alt_fill, color: AppTheme.primaryColor, size: 24),
               const SizedBox(width: 10),
               Text(
-                'About Buuttii',
+                (() {
+                  final contactInfo = _contactInfo;
+                  final aboutTitle = contactInfo == null ? null : contactInfo.aboutTitle?.trim();
+                  if (aboutTitle != null && aboutTitle.isNotEmpty) return aboutTitle;
+                  final appName = contactInfo == null ? null : contactInfo.appName?.trim();
+                  return appName != null && appName.isNotEmpty ? 'About $appName' : 'About Us';
+                })(),
                 style: TextStyle(
                   fontWeight: FontWeight.w700,
                   color: isDark ? Colors.white : AppTheme.textPrimaryLight,
@@ -377,7 +335,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 10),
               Text(
-                'Buuttii helps parents, teachers, and professionals manage daily meal subscriptions, menus, and skips in one place.',
+                (() {
+                  final contactInfo = _contactInfo;
+                  final aboutDescription = contactInfo == null ? null : contactInfo.aboutDescription?.trim();
+                  return aboutDescription != null && aboutDescription.isNotEmpty
+                      ? aboutDescription
+                      : 'This app helps you manage meal subscriptions, menus, and skips in one place.';
+                })(),
                 style: TextStyle(
                   fontSize: 14,
                   color: isDark ? Colors.white : AppTheme.textPrimaryLight,
@@ -416,7 +380,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Text(
-            'Buuttii License',
+            '${_contactInfo?.appName ?? 'This App'} License',
             style: TextStyle(
               fontWeight: FontWeight.w700,
               color: isDark ? Colors.white : AppTheme.textPrimaryLight,
@@ -424,10 +388,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           content: SingleChildScrollView(
             child: Text(
-              'Copyright (c) ${DateTime.now().year} Buuttii.\n\n'
-              'This mobile application and its content are proprietary to Buuttii and intended for authorized meal subscription use only.\n\n'
-              'Unauthorized copying, redistribution, reverse engineering, or commercial reuse of app content, branding, or data is prohibited.\n\n'
-              'Use of this app is subject to Buuttii policies and applicable local laws.',
+              (() {
+                final contactInfo = _contactInfo;
+                final licenseText = contactInfo == null ? null : contactInfo.licenseText?.trim();
+                if (licenseText != null && licenseText.isNotEmpty) return licenseText;
+                final appName = contactInfo == null ? null : contactInfo.appName?.trim();
+                final brand = appName != null && appName.isNotEmpty ? appName : 'This App';
+                return 'Copyright (c) ${DateTime.now().year} $brand.\n\n'
+                    'This mobile application and its content are proprietary to $brand and intended for authorized meal subscription use only.\n\n'
+                    'Unauthorized copying, redistribution, reverse engineering, or commercial reuse of app content, branding, or data is prohibited.\n\n'
+                    'Use of this app is subject to $brand policies and applicable local laws.';
+              })(),
               style: TextStyle(
                 fontSize: 14,
                 height: 1.4,
@@ -461,10 +432,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               CupertinoDialogAction(
                 isDestructiveAction: true,
-                onPressed: () {
-                  Navigator.pop(context);
-                  authProvider.logout();
-                  Navigator.pop(context); // Go back to home/login
+                onPressed: () async {
+                  final navigator = Navigator.of(context, rootNavigator: true);
+                  navigator.pop();
+                  await authProvider.logout();
+                  if (!mounted) return;
+                  navigator.pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    (route) => false,
+                  );
                 },
                 child: const Text('Logout'),
               ),

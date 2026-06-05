@@ -112,7 +112,7 @@ class BulkVarietyMealCardState extends State<BulkVarietyMealCard> {
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          border: inCart ? Border.all(color: AppTheme.primaryColor, width: 2) : null,
+          border: inCart ? Border.all(color: isDark ? Colors.white70 : AppTheme.textPrimaryLight, width: 2) : null,
         ),
         padding: inCart ? const EdgeInsets.all(2) : EdgeInsets.zero,
         child: Column(
