@@ -215,7 +215,7 @@ class PaymentProvider with ChangeNotifier {
     }
 
     try {
-      _walletTransactions = await _repository.getWalletTransactions();
+      _walletTransactions = List<dynamic>.from(await _repository.getWalletTransactions());
     } catch (e) {
       if (!silent) _error = ErrorHandler.getErrorMessage(e);
     } finally {

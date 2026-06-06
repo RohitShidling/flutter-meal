@@ -27,7 +27,7 @@ class EntityAddToCartButton extends StatelessWidget {
       return;
     }
     if (mealSizeId == null || mealSizeId! <= 0) {
-      ErrorHandler.showError(context, 'Select a meal size on the profile before adding to cart.');
+      ErrorHandler.showError(context, 'Select a meal size on the profile before choosing a plan.');
       return;
     }
     PlanPickerBottomSheet.show(
@@ -47,7 +47,7 @@ class EntityAddToCartButton extends StatelessWidget {
         child: FilledButton.icon(
           onPressed: () => _open(context),
           icon: const Icon(CupertinoIcons.cart_badge_plus, size: 18),
-          label: const Text('Add to cart'),
+          label: const Text('Choose Plan'),
           style: FilledButton.styleFrom(
             backgroundColor: AppTheme.primaryColor,
             padding: const EdgeInsets.symmetric(vertical: 12),
@@ -62,7 +62,7 @@ class EntityAddToCartButton extends StatelessWidget {
       child: FilledButton.icon(
         onPressed: () => _open(context),
         icon: const Icon(CupertinoIcons.cart_badge_plus, size: 20),
-        label: const Text('Add to cart'),
+        label: const Text('Choose Plan'),
         style: FilledButton.styleFrom(
           backgroundColor: AppTheme.primaryColor,
           padding: const EdgeInsets.symmetric(vertical: 14),
