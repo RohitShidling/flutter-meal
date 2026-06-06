@@ -1,6 +1,22 @@
 import 'package:meal_app/core/network/dio_client.dart';
 import 'package:meal_app/core/network/api_endpoints.dart';
 
+List<dynamic> normalizeWalletTransactionList(dynamic payload) {
+  if (payload is List) {
+    return List<dynamic>.from(payload);
+  }
+
+  if (payload is Map) {
+    for (final candidate in [payload['transactions'], payload['items'], payload['data']]) {
+      if (candidate is List) {
+        return List<dynamic>.from(candidate);
+      }
+    }
+  }
+
+  return const [];
+}
+
 class PaymentRepository {
   final DioClient _dioClient;
 
@@ -145,7 +161,7 @@ class PaymentRepository {
       queryParameters: {'limit': limit},
     );
     if (response.data['success'] == true) {
-      return response.data['data'] ?? [];
+      return normalizeWalletTransactionList(response.data['data']);
     }
     throw response.data['message']?.toString() ?? 'Failed to load wallet history';
   }

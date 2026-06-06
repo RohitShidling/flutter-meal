@@ -24,14 +24,18 @@ class _ViewAllPlansScreenState extends State<ViewAllPlansScreen> {
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_syncSelectedSegmentFromScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<SubscriptionProvider>().fetchSubscriptions(force: true, silent: true);
       context.read<LookupProvider>().fetchInitialData(force: true);
+      _syncSelectedSegmentFromScroll();
     });
   }
 
   @override
   void dispose() {
+    _scrollController.removeListener(_syncSelectedSegmentFromScroll);
     _scrollController.dispose();
     super.dispose();
   }
@@ -65,6 +69,41 @@ class _ViewAllPlansScreenState extends State<ViewAllPlansScreen> {
         curve: Curves.easeOutCubic,
         alignment: 0.08,
       );
+      _syncSelectedSegmentFromScroll();
+    }
+  }
+
+  void _syncSelectedSegmentFromScroll() {
+    if (!mounted) return;
+
+    final lookup = context.read<LookupProvider>();
+    final plans = [...context.read<SubscriptionProvider>().subscriptions]
+      ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+    final segments = _segments(plans, lookup);
+
+    if (segments.isEmpty) return;
+
+    final viewportTop = _scrollController.offset + 88.0;
+    int nearestIndex = 0;
+    double nearestDistance = double.infinity;
+
+    for (var i = 0; i < segments.length; i++) {
+      final ctx = _keyForSection(segments[i].id).currentContext;
+      if (ctx == null) continue;
+
+      final renderBox = ctx.findRenderObject();
+      if (renderBox is! RenderBox) continue;
+
+      final top = renderBox.localToGlobal(Offset.zero).dy;
+      final distance = (top - viewportTop).abs();
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestIndex = i;
+      }
+    }
+
+    if (_selectedSizeIndex != nearestIndex) {
+      setState(() => _selectedSizeIndex = nearestIndex);
     }
   }
 
