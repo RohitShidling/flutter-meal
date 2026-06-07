@@ -17,9 +17,9 @@ import 'package:meal_app/core/models/lookup_models.dart';
 import 'package:meal_app/core/utils/error_handler.dart';
 import 'package:meal_app/features/profile/ui/screens/contact_us_screen.dart';
 import 'package:meal_app/features/profile/ui/screens/legal_screen.dart';
-import 'package:meal_app/features/auth/ui/screens/login_screen.dart';
 import 'package:meal_app/features/home/ui/widgets/bottom_footer_nav.dart';
 import 'package:meal_app/core/navigation/app_routes.dart';
+import 'package:meal_app/features/announcements/ui/screens/announcements_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -60,7 +60,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        Navigator.of(context).pushReplacementNamed(AppRoutes.home);
+        Navigator.of(context).popUntil((route) => route.isFirst);
       },
       child: Scaffold(
         backgroundColor: isDark ? AppTheme.backgroundDark : const Color(0xFFFAF8F5),
@@ -71,7 +71,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           leading: IconButton(
             icon: const Icon(CupertinoIcons.back),
-            onPressed: () => Navigator.of(context).pushReplacementNamed(AppRoutes.home),
+            onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
           ),
         ),
         body: ListView(
@@ -147,6 +147,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
             _buildSectionHeader('App Customization', isDark),
             _buildThemeTile(context, themeProvider, isDark),
+            const SizedBox(height: 8),
+            _buildNavigationTile(
+              context,
+              CupertinoIcons.bell_fill,
+              'Announcements',
+              isDark,
+              () => Navigator.push(
+                context,
+                CupertinoPageRoute(builder: (_) => const AnnouncementsScreen()),
+              ),
+            ),
             const SizedBox(height: 30),
 
             _buildSectionHeader('Help & Support', isDark),
@@ -215,7 +226,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         bottomNavigationBar: BuuttiiFooterNav(
           currentIndex: 3,
-          onHomeTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.home),
+          onHomeTap: () => Navigator.of(context).popUntil((route) => route.isFirst),
           onWeekMenuTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.weeklyMenu),
           onMealSkipTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.mealSkip),
           onSettingsTap: () {},
@@ -433,14 +444,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               CupertinoDialogAction(
                 isDestructiveAction: true,
                 onPressed: () async {
-                  final navigator = Navigator.of(context, rootNavigator: true);
-                  navigator.pop();
+                  Navigator.of(context).pop();
                   await authProvider.logout();
                   if (!mounted) return;
-                  navigator.pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (_) => const LoginScreen()),
-                    (route) => false,
-                  );
+                  Navigator.of(context).popUntil((route) => route.isFirst);
                 },
                 child: const Text('Logout'),
               ),

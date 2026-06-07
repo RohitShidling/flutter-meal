@@ -21,10 +21,12 @@ class _OtpScreenState extends State<OtpScreen> {
   final _formKey = GlobalKey<FormState>();
   final _otpFocusNode = FocusNode();
   Timer? _resendTimer;
+  late AuthProvider _authProvider;
 
   @override
   void initState() {
     super.initState();
+    _authProvider = context.read<AuthProvider>();
     _startResendTimer();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -36,9 +38,8 @@ class _OtpScreenState extends State<OtpScreen> {
     _resendTimer?.cancel();
     _resendTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
-      final provider = context.read<AuthProvider>();
-      if (provider.resendCooldownSeconds > 0) {
-        provider.tickResendCooldown();
+      if (_authProvider.resendCooldownSeconds > 0) {
+        _authProvider.tickResendCooldown();
       }
     });
   }

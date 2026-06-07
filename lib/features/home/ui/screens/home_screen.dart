@@ -34,6 +34,9 @@ import 'package:meal_app/core/utils/subscription_status_normalize.dart';
 import 'package:meal_app/core/services/app_route_tracker.dart';
 import 'package:meal_app/core/services/offline_cache_bootstrap.dart';
 import 'package:meal_app/core/widgets/app_skeleton.dart';
+import 'package:meal_app/core/providers/announcement_provider.dart';
+import 'package:meal_app/features/announcements/ui/screens/announcements_screen.dart';
+import 'package:meal_app/core/navigation/app_routes.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -52,6 +55,7 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _bootstrapHome();
       context.read<LookupProvider>().fetchContactUsInfo();
+      context.read<AnnouncementProvider>().fetchAnnouncements(location: 'home');
     });
   }
 
@@ -212,13 +216,13 @@ class _HomeScreenState extends State<HomeScreen> {
         currentIndex: 0,
         onHomeTap: () {},
         onWeekMenuTap: () {
-          Navigator.of(context).pushReplacementNamed(AppRoutes.weeklyMenu);
+          Navigator.of(context).pushNamed(AppRoutes.weeklyMenu);
         },
         onMealSkipTap: () {
-          Navigator.of(context).pushReplacementNamed(AppRoutes.mealSkip);
+          Navigator.of(context).pushNamed(AppRoutes.mealSkip);
         },
         onSettingsTap: () {
-          Navigator.of(context).pushReplacementNamed(AppRoutes.settings);
+          Navigator.of(context).pushNamed(AppRoutes.settings);
         },
       ),
       body: RefreshIndicator(
@@ -299,6 +303,8 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              _buildAnnouncementsButton(context, isDark),
+              const SizedBox(width: 4),
               if (context.watch<BulkOrderProvider>().hasBulkCartItems) ...[
                 _buildBulkCartActionButton(context),
                 const SizedBox(width: 4),
@@ -312,6 +318,50 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildAnnouncementsButton(BuildContext context, bool isDark) {
+    final unreadCount = context.watch<AnnouncementProvider>().getUnreadCountForLocation('home');
+    
+    return Stack(
+      children: [
+        IconButton(
+          onPressed: () {
+            Navigator.pushNamed(context, AppRoutes.announcements);
+          },
+          icon: Icon(
+            CupertinoIcons.bell,
+            color: isDark ? Colors.white : const Color(0xFF5A4D42),
+            size: 24,
+          ),
+        ),
+        if (unreadCount > 0)
+          Positioned(
+            right: 0,
+            top: 0,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor,
+                shape: BoxShape.circle,
+              ),
+              constraints: const BoxConstraints(
+                minWidth: 18,
+                minHeight: 18,
+              ),
+              child: Text(
+                unreadCount > 9 ? '9+' : unreadCount.toString(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+      ],
     );
   }
 

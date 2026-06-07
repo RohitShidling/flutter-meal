@@ -76,7 +76,7 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        Navigator.of(context).pushReplacementNamed(AppRoutes.home);
+        Navigator.of(context).popUntil((route) => route.isFirst);
       },
       child: Scaffold(
         backgroundColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
@@ -103,7 +103,7 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
                     children: [
                       IconButton(
                         icon: const Icon(CupertinoIcons.back, color: Color(0xFF8B7A66)),
-                        onPressed: () => Navigator.pop(context),
+                        onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
                       ),
                       Text(
                         'Buuttii',
@@ -304,7 +304,7 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
       ),
       bottomNavigationBar: BuuttiiFooterNav(
         currentIndex: 2,
-        onHomeTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.home),
+        onHomeTap: () => Navigator.of(context).popUntil((route) => route.isFirst),
         onWeekMenuTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.weeklyMenu),
         onMealSkipTap: () {},
         onSettingsTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.settings),

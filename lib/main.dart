@@ -42,6 +42,9 @@ import 'package:meal_app/features/bulk_order/providers/bulk_order_provider.dart'
 import 'package:meal_app/features/subscription/ui/screens/meal_skip_screen.dart';
 import 'package:meal_app/core/navigation/app_routes.dart';
 import 'package:meal_app/core/utils/no_transition_route.dart';
+import 'package:meal_app/core/network/announcement_repository.dart';
+import 'package:meal_app/core/providers/announcement_provider.dart';
+import 'package:meal_app/features/announcements/ui/screens/announcements_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -71,6 +74,7 @@ class MyApp extends StatelessWidget {
     final cartRepository = CartRepository(dioClient);
     final mealRepository = MealRepository(dioClient);
     final bulkOrderRepository = BulkOrderRepository(dioClient);
+    final announcementRepository = AnnouncementRepository(dioClient);
 
     // Start global online/offline monitor + attach Dio for queue replay.
     NetworkStatusService.instance.attachDioClient(dioClient);
@@ -92,6 +96,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => CartProvider(cartRepository, cache)),
         ChangeNotifierProvider(create: (_) => MealProvider(mealRepository, cache)),
         ChangeNotifierProvider(create: (_) => BulkOrderProvider(bulkOrderRepository)),
+        ChangeNotifierProvider(create: (_) => AnnouncementProvider(announcementRepository)),
       ],
       child: const MainApp(),
     );
@@ -129,6 +134,8 @@ class MainApp extends StatelessWidget {
               return noTransitionRoute(const MealSkipScreen());
             case AppRoutes.settings:
               return noTransitionRoute(const SettingsScreen());
+            case AppRoutes.announcements:
+              return noTransitionRoute(const AnnouncementsScreen());
             default:
               return null;
           }
@@ -199,6 +206,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
     }
     session.acknowledge();
     _logoutInFlight = false;
+    Navigator.of(context).popUntil((route) => route.isFirst);
     // Show a non-blocking notice on the next frame.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -214,11 +222,24 @@ class _AuthWrapperState extends State<AuthWrapper> {
     });
   }
 
+  // Track the last resolved (non-loading) auth state so that transient
+  // `loading` states during OTP verification don't yank the user back to
+  // the login screen.
+  AuthState? _lastResolvedState;
+
   @override
   Widget build(BuildContext context) {
     final authState = context.watch<AuthProvider>().state;
 
-    switch (authState) {
+    // Only update the resolved state for definitive transitions.
+    // `loading` is transient and must NOT trigger a screen switch.
+    if (authState != AuthState.loading) {
+      _lastResolvedState = authState;
+    }
+
+    final effectiveState = _lastResolvedState ?? authState;
+
+    switch (effectiveState) {
       case AuthState.initial:
         // Lightweight shell — never block on network; theme follows system.
         return Scaffold(
