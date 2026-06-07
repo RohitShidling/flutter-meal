@@ -93,28 +93,30 @@ class ProfileProvider with ChangeNotifier {
       final fetchedProfessional = results[1] as ProfessionalProfileModel?;
       if (fetchedTeacher != null) {
         _teacherProfile = fetchedTeacher;
-      }
-      if (fetchedProfessional != null) {
-        _professionalProfile = fetchedProfessional;
-      }
-      _profileStatus = results[2] as Map<String, dynamic>?;
-      _lastFetchedAt = DateTime.now();
-
-      // Persist to cache so data is available offline
-      if (_teacherProfile != null) {
         await CacheStore.setJson(
           'teacher_profile',
           _teacherProfile!.toJson(),
           ttl: const Duration(hours: 12),
         );
+      } else {
+        _teacherProfile = null;
+        await CacheStore.remove('teacher_profile');
       }
-      if (_professionalProfile != null) {
+      if (fetchedProfessional != null) {
+        _professionalProfile = fetchedProfessional;
         await CacheStore.setJson(
           'professional_profile',
           _professionalProfile!.toJson(),
           ttl: const Duration(hours: 12),
         );
+      } else {
+        _professionalProfile = null;
+        await CacheStore.remove('professional_profile');
       }
+      _profileStatus = results[2] as Map<String, dynamic>?;
+      _lastFetchedAt = DateTime.now();
+
+      // Cache already persisted above
     } catch (e) {
       // Keep using cached profile silently in offline mode.
       _error = hasCachedProfile ? null : e;
@@ -188,7 +190,9 @@ class ProfileProvider with ChangeNotifier {
       final success = await _repository.deleteTeacherProfile();
       if (success) {
         _teacherProfile = null;
-        await fetchProfiles(force: true);
+        await CacheStore.remove('teacher_profile');
+        _lastFetchedAt = null; // force fresh fetch next time
+        notifyListeners();
         return true;
       }
       return false;
@@ -265,7 +269,9 @@ class ProfileProvider with ChangeNotifier {
       final success = await _repository.deleteProfessionalProfile();
       if (success) {
         _professionalProfile = null;
-        await fetchProfiles(force: true);
+        await CacheStore.remove('professional_profile');
+        _lastFetchedAt = null; // force fresh fetch next time
+        notifyListeners();
         return true;
       }
       return false;

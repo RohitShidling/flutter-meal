@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:meal_app/core/models/lookup_models.dart';
+import 'package:meal_app/core/utils/error_handler.dart';
 import 'package:meal_app/core/providers/lookup_provider.dart';
 import 'package:meal_app/core/theme/app_theme.dart';
 import 'package:meal_app/core/widgets/apple_card.dart';
 import 'package:meal_app/core/widgets/searchable_dropdown.dart';
+import 'package:meal_app/core/utils/delivery_time_window.dart';
 import 'package:meal_app/features/bulk_order/data/models/bulk_delivery_address.dart';
 import 'package:meal_app/features/bulk_order/providers/bulk_order_provider.dart';
 
@@ -100,12 +102,22 @@ class _BulkOrderAddressSectionState extends State<BulkOrderAddressSection> {
   }
 
   Future<void> _pickDeliveryTime() async {
+    final lookup = context.read<LookupProvider>();
+    if (lookup.deliveryTimeSettings == null) {
+      await lookup.fetchDeliveryTimeSettings();
+      if (!mounted) return;
+    }
+    final window = lookup.deliveryTimeSettings;
     final initial = TimeOfDay.now();
     final picked = await showTimePicker(
       context: context,
       initialTime: initial,
     );
     if (picked == null || !mounted) return;
+    if (!DeliveryTimeWindow.allows(picked, window)) {
+      ErrorHandler.showError(context, DeliveryTimeWindow.message(window));
+      return;
+    }
     _deliveryTimeController.text = picked.format(context);
     _syncToProvider();
     setState(() {});
@@ -233,10 +245,13 @@ class _BulkOrderAddressSectionState extends State<BulkOrderAddressSection> {
             TextField(
               controller: _deliveryTimeController,
               readOnly: true,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Delivery time *',
-                hintText: 'Select preferred lunch time',
-                prefixIcon: Icon(Icons.access_time),
+                hintText: DeliveryTimeWindow.hint(lookup.deliveryTimeSettings) ??
+                    'Select preferred lunch time',
+                helperText: DeliveryTimeWindow.hint(lookup.deliveryTimeSettings),
+                helperMaxLines: 2,
+                prefixIcon: const Icon(Icons.access_time),
               ),
               onTap: _pickDeliveryTime,
             ),

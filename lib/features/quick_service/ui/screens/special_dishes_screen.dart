@@ -55,6 +55,7 @@ class _SpecialDishesScreenState extends State<SpecialDishesScreen> {
 
     return Scaffold(
       backgroundColor: pageBg,
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         title: const Text('Buuttii Specials'),
         backgroundColor: pageBg,
@@ -67,7 +68,9 @@ class _SpecialDishesScreenState extends State<SpecialDishesScreen> {
             ),
         ],
       ),
-      body: p.isLoading && p.categories.isEmpty
+      body: SafeArea(
+        top: false,
+        child: p.isLoading && p.categories.isEmpty
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
@@ -159,8 +162,14 @@ class _SpecialDishesScreenState extends State<SpecialDishesScreen> {
                 ),
                 if (p.cartItemCount > 0)
                   Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: EdgeInsets.fromLTRB(
+                      16,
+                      16,
+                      16,
+                      16 + MediaQuery.viewInsetsOf(context).bottom,
+                    ),
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         const BulkOrderAddressSection(),
                         Builder(
@@ -186,6 +195,7 @@ class _SpecialDishesScreenState extends State<SpecialDishesScreen> {
                   ),
               ],
             ),
+        ),
     );
   }
 }

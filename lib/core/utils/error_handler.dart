@@ -184,7 +184,7 @@ class ErrorHandler {
 
   /// Red snackbar for validation / blocked actions (meal size, etc.).
   static void showValidationError(BuildContext context, String message) {
-    final messenger = ScaffoldMessenger.of(context);
+    final messenger = _rootMessenger(context);
     messenger.clearSnackBars();
     messenger.showSnackBar(
       SnackBar(
@@ -206,9 +206,11 @@ class ErrorHandler {
 
   /// Shows an error snackbar.
   /// Always clears previous snackbars first to prevent stacking.
+  /// Uses the root navigator's ScaffoldMessenger so the snackbar is visible
+  /// even when called from inside a modal bottom sheet.
   static void showError(BuildContext context, dynamic error) {
     final message = getErrorMessage(error);
-    final messenger = ScaffoldMessenger.of(context);
+    final messenger = _rootMessenger(context);
     messenger.clearSnackBars();
     messenger.showSnackBar(
       SnackBar(
@@ -230,8 +232,10 @@ class ErrorHandler {
 
   /// Shows a success snackbar.
   /// Always clears previous snackbars first to prevent stacking.
+  /// Uses the root navigator's ScaffoldMessenger so the snackbar is visible
+  /// even when called from inside a modal bottom sheet.
   static void showSuccess(BuildContext context, String message) {
-    final messenger = ScaffoldMessenger.of(context);
+    final messenger = _rootMessenger(context);
     messenger.clearSnackBars();
     messenger.showSnackBar(
       SnackBar(
@@ -249,5 +253,20 @@ class ErrorHandler {
         duration: const Duration(seconds: 3),
       ),
     );
+  }
+
+  /// Resolves the topmost [ScaffoldMessengerState] by walking up via the root
+  /// navigator context. This ensures snackbars appear above modal bottom sheets
+  /// and dialogs, where the local context has no Scaffold ancestor.
+  static ScaffoldMessengerState _rootMessenger(BuildContext context) {
+    try {
+      final rootContext =
+          Navigator.of(context, rootNavigator: true).context;
+      final messenger = ScaffoldMessenger.maybeOf(rootContext);
+      if (messenger != null) return messenger;
+    } catch (_) {
+      // If root navigator is unavailable, fall through to local lookup.
+    }
+    return ScaffoldMessenger.of(context);
   }
 }
