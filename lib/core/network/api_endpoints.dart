@@ -69,6 +69,7 @@ class ApiEndpoints {
   /// Client catalog (requires client JWT; server rejects admin tokens on this path).
   static const String subscriptions = '/api/common/subscription-plan-days';
   static const String homepage = '/api/common/homepage';
+  static const String announcements = '/api/client/announcements';
   static const String states = '/api/common/lookup/states';
   static const String cities = '/api/common/lookup/cities';
   static const String companies = '/api/common/lookup/companies';

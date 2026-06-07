@@ -22,6 +22,9 @@ class _LoginScreenState extends State<LoginScreen> {
   final _phoneController = TextEditingController();
   final _usernameController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  final _scrollController = ScrollController();
+  final _phoneFocusNode = FocusNode();
+  final _usernameFocusNode = FocusNode();
   bool _consentAccepted = false;
 
   @override
@@ -31,12 +34,35 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       context.read<AuthProvider>().clearTransientState();
     });
+    _phoneFocusNode.addListener(() => _scrollToFocused(_phoneFocusNode));
+    _usernameFocusNode.addListener(() => _scrollToFocused(_usernameFocusNode));
+  }
+
+  void _scrollToFocused(FocusNode node) {
+    if (!node.hasFocus) return;
+    // Only auto-scroll on the registration page
+    final isRegister = context.read<AuthProvider>().authMode == AuthMode.register;
+    if (!isRegister) return;
+    // Short delay to let the keyboard animation start
+    Future.delayed(const Duration(milliseconds: 350), () {
+      if (!mounted || node.context == null) return;
+      Scrollable.ensureVisible(
+        node.context!,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        alignmentPolicy: ScrollPositionAlignmentPolicy.explicit,
+        alignment: 0.5, // Position the field at ~30% from the top
+      );
+    });
   }
 
   @override
   void dispose() {
     _phoneController.dispose();
     _usernameController.dispose();
+    _scrollController.dispose();
+    _phoneFocusNode.dispose();
+    _usernameFocusNode.dispose();
     super.dispose();
   }
 
@@ -132,375 +158,474 @@ class _LoginScreenState extends State<LoginScreen> {
         systemNavigationBarDividerColor: Colors.transparent,
       ),
       child: Scaffold(
-        body: Container(
-          color: const Color(0xFFF7F4EF),
-          child: SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(22, 18, 22, 24),
-              child: Form(
-                key: _formKey,
+        resizeToAvoidBottomInset: true,
+        backgroundColor: const Color(0xFFFBF9F8),
+        body: SafeArea(
+          bottom: false,
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+            ),
+            child: Form(
+              key: _formKey,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: MediaQuery.of(context).size.height,
+                ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [Color(0xFFFF7A1A), Color(0xFFFFC47A)],
-                        ),
-                        borderRadius: BorderRadius.circular(34),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFFF7A1A).withValues(alpha: 0.20),
-                            blurRadius: 30,
-                            offset: const Offset(0, 10),
+                children: [
+                  // Hero Section
+                  ClipPath(
+                    clipper: _HeroClipper(),
+                    child: Container(
+                      height: 190,
+                      width: double.infinity,
+                      color: const Color(0xFFFF7A00),
+                    ),
+                  ),
+                  // Branding Header
+                  Transform.translate(
+                    offset: const Offset(0, -28),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                          border: Border.all(
+                            color: const Color(0xFFE0C0AF).withOpacity(0.2),
                           ),
-                        ],
+                        ),
+                        child: const Text(
+                          'Buuttii',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF994700),
+                          ),
+                        ),
                       ),
-                      child: Column(
-                        children: [
-                          SizedBox(
-                            height: 250,
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                Positioned(
-                                  left: 18,
-                                  right: 18,
-                                  bottom: 18,
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    ),
+                  ),
+                  // Login Form
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SizedBox(height: 12),
+                        // Heading
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isRegisterMode ? 'Create account' : 'Welcome back',
+                              style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF1B1C1C),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              isRegisterMode
+                                  ? 'Enter your WhatsApp number and username to continue with your healthy meal journey.'
+                                  : 'Enter your WhatsApp number to continue with your healthy meal journey.',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Color(0xFF584235),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        // Username Field (Register Mode)
+                        if (isRegisterMode) ...[
+                          _buildMaterialInput(
+                            controller: _usernameController,
+                            label: 'Username',
+                            icon: Icons.person_outline,
+                            focusNode: _usernameFocusNode,
+                            keyboardType: TextInputType.name,
+                            textInputAction: TextInputAction.next,
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Please enter your username';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        // Phone Input
+                        _buildPhoneInput(),
+                        const SizedBox(height: 16),
+                        // Terms Checkbox (Register Mode)
+                        if (isRegisterMode) ...[
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Checkbox(
+                                value: _consentAccepted,
+                                onChanged: (val) {
+                                  setState(() {
+                                    _consentAccepted = val ?? false;
+                                  });
+                                },
+                                activeColor: const Color(0xFFFF7A00),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(top: 8.0),
+                                  child: RichText(
+                                    text: TextSpan(
+                                      style: const TextStyle(
+                                        color: Color(0xFF584235),
+                                        fontSize: 12.5,
+                                        height: 1.35,
+                                      ),
                                       children: [
-                                        _buildFoodOutline(CupertinoIcons.square_favorites),
-                                        const SizedBox(width: 14),
-                                        _buildFoodOutline(CupertinoIcons.heart_fill),
-                                        const SizedBox(width: 14),
-                                        _buildFoodOutline(CupertinoIcons.circle_grid_3x3_fill),
-                                        const SizedBox(width: 14),
-                                        _buildFoodOutline(CupertinoIcons.leaf_arrow_circlepath),
+                                        const TextSpan(text: 'I agree to the '),
+                                        TextSpan(
+                                          text: 'Terms & Conditions',
+                                          style: const TextStyle(
+                                            color: Color(0xFF994700),
+                                            fontWeight: FontWeight.bold,
+                                            decoration: TextDecoration.underline,
+                                          ),
+                                          recognizer: TapGestureRecognizer()
+                                            ..onTap = () {
+                                              Navigator.push(
+                                                context,
+                                                CupertinoPageRoute(
+                                                  builder: (_) =>
+                                                      const LegalScreen(initialTabIndex: 0),
+                                                ),
+                                              );
+                                            },
+                                        ),
+                                        const TextSpan(text: ' and '),
+                                        TextSpan(
+                                          text: 'Privacy Policy',
+                                          style: const TextStyle(
+                                            color: Color(0xFF994700),
+                                            fontWeight: FontWeight.bold,
+                                            decoration: TextDecoration.underline,
+                                          ),
+                                          recognizer: TapGestureRecognizer()
+                                            ..onTap = () {
+                                              Navigator.push(
+                                                context,
+                                                CupertinoPageRoute(
+                                                  builder: (_) =>
+                                                      const LegalScreen(initialTabIndex: 1),
+                                                ),
+                                              );
+                                            },
+                                        ),
                                       ],
                                     ),
                                   ),
                                 ),
-                                Text(
-                                  'Buuttii',
-                                  textAlign: TextAlign.center,
-                                  style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                                        color: Colors.white,
-                                        fontSize: 42,
-                                        fontWeight: FontWeight.w900,
-                                      ),
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.fromLTRB(20, 28, 20, 26),
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.vertical(top: Radius.circular(40)),
+                          const SizedBox(height: 16),
+                        ],
+                        // Get OTP Button
+                        SizedBox(
+                          height: 52,
+                          child: ElevatedButton(
+                            onPressed: isLoading
+                                ? null
+                                : (isRegisterMode ? _submitRegister : _submitLogin),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFFF7A00),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 4,
+                              shadowColor: const Color(0xFFFF7A00).withOpacity(0.3),
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Text(
-                                  isRegisterMode
-                                      ? 'Create your Buuttii account'
-                                      : 'Welcome to Buuttii',
-                                  textAlign: TextAlign.center,
-                                  style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.w900,
-                                        color: const Color(0xFF57534E),
-                                      ),
-                                ),
-                                const SizedBox(height: 10),
-                                Text(
-                                  isRegisterMode
-                                      ? 'Enter your WhatsApp number and username to get started.'
-                                      : 'Enter your WhatsApp number to continue.',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    height: 1.4,
-                                    color: Colors.grey.shade600,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                const SizedBox(height: 24),
-                                if (isRegisterMode) ...[
-                                  TextFormField(
-                                    controller: _usernameController,
-                                    keyboardType: TextInputType.name,
-                                    textInputAction: TextInputAction.next,
-                                    textCapitalization: TextCapitalization.words,
-                                    autocorrect: true,
-                                    enableSuggestions: true,
-                                    autofillHints: const [AutofillHints.username, AutofillHints.name],
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
+                            child: isLoading
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                                     ),
-                                    decoration: InputDecoration(
-                                      labelText: 'Username',
-                                      prefixIcon: const Icon(Icons.person_outline),
-                                      filled: true,
-                                      fillColor: const Color(0xFFF8F7F4),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(18),
-                                        borderSide: BorderSide(color: Colors.grey.shade300),
-                                      ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(18),
-                                        borderSide: BorderSide(color: Colors.grey.shade300),
-                                      ),
-                                    ),
-                                    validator: (value) {
-                                      if (isRegisterMode &&
-                                          (value == null || value.trim().isEmpty)) {
-                                        return 'Please enter your username';
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                  const SizedBox(height: 16),
-                                ],
-                                TextFormField(
-                                  controller: _phoneController,
-                                  keyboardType: TextInputType.text,
-                                  textInputAction: TextInputAction.done,
-                                  autocorrect: false,
-                                  enableSuggestions: true,
-                                  autofillHints: const [AutofillHints.telephoneNumber],
-                                  onFieldSubmitted: (_) =>
-                                      isRegisterMode ? _submitRegister() : _submitLogin(),
-                                  maxLength: 10,
-                                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 0.4,
-                                  ),
-                                  decoration: InputDecoration(
-                                    labelText: 'WhatsApp Number',
-                                    counterText: '',
-                                    filled: true,
-                                    fillColor: const Color(0xFFF8F7F4),
-                                    prefixIcon: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 14.0),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Text('🇮🇳', style: TextStyle(fontSize: 22)),
-                                          const SizedBox(width: 8),
-                                          const Text(
-                                            '+91',
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w800,
-                                              color: Color(0xFF1F2937),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 10),
-                                          Container(
-                                            height: 24,
-                                            width: 1,
-                                            color: Colors.grey.shade400,
-                                          ),
-                                          const SizedBox(width: 8),
-                                        ],
-                                      ),
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(18),
-                                      borderSide: BorderSide(color: Colors.grey.shade300),
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(18),
-                                      borderSide: BorderSide(color: Colors.grey.shade300),
-                                    ),
-                                  ),
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
-                                      return 'Please enter your WhatsApp number';
-                                    }
-                                    if (value.length != 10 ||
-                                        !RegExp(r'^[0-9]+$').hasMatch(value)) {
-                                      return 'Please enter a valid 10-digit WhatsApp number';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                                if (isRegisterMode) ...[
-                                  const SizedBox(height: 12),
-                                  Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                  )
+                                : Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Checkbox(
-                                        value: _consentAccepted,
-                                        onChanged: (val) {
-                                          setState(() {
-                                            _consentAccepted = val ?? false;
-                                          });
-                                        },
-                                        activeColor: AppTheme.primaryColor,
-                                        visualDensity: VisualDensity.compact,
-                                      ),
-                                      Expanded(
-                                        child: Padding(
-                                          padding: const EdgeInsets.only(top: 8.0),
-                                          child: RichText(
-                                            text: TextSpan(
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .bodyMedium
-                                                  ?.copyWith(
-                                                    color: Colors.grey.shade700,
-                                                    fontSize: 12.5,
-                                                    height: 1.35,
-                                                  ),
-                                              children: [
-                                                const TextSpan(text: 'I agree to the '),
-                                                TextSpan(
-                                                  text: 'Terms & Conditions',
-                                                  style: const TextStyle(
-                                                    color: AppTheme.primaryColor,
-                                                    fontWeight: FontWeight.bold,
-                                                    decoration: TextDecoration.underline,
-                                                  ),
-                                                  recognizer: TapGestureRecognizer()
-                                                    ..onTap = () {
-                                                      Navigator.push(
-                                                        context,
-                                                        CupertinoPageRoute(
-                                                          builder: (_) =>
-                                                              const LegalScreen(initialTabIndex: 0),
-                                                        ),
-                                                      );
-                                                    },
-                                                ),
-                                                const TextSpan(text: ' and '),
-                                                TextSpan(
-                                                  text: 'Privacy Policy',
-                                                  style: const TextStyle(
-                                                    color: AppTheme.primaryColor,
-                                                    fontWeight: FontWeight.bold,
-                                                    decoration: TextDecoration.underline,
-                                                  ),
-                                                  recognizer: TapGestureRecognizer()
-                                                    ..onTap = () {
-                                                      Navigator.push(
-                                                        context,
-                                                        CupertinoPageRoute(
-                                                          builder: (_) =>
-                                                              const LegalScreen(initialTabIndex: 1),
-                                                        ),
-                                                      );
-                                                    },
-                                                ),
-                                              ],
-                                            ),
-                                          ),
+                                      Text(
+                                        isRegisterMode ? 'Create Account' : 'Get OTP',
+                                        style: const TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w600,
                                         ),
                                       ),
+                                      const SizedBox(width: 8),
+                                      const Icon(Icons.arrow_forward, size: 20),
                                     ],
                                   ),
-                                ],
-                                const SizedBox(height: 18),
-                                SizedBox(
-                                  height: 58,
-                                  child: ElevatedButton(
-                                    onPressed: isLoading
-                                        ? null
-                                        : (isRegisterMode ? _submitRegister : _submitLogin),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppTheme.primaryColor,
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(18),
-                                      ),
-                                      elevation: 0,
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        // Footer
+                        Column(
+                          children: [
+                            Text.rich(
+                              TextSpan(
+                                text: isRegisterMode
+                                    ? 'Already have an account? '
+                                    : 'New to Buuttii? ',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Color(0xFF584235),
+                                ),
+                                children: [
+                                  TextSpan(
+                                    text: isRegisterMode ? 'Login' : 'Register',
+                                    style: const TextStyle(
+                                      color: Color(0xFF994700),
+                                      fontWeight: FontWeight.bold,
                                     ),
-                                    child: isLoading
-                                        ? const SizedBox(
-                                            height: 24,
-                                            width: 24,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              valueColor:
-                                                  AlwaysStoppedAnimation<Color>(Colors.white),
-                                            ),
-                                          )
-                                        : Text(
-                                            isRegisterMode
-                                                ? 'Create Account'
-                                                : 'Login / Register',
-                                            style: const TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.w800,
-                                            ),
+                                    recognizer: TapGestureRecognizer()
+                                      ..onTap = () => _setMode(
+                                            isRegisterMode ? AuthMode.login : AuthMode.register,
                                           ),
                                   ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 32),
+                            // Trust Section
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  height: 1,
+                                  width: 48,
+                                  color: const Color(0xFF8C7263).withOpacity(0.4),
                                 ),
-                                const SizedBox(height: 18),
-                                Text(
-                                  'By continuing you agree to our Terms & Conditions and Privacy Policy',
-                                  textAlign: TextAlign.center,
+                                const SizedBox(width: 16),
+                                const Text(
+                                  'TRUSTED BY PROFESSIONALS',
                                   style: TextStyle(
-                                    fontSize: 12.5,
-                                    height: 1.35,
-                                    color: Colors.grey.shade600,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 2,
+                                    color: Color(0xFF584235),
                                   ),
                                 ),
-                                const SizedBox(height: 18),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      isRegisterMode
-                                          ? 'Already have an account? '
-                                          : "Don't have an account? ",
-                                      style: TextStyle(
-                                        fontSize: 13.5,
-                                        color: Colors.grey.shade700,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    GestureDetector(
-                                      onTap: () => _setMode(
-                                        isRegisterMode ? AuthMode.login : AuthMode.register,
-                                      ),
-                                      child: Text(
-                                        isRegisterMode ? 'Login' : 'Register',
-                                        style: const TextStyle(
-                                          color: AppTheme.primaryColor,
-                                          fontWeight: FontWeight.w800,
-                                          fontSize: 14.5,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                                const SizedBox(width: 16),
+                                Container(
+                                  height: 1,
+                                  width: 48,
+                                  color: const Color(0xFF8C7263).withOpacity(0.4),
                                 ),
                               ],
                             ),
-                          ),
-                        ],
-                      ),
-                    )
-                        .animate()
-                        .fadeIn(delay: 120.ms, duration: 450.ms)
-                        .slideY(begin: 0.06, end: 0),
-                  ],
-                ),
-              ),
+                            const SizedBox(height: 24),
+                            // Trust Badges
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.verified_user,
+                                  size: 32,
+                                  color: const Color(0xFF584235).withOpacity(0.6),
+                                ),
+                                const SizedBox(width: 32),
+                                Icon(
+                                  Icons.eco,
+                                  size: 32,
+                                  color: const Color(0xFF584235).withOpacity(0.6),
+                                ),
+                                const SizedBox(width: 32),
+                                Icon(
+                                  Icons.health_and_safety,
+                                  size: 32,
+                                  color: const Color(0xFF584235).withOpacity(0.6),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 32),
+                      ],
+                    ),
+                  ),
+                ],
+              ), // Column
+            ), // ConstrainedBox
             ),
           ),
         ),
       ),
     );
   }
+
+  Widget _buildMaterialInput({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    FocusNode? focusNode,
+    TextInputType? keyboardType,
+    TextInputAction? textInputAction,
+    String? Function(String?)? validator,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF6F3F2),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF8C7263)),
+      ),
+      child: TextFormField(
+        controller: controller,
+        focusNode: focusNode,
+        keyboardType: keyboardType,
+        textInputAction: textInputAction,
+        validator: validator,
+        style: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w400,
+        ),
+        decoration: InputDecoration(
+          hintText: label,
+          prefixIcon: Icon(icon, color: const Color(0xFF584235)),
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          errorBorder: InputBorder.none,
+          focusedErrorBorder: InputBorder.none,
+          filled: false,
+          isCollapsed: true,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          hintStyle: const TextStyle(
+            color: Color(0xFF584235),
+            fontSize: 16,
+            fontWeight: FontWeight.w400,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhoneInput() {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF6F3F2),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF8C7263)),
+      ),
+      child: Row(
+        children: [
+          // Country Code
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            decoration: BoxDecoration(
+              border: Border(
+                right: BorderSide(color: const Color(0xFFE0C0AF)),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.call,
+                  color: Color(0xFF584235),
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  '+91',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF1B1C1C),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Phone Input
+          Expanded(
+            child: TextFormField(
+              controller: _phoneController,
+              focusNode: _phoneFocusNode,
+              keyboardType: TextInputType.phone,
+              textInputAction: TextInputAction.done,
+              maxLength: 10,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              onFieldSubmitted: (_) => _submitLogin(),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter your WhatsApp number';
+                }
+                if (value.length != 10 || !RegExp(r'^[0-9]+$').hasMatch(value)) {
+                  return 'Please enter a valid 10-digit WhatsApp number';
+                }
+                return null;
+              },
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w400,
+              ),
+              decoration: const InputDecoration(
+                hintText: 'Phone Number',
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                errorBorder: InputBorder.none,
+                focusedErrorBorder: InputBorder.none,
+                filled: false,
+                isCollapsed: true,
+                contentPadding: EdgeInsets.symmetric(horizontal: 16),
+                counterText: '',
+                hintStyle: TextStyle(
+                  color: Color(0xFF584235),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    path.lineTo(0, size.height * 0.7);
+    path.quadraticBezierTo(
+      size.width / 2,
+      size.height * 1.2,
+      size.width,
+      size.height * 0.7,
+    );
+    path.lineTo(size.width, 0);
+    path.close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(_HeroClipper oldClipper) => false;
 }

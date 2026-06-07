@@ -74,7 +74,7 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        Navigator.of(context).pushReplacementNamed(AppRoutes.home);
+        Navigator.of(context).popUntil((route) => route.isFirst);
       },
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -103,7 +103,7 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
       ),
       bottomNavigationBar: BuuttiiFooterNav(
         currentIndex: 1,
-        onHomeTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.home),
+        onHomeTap: () => Navigator.of(context).popUntil((route) => route.isFirst),
         onWeekMenuTap: () {},
         onMealSkipTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.mealSkip),
         onSettingsTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.settings),
