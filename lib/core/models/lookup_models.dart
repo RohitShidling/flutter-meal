@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 class SchoolModel {
   final String id;
   final String name;
@@ -292,4 +294,56 @@ class ContactUsModel {
       'website_url': websiteUrl,
     };
   }
+}
+
+class DeliveryTimeSettingsModel {
+  final bool isEnabled;
+  final String startTime;
+  final String endTime;
+
+  DeliveryTimeSettingsModel({
+    required this.isEnabled,
+    required this.startTime,
+    required this.endTime,
+  });
+
+  factory DeliveryTimeSettingsModel.fromJson(Map<String, dynamic> json) {
+    return DeliveryTimeSettingsModel(
+      isEnabled: json['is_enabled'] ?? json['isEnabled'] ?? true,
+      startTime: (json['start_time'] ?? json['startTime'] ?? '09:00').toString(),
+      endTime: (json['end_time'] ?? json['endTime'] ?? '18:00').toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'is_enabled': isEnabled,
+      'start_time': startTime,
+      'end_time': endTime,
+    };
+  }
+
+  TimeOfDay? _parseTime(String raw) {
+    final parts = raw.split(':');
+    if (parts.length < 2) return null;
+    final h = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    if (h == null || m == null) return null;
+    if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+    return TimeOfDay(hour: h, minute: m);
+  }
+
+  bool allows(TimeOfDay time) {
+    if (!isEnabled) return true;
+    final start = _parseTime(startTime);
+    final end = _parseTime(endTime);
+    if (start == null || end == null) return true;
+    final current = time.hour * 60 + time.minute;
+    final startM = start.hour * 60 + start.minute;
+    final endM = end.hour * 60 + end.minute;
+    return current >= startM && current <= endM;
+  }
+
+  TimeOfDay? get start => _parseTime(startTime);
+  TimeOfDay? get end => _parseTime(endTime);
 }

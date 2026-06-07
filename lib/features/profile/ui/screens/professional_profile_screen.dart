@@ -10,6 +10,7 @@ import 'package:meal_app/core/providers/lookup_provider.dart';
 import 'package:meal_app/core/widgets/searchable_dropdown.dart';
 import 'package:meal_app/core/models/lookup_models.dart';
 import 'package:meal_app/core/utils/time_utils.dart';
+import 'package:meal_app/core/utils/delivery_time_window.dart';
 import 'package:meal_app/core/utils/validators.dart';
 import 'package:meal_app/core/providers/meal_provider.dart';
 import 'package:meal_app/core/utils/meal_size_recommendations.dart';
@@ -179,6 +180,12 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
 
   Future<void> _selectTime(BuildContext context) async {
     FocusScope.of(context).unfocus();
+    final lookup = context.read<LookupProvider>();
+    if (lookup.deliveryTimeSettings == null) {
+      await lookup.fetchDeliveryTimeSettings();
+      if (!mounted) return;
+    }
+    final window = lookup.deliveryTimeSettings;
     final parts = _timeController.text.split(':');
     final initHour = int.tryParse(parts.first) ?? 13;
     final initMin = parts.length > 1 ? int.tryParse(parts[1]) ?? 30 : 30;
@@ -201,6 +208,10 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
       },
     );
     if (picked != null) {
+      if (!DeliveryTimeWindow.allows(picked, window)) {
+        ErrorHandler.showError(context, DeliveryTimeWindow.message(window));
+        return;
+      }
       setState(() {
         _timeController.text = TimeUtils.toBackendFormat(picked);
       });
@@ -554,11 +565,18 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                       child: IgnorePointer(
                         child: TextFormField(
                           controller: TextEditingController(text: TimeUtils.formatToDisplay(_timeController.text)),
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             labelText: 'Lunch Time',
-                            hintText: 'Select lunch delivery time',
-                            prefixIcon: Icon(CupertinoIcons.clock_fill),
-                            suffixIcon: Icon(CupertinoIcons.chevron_down, size: 16),
+                            hintText: DeliveryTimeWindow.hint(
+                                  lookup.deliveryTimeSettings,
+                                ) ??
+                                'Select lunch delivery time',
+                            helperText: DeliveryTimeWindow.hint(
+                              lookup.deliveryTimeSettings,
+                            ),
+                            helperMaxLines: 2,
+                            prefixIcon: const Icon(CupertinoIcons.clock_fill),
+                            suffixIcon: const Icon(CupertinoIcons.chevron_down, size: 16),
                           ),
                           validator: (v) => Validators.time(_timeController.text, fieldName: 'Lunch time'),
                         ),

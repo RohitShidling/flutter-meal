@@ -137,6 +137,7 @@ class _OtpScreenState extends State<OtpScreen> {
         body: GestureDetector(
           onTap: () => _otpFocusNode.requestFocus(),
           child: SafeArea(
+            bottom: false,
             child: Form(
               key: _formKey,
               child: Column(

@@ -44,6 +44,10 @@ class LookupProvider with ChangeNotifier {
       if (states is List) {
         _states = states.map((e) => StateModel.fromJson(Map<String, dynamic>.from(e as Map))).toList();
       }
+      final deliveryTimeSettings = raw['deliveryTimeSettings'];
+      if (deliveryTimeSettings is Map) {
+        _deliveryTimeSettings = DeliveryTimeSettingsModel.fromJson(Map<String, dynamic>.from(deliveryTimeSettings));
+      }
       notifyListeners();
     } catch (_) {
       // ignore cache parse errors
@@ -76,6 +80,7 @@ class LookupProvider with ChangeNotifier {
           .toList(),
       'subscriptions': _subscriptions,
       'states': _states.map((e) => {'id': e.id, 'name': e.name}).toList(),
+      'deliveryTimeSettings': _deliveryTimeSettings?.toJson(),
     }, ttl: const Duration(days: 7));
   }
 
@@ -89,6 +94,7 @@ class LookupProvider with ChangeNotifier {
   List<CityModel> _cities = [];
   List<CompanyModel> _companies = [];
   ContactUsModel? _contactUsInfo;
+  DeliveryTimeSettingsModel? _deliveryTimeSettings;
 
   bool _isLoading = false;
   DateTime? _lastFetchedAt;
@@ -104,6 +110,7 @@ class LookupProvider with ChangeNotifier {
   List<CityModel> get cities => _cities;
   List<CompanyModel> get companies => _companies;
   ContactUsModel? get contactUsInfo => _contactUsInfo;
+  DeliveryTimeSettingsModel? get deliveryTimeSettings => _deliveryTimeSettings;
   bool get isLoading => _isLoading;
 
 
@@ -141,6 +148,7 @@ class LookupProvider with ChangeNotifier {
         _repository.getSubscriptions(),
         _repository.getStates(),
         _repository.getDivisions(),
+        _repository.getDeliveryTimeSettings(),
       ]);
 
       _schools = results[0] as List<SchoolModel>;
@@ -150,6 +158,7 @@ class LookupProvider with ChangeNotifier {
       _subscriptions = results[4] as List<Map<String, dynamic>>;
       _states = results[5] as List<StateModel>;
       _divisions = results[6] as List<DivisionModel>;
+      _deliveryTimeSettings = results[7] as DeliveryTimeSettingsModel?;
       _cities = [];
       _companies = [];
       _lastFetchedAt = DateTime.now();
@@ -206,6 +215,17 @@ class LookupProvider with ChangeNotifier {
   Future<ContactUsModel?> fetchContactUsInfo() async {
     final info = await _repository.getContactUsInfo();
     _contactUsInfo = info;
+    notifyListeners();
+    return info;
+  }
+
+  Future<DeliveryTimeSettingsModel?> fetchDeliveryTimeSettings({bool force = false}) async {
+    if (!force && _deliveryTimeSettings != null && !NetworkStatusService.instance.isOnline) {
+      return _deliveryTimeSettings;
+    }
+    final info = await _repository.getDeliveryTimeSettings();
+    _deliveryTimeSettings = info;
+    await _persistCache();
     notifyListeners();
     return info;
   }

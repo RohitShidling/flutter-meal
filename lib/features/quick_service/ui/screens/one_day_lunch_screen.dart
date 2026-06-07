@@ -9,6 +9,33 @@ import 'package:meal_app/features/bulk_order/providers/bulk_order_provider.dart'
 import 'package:meal_app/features/bulk_order/ui/widgets/bulk_order_address_section.dart';
 import 'package:meal_app/features/quick_service/ui/widgets/quick_service_checkout.dart';
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/// Returns true if the current time is BEFORE the cutoff (e.g. "09:00").
+/// When false, today ordering is closed.
+bool _isTodayOrderOpen(String cutoffHhmm) {
+  final parts = cutoffHhmm.split(':');
+  if (parts.length < 2) return false;
+  final cutoffH = int.tryParse(parts[0]) ?? 0;
+  final cutoffM = int.tryParse(parts[1]) ?? 0;
+  final now = TimeOfDay.now();
+  final nowMins = now.hour * 60 + now.minute;
+  final cutoffMins = cutoffH * 60 + cutoffM;
+  return nowMins < cutoffMins;
+}
+
+/// Returns tomorrow's date as "YYYY-MM-DD".
+String _tomorrowYmd() {
+  final t = DateTime.now().add(const Duration(days: 1));
+  return '${t.year}-${t.month.toString().padLeft(2, '0')}-${t.day.toString().padLeft(2, '0')}';
+}
+
+// ---------------------------------------------------------------------------
+// Screen
+// ---------------------------------------------------------------------------
+
 class OneDayLunchScreen extends StatefulWidget {
   const OneDayLunchScreen({super.key});
 
@@ -24,14 +51,36 @@ class _OneDayLunchScreenState extends State<OneDayLunchScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
       final p = context.read<QuickServiceProvider>();
-      await p.loadOneDayConfig();
-      await context.read<BulkOrderProvider>().loadSavedDeliveryAddress();
-      final bulkAddr = context.read<BulkOrderProvider>().deliveryAddress;
-      if (bulkAddr != null) p.setAddress(bulkAddr);
-      await context.read<MenuProvider>().fetchTodayMenu(silent: true);
-      final menu = context.read<MenuProvider>().todayMenu;
-      p.setTodayMenu(menu == null ? null : Map<String, dynamic>.from(menu));
+      final bulk = context.read<BulkOrderProvider>();
+      final menu = context.read<MenuProvider>();
+
+      // Always force-refresh config — cutoff time is real-time admin data.
+      // Running in parallel with the other fetches for speed.
+      await Future.wait([
+        p.loadOneDayConfig(),                          // always fresh
+        bulk.loadSavedDeliveryAddress(),
+        if (menu.todayMenu == null) menu.fetchTodayMenu(silent: true),
+        menu.fetchWeeklyMenuSilent(),
+      ]);
+
+      if (!mounted) return;
+      final addr = bulk.deliveryAddress;
+      if (addr != null) p.setAddress(addr);
+
+      final todayMenu = menu.todayMenu;
+      p.setTodayMenu(todayMenu == null ? null : Map<String, dynamic>.from(todayMenu));
+
+      // Re-evaluate cutoff now that fresh config is loaded.
+      // If today is now open, keep current selection; if closed, switch to next_day.
+      if (mounted) {
+        final cfg = p.oneDayConfig;
+        final cutoff = cfg?['today_cutoff_time']?.toString() ?? '09:00';
+        if (!_isTodayOrderOpen(cutoff) && _deliveryType == 'today') {
+          setState(() => _deliveryType = 'next_day');
+        }
+      }
     });
   }
 
@@ -46,17 +95,8 @@ class _OneDayLunchScreenState extends State<OneDayLunchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final p = context.watch<QuickServiceProvider>();
-    final cfg = p.oneDayConfig;
-    final menu = p.todayMenu;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final pageBg = isDark ? AppTheme.backgroundDark : Colors.white;
-
-    final todayPrice = double.tryParse(cfg?['today_price']?.toString() ?? '') ?? 100.0;
-    final nextDayPrice = double.tryParse(cfg?['next_day_price']?.toString() ?? '') ?? 90.0;
-    final cutoff = cfg?['today_cutoff_time']?.toString() ?? '09:00';
-    final selectedPrice = _deliveryType == 'today' ? todayPrice : nextDayPrice;
-    final total = selectedPrice * _quantity;
 
     return Scaffold(
       backgroundColor: pageBg,
@@ -65,143 +105,372 @@ class _OneDayLunchScreenState extends State<OneDayLunchScreen> {
         backgroundColor: pageBg,
         surfaceTintColor: Colors.transparent,
       ),
-      body: p.isLoading && cfg == null
-          ? const Center(child: CircularProgressIndicator())
-          : cfg == null
-              ? Center(child: Text(p.error ?? 'Service unavailable'))
-              : ListView(
-                  padding: const EdgeInsets.all(20),
-                  children: [
-                    if (menu != null) ...[
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: menu['image_url'] != null
-                            ? CachedNetworkImage(
-                                imageUrl: menu['image_url'].toString(),
-                                height: 160,
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                              )
-                            : Container(
-                                height: 120,
-                                color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                                alignment: Alignment.center,
-                                child: const Icon(CupertinoIcons.tray_fill, size: 48),
-                              ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        menu['items']?.toString() ?? "Today's menu",
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                    _optionTile(
-                      title: 'Next Day',
-                      subtitle: '₹${nextDayPrice.toStringAsFixed(0)} / meal',
-                      selected: _deliveryType == 'next_day',
-                      onTap: () => setState(() => _deliveryType = 'next_day'),
-                    ),
-                    const SizedBox(height: 10),
-                    _optionTile(
-                      title: 'Today',
-                      subtitle: '₹${todayPrice.toStringAsFixed(0)} / meal · order before $cutoff',
-                      selected: _deliveryType == 'today',
-                      onTap: () => setState(() => _deliveryType = 'today'),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        const Text('Quantity', style: TextStyle(fontWeight: FontWeight.w700)),
-                        const Spacer(),
-                        IconButton(
-                          onPressed: _quantity > 1 ? () => setState(() => _quantity--) : null,
-                          icon: const Icon(CupertinoIcons.minus_circle),
-                        ),
-                        Text('$_quantity', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-                        IconButton(
-                          onPressed: () => setState(() => _quantity++),
-                          icon: const Icon(CupertinoIcons.plus_circle),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    BulkOrderAddressSection(),
-                    const SizedBox(height: 8),
-                    Builder(
-                      builder: (ctx) {
-                        final addr = ctx.watch<BulkOrderProvider>().deliveryAddress;
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (mounted) ctx.read<QuickServiceProvider>().setAddress(addr);
-                        });
-                        return const SizedBox.shrink();
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Row(
-                        children: [
-                          const Text('Total', style: TextStyle(fontWeight: FontWeight.w700)),
-                          const Spacer(),
-                          Text(
-                            '₹${total.toStringAsFixed(0)}',
-                            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppTheme.primaryColor),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      height: 52,
-                      child: ElevatedButton(
-                        onPressed: p.isLoading ? null : _pay,
-                        child: p.isLoading
-                            ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2))
-                            : const Text('Pay & Order', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-                      ),
-                    ),
-                  ],
-                ),
+      body: SafeArea(
+        top: false,
+        child: Selector<QuickServiceProvider,
+            ({bool isLoading, Map<String, dynamic>? cfg, Map<String, dynamic>? menu, String? error})>(
+          selector: (_, p) => (
+            isLoading: p.isLoading,
+            cfg: p.oneDayConfig,
+            menu: p.todayMenu,
+            error: p.error,
+          ),
+          builder: (context, data, _) {
+            if (data.isLoading && data.cfg == null) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (data.cfg == null) {
+              return Center(child: Text(data.error ?? 'Service unavailable'));
+            }
+            // Pick tomorrow's menu from weekly list
+            final weeklyMenu = context.read<MenuProvider>().weeklyMenu;
+            final tomorrowYmd = _tomorrowYmd();
+            Map<String, dynamic>? tomorrowMenu;
+            for (final entry in weeklyMenu) {
+              if (entry is! Map) continue;
+              final raw = entry['menu_date'] ?? entry['date'] ?? entry['delivery_date'] ?? entry['for_date'];
+              final dateStr = raw?.toString() ?? '';
+              final ymd = dateStr.contains('T') ? dateStr.split('T').first : dateStr;
+              if (ymd == tomorrowYmd) {
+                tomorrowMenu = Map<String, dynamic>.from(entry);
+                break;
+              }
+            }
+
+            return _OneDayLunchBody(
+              cfg: data.cfg!,
+              todayMenu: data.menu,
+              tomorrowMenu: tomorrowMenu,
+              isDark: isDark,
+              deliveryType: _deliveryType,
+              quantity: _quantity,
+              isLoading: data.isLoading,
+              onDeliveryTypeChanged: (v) => setState(() => _deliveryType = v),
+              onQuantityChanged: (v) => setState(() => _quantity = v),
+              onPay: _pay,
+            );
+          },
+        ),
+      ),
     );
   }
+}
 
-  Widget _optionTile({
-    required String title,
-    required String subtitle,
-    required bool selected,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: selected ? AppTheme.primaryColor.withValues(alpha: 0.1) : Colors.grey.shade100,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            children: [
-              Icon(
-                selected ? CupertinoIcons.checkmark_circle_fill : CupertinoIcons.circle,
-                color: selected ? AppTheme.primaryColor : Colors.grey,
+// ---------------------------------------------------------------------------
+// Body — separated so address section stays mounted on setState
+// ---------------------------------------------------------------------------
+
+class _OneDayLunchBody extends StatelessWidget {
+  const _OneDayLunchBody({
+    required this.cfg,
+    required this.todayMenu,
+    required this.tomorrowMenu,
+    required this.isDark,
+    required this.deliveryType,
+    required this.quantity,
+    required this.isLoading,
+    required this.onDeliveryTypeChanged,
+    required this.onQuantityChanged,
+    required this.onPay,
+  });
+
+  final Map<String, dynamic> cfg;
+  final Map<String, dynamic>? todayMenu;
+  final Map<String, dynamic>? tomorrowMenu;
+  final bool isDark;
+  final String deliveryType;
+  final int quantity;
+  final bool isLoading;
+  final ValueChanged<String> onDeliveryTypeChanged;
+  final ValueChanged<int> onQuantityChanged;
+  final VoidCallback onPay;
+
+  @override
+  Widget build(BuildContext context) {
+    final todayPrice = double.tryParse(cfg['today_price']?.toString() ?? '') ?? 100.0;
+    final nextDayPrice = double.tryParse(cfg['next_day_price']?.toString() ?? '') ?? 90.0;
+    final cutoff = cfg['today_cutoff_time']?.toString() ?? '09:00';
+    final todayOpen = _isTodayOrderOpen(cutoff);
+    final selectedPrice = deliveryType == 'today' ? todayPrice : nextDayPrice;
+    final total = selectedPrice * quantity;
+    final activeMenu = deliveryType == 'today' ? todayMenu : tomorrowMenu;
+
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate([
+              // ── Meal card ─────────────────────────────────────────────
+              _MenuCard(
+                menu: activeMenu,
+                label: deliveryType == 'today' ? "Today's meal" : "Tomorrow's meal",
+                isDark: isDark,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(height: 16),
+
+              // ── Delivery type ─────────────────────────────────────────
+              _OptionTile(
+                title: 'Next Day',
+                subtitle: '₹${nextDayPrice.toStringAsFixed(0)} / meal',
+                selected: deliveryType == 'next_day',
+                disabled: false,
+                onTap: () => onDeliveryTypeChanged('next_day'),
+              ),
+              const SizedBox(height: 10),
+              _OptionTile(
+                title: 'Today',
+                subtitle: todayOpen
+                    ? '₹${todayPrice.toStringAsFixed(0)} / meal · order before $cutoff'
+                    : 'Order window closed',
+                selected: deliveryType == 'today',
+                disabled: !todayOpen,
+                onTap: todayOpen ? () => onDeliveryTypeChanged('today') : null,
+              ),
+              const SizedBox(height: 20),
+
+              // ── Quantity ──────────────────────────────────────────────
+              Row(
+                children: [
+                  const Text('Quantity', style: TextStyle(fontWeight: FontWeight.w700)),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: quantity > 1 ? () => onQuantityChanged(quantity - 1) : null,
+                    icon: const Icon(CupertinoIcons.minus_circle),
+                  ),
+                  Text('$quantity',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                  IconButton(
+                    onPressed: () => onQuantityChanged(quantity + 1),
+                    icon: const Icon(CupertinoIcons.plus_circle),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // ── Delivery address — single const widget, stays alive ───
+              const BulkOrderAddressSection(),
+              const SizedBox(height: 20),
+
+              // ── Total ─────────────────────────────────────────────────
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
                   children: [
-                    Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                    Text(subtitle, style: TextStyle(color: Colors.grey.shade700, fontSize: 13)),
+                    const Text('Total', style: TextStyle(fontWeight: FontWeight.w700)),
+                    const Spacer(),
+                    Text(
+                      '₹${total.toStringAsFixed(0)}',
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ),
                   ],
                 ),
               ),
-            ],
+              const SizedBox(height: 12),
+
+              // ── Pay button ────────────────────────────────────────────
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: isLoading ? null : onPay,
+                  child: isLoading
+                      ? const SizedBox(
+                          height: 22,
+                          width: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Text('Pay & Order',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ]),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Menu card widget
+// ---------------------------------------------------------------------------
+
+class _MenuCard extends StatelessWidget {
+  const _MenuCard({required this.menu, required this.label, required this.isDark});
+
+  final Map<String, dynamic>? menu;
+  final String label;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final subtitleColor = isDark ? Colors.white60 : const Color(0xFF64748B);
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.15),
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (menu?['image_url'] != null)
+            CachedNetworkImage(
+              imageUrl: menu!['image_url'].toString(),
+              height: 150,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              errorWidget: (_, __, ___) => const SizedBox.shrink(),
+            ),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.primaryColor,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  menu != null
+                      ? (menu!['items']?.toString() ??
+                          menu!['name']?.toString() ??
+                          'Menu available')
+                      : 'Menu not available yet',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : const Color(0xFF1B1C1C),
+                  ),
+                ),
+                if (menu == null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      'Check back later for the menu.',
+                      style: TextStyle(fontSize: 12, color: subtitleColor),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Option tile
+// ---------------------------------------------------------------------------
+
+class _OptionTile extends StatelessWidget {
+  const _OptionTile({
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.disabled,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final bool disabled;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveColor = disabled
+        ? Colors.grey.shade400
+        : (selected ? AppTheme.primaryColor : Colors.grey);
+
+    return GestureDetector(
+      onTap: disabled ? null : onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOut,
+        decoration: BoxDecoration(
+          color: disabled
+              ? Colors.grey.shade100
+              : (selected
+                  ? AppTheme.primaryColor.withValues(alpha: 0.1)
+                  : Colors.grey.shade100),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected && !disabled
+                ? AppTheme.primaryColor.withValues(alpha: 0.4)
+                : Colors.transparent,
+            width: 1.5,
+          ),
+        ),
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            Icon(
+              selected && !disabled
+                  ? CupertinoIcons.checkmark_circle_fill
+                  : CupertinoIcons.circle,
+              color: effectiveColor,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                      color: disabled ? Colors.grey.shade500 : null,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: disabled ? Colors.grey.shade400 : Colors.grey.shade700,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (disabled)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Closed',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );

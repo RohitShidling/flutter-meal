@@ -41,16 +41,18 @@ class _WalletScreenState extends State<WalletScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          await Future.wait([
-            pay.fetchWallet(),
-            pay.fetchWalletTransactions(),
-          ]);
-        },
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(20),
+      body: SafeArea(
+        top: false,
+        child: RefreshIndicator(
+          onRefresh: () async {
+            await Future.wait([
+              pay.fetchWallet(),
+              pay.fetchWalletTransactions(),
+            ]);
+          },
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(20),
           children: [
             Container(
               width: double.infinity,
@@ -155,6 +157,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 );
               }),
           ],
+        ),
         ),
       ),
     );

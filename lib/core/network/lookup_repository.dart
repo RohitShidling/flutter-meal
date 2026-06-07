@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:meal_app/core/models/lookup_models.dart';
 import 'package:meal_app/core/network/api_endpoints.dart';
 import 'package:meal_app/core/network/dio_client.dart';
@@ -146,6 +145,18 @@ class LookupRepository {
       final response = await _dioClient.dio.get(ApiEndpoints.contactUsInfo);
       if (response.data['success'] == true) {
         return ContactUsModel.fromJson(response.data['data']);
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<DeliveryTimeSettingsModel?> getDeliveryTimeSettings() async {
+    try {
+      final response = await _dioClient.dio.get(ApiEndpoints.deliveryTimeSettings);
+      if (response.data['success'] == true) {
+        return DeliveryTimeSettingsModel.fromJson(Map<String, dynamic>.from(response.data['data'] ?? {}));
       }
       return null;
     } catch (e) {

@@ -9,6 +9,7 @@ import 'package:meal_app/core/widgets/searchable_dropdown.dart';
 import 'package:meal_app/core/models/lookup_models.dart';
 import 'package:meal_app/core/utils/error_handler.dart';
 import 'package:meal_app/core/utils/time_utils.dart';
+import 'package:meal_app/core/utils/delivery_time_window.dart';
 import 'package:meal_app/core/utils/validators.dart';
 import 'package:meal_app/core/providers/meal_provider.dart';
 import 'package:meal_app/core/widgets/entity_subscription_badge.dart';
@@ -21,7 +22,6 @@ import 'package:meal_app/core/providers/cart_provider.dart';
 import 'package:meal_app/core/widgets/cart_overlay_body.dart';
 import 'package:meal_app/core/services/app_route_tracker.dart';
 import 'package:meal_app/features/subscription/ui/widgets/plan_picker_bottom_sheet.dart';
-import 'package:meal_app/core/utils/error_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ChildrenManagementScreen extends StatefulWidget {
@@ -581,6 +581,12 @@ class _ChildFormState extends State<_ChildForm> {
 
   Future<void> _selectTime(BuildContext context) async {
     FocusScope.of(context).unfocus();
+    final lookup = context.read<LookupProvider>();
+    if (lookup.deliveryTimeSettings == null) {
+      await lookup.fetchDeliveryTimeSettings();
+      if (!mounted) return;
+    }
+    final window = lookup.deliveryTimeSettings;
     final parts = _timeController.text.split(':');
     final initHour = int.tryParse(parts.first) ?? TimeOfDay.now().hour;
     final initMin = parts.length > 1 ? int.tryParse(parts[1]) ?? TimeOfDay.now().minute : TimeOfDay.now().minute;
@@ -603,6 +609,10 @@ class _ChildFormState extends State<_ChildForm> {
       },
     );
     if (picked != null) {
+      if (!DeliveryTimeWindow.allows(picked, window)) {
+        ErrorHandler.showError(context, DeliveryTimeWindow.message(window));
+        return;
+      }
       setState(() {
         _timeController.text = TimeUtils.toBackendFormat(picked);
         _syncTimeDisplay();
@@ -1086,11 +1096,18 @@ class _ChildFormState extends State<_ChildForm> {
                 child: IgnorePointer(
                   child: TextFormField(
                     controller: _timeDisplayController,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Meal Delivery Time',
-                      hintText: 'Select meal delivery time',
-                      prefixIcon: Icon(CupertinoIcons.clock),
-                      suffixIcon: Icon(CupertinoIcons.chevron_down, size: 16),
+                      hintText: DeliveryTimeWindow.hint(
+                            context.read<LookupProvider>().deliveryTimeSettings,
+                          ) ??
+                          'Select meal delivery time',
+                      helperText: DeliveryTimeWindow.hint(
+                        context.read<LookupProvider>().deliveryTimeSettings,
+                      ),
+                      helperMaxLines: 2,
+                      prefixIcon: const Icon(CupertinoIcons.clock),
+                      suffixIcon: const Icon(CupertinoIcons.chevron_down, size: 16),
                     ),
                     validator: (v) => Validators.time(_timeController.text, fieldName: 'Meal delivery time'),
                   ),

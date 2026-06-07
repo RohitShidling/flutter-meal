@@ -36,7 +36,9 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
       ),
-      body: Consumer<AnnouncementProvider>(
+      body: SafeArea(
+        top: false,
+        child: Consumer<AnnouncementProvider>(
         builder: (context, provider, child) {
           if (provider.isLoading) {
             return const Center(child: CircularProgressIndicator());
@@ -78,6 +80,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
             },
           );
         },
+        ),
       ),
     );
   }
