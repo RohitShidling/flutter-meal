@@ -51,6 +51,7 @@ dependencies:
 
   timezone: any
   webview_flutter_android: any
+  share_plus: ^13.1.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

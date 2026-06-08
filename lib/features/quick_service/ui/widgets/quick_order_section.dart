@@ -27,6 +27,9 @@ class _QuickOrderSectionState extends State<QuickOrderSection> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final provider = context.watch<QuickServiceProvider>();
+    if (provider.error != null) {
+      debugPrint('QuickOrderSection load error: ${provider.error}');
+    }
     final cfg = provider.oneDayConfig;
     final status = context.watch<MealProvider>().subscriptionStatusData;
     final hasActive = status?['has_active_subscription'] == true;
