@@ -99,12 +99,15 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildActivePlans(paymentProvider, isDark),
-          _buildHistory(paymentProvider, isDark),
-        ],
+      body: SafeArea(
+        top: false,
+        child: TabBarView(
+          controller: _tabController,
+          children: [
+            _buildActivePlans(paymentProvider, isDark),
+            _buildHistory(paymentProvider, isDark),
+          ],
+        ),
       ),
     );
   }

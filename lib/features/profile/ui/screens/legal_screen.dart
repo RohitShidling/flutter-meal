@@ -38,22 +38,25 @@ class LegalScreen extends StatelessWidget {
             ],
           ),
         ),
-        body: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                AppTheme.primaryColor.withValues(alpha: isDark ? 0.05 : 0.01),
-                Theme.of(context).scaffoldBackgroundColor,
+        body: SafeArea(
+          top: false,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  AppTheme.primaryColor.withValues(alpha: isDark ? 0.05 : 0.01),
+                  Theme.of(context).scaffoldBackgroundColor,
+                ],
+              ),
+            ),
+            child: TabBarView(
+              children: [
+                _buildTermsTab(context, isDark),
+                _buildPrivacyTab(context, isDark),
               ],
             ),
-          ),
-          child: TabBarView(
-            children: [
-              _buildTermsTab(context, isDark),
-              _buildPrivacyTab(context, isDark),
-            ],
           ),
         ),
       ),

@@ -43,7 +43,7 @@ class TimeUtils {
   }
 
   /// Parses API / form values into `HH:mm` for storage and PUT payloads.
-  static String tryParseToBackend(String? raw, {String fallback = '13:30'}) {
+  static String? tryParseToBackend(String? raw, {String? fallback}) {
     if (raw == null || raw.trim().isEmpty) return fallback;
     final norm = normalizeBackendTime(raw);
     if (norm.isNotEmpty && RegExp(r'^\d{2}:\d{2}$').hasMatch(norm)) return norm;

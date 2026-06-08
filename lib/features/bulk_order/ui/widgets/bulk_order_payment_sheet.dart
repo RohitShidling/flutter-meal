@@ -2,7 +2,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:meal_app/core/theme/app_theme.dart';
+import 'package:meal_app/core/utils/delivery_time_window.dart';
 import 'package:meal_app/core/utils/time_utils.dart';
+import 'package:meal_app/core/providers/lookup_provider.dart';
 import 'package:meal_app/features/bulk_order/data/models/bulk_delivery_address.dart';
 import 'package:meal_app/features/bulk_order/data/models/bulk_order_config.dart';
 import 'package:meal_app/features/bulk_order/providers/bulk_order_provider.dart';
@@ -85,11 +87,21 @@ class _BulkOrderPaymentSheetState extends State<BulkOrderPaymentSheet> {
   }
 
   Future<void> _pickTime() async {
+    final lookup = context.read<LookupProvider>();
+    if (lookup.deliveryTimeSettings == null) {
+      await lookup.fetchDeliveryTimeSettings();
+      if (!mounted) return;
+    }
+    final window = lookup.deliveryTimeSettings;
     final picked = await showTimePicker(
       context: context,
       initialTime: _deliveryTime ?? const TimeOfDay(hour: 13, minute: 0),
     );
     if (picked != null && mounted) {
+      if (!DeliveryTimeWindow.allows(picked, window)) {
+        _setSheetError(DeliveryTimeWindow.message(window));
+        return;
+      }
       setState(() {
         _deliveryTime = picked;
         _sheetError = null;
@@ -234,18 +246,42 @@ class _BulkOrderPaymentSheetState extends State<BulkOrderPaymentSheet> {
                         ),
                       ),
                     const SizedBox(height: 12),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Delivery time'),
-                      subtitle: Text(
-                        _deliveryTime == null ? 'Tap to choose' : TimeUtils.formatToDisplay(TimeUtils.toBackendFormat(_deliveryTime!)),
-                      ),
-                      trailing: const Icon(CupertinoIcons.clock),
-                      onTap: _pickTime,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: Colors.grey.withValues(alpha: 0.25)),
-                      ),
+                    Builder(
+                      builder: (context) {
+                        final window = context.watch<LookupProvider>().deliveryTimeSettings;
+                        final hint = DeliveryTimeWindow.hint(window);
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: const Text('Delivery time'),
+                              subtitle: Text(
+                                _deliveryTime == null
+                                    ? 'Tap to choose'
+                                    : TimeUtils.formatToDisplay(TimeUtils.toBackendFormat(_deliveryTime!)),
+                              ),
+                              trailing: const Icon(CupertinoIcons.clock),
+                              onTap: _pickTime,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                side: BorderSide(color: Colors.grey.withValues(alpha: 0.25)),
+                              ),
+                            ),
+                            if (hint != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6, left: 4),
+                                child: Text(
+                                  hint,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isDark ? Colors.white54 : Colors.grey.shade600,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
                     ),
                     const SizedBox(height: 16),
                     const BulkOrderAddressSection(),
