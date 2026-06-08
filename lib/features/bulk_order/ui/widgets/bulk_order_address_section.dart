@@ -620,7 +620,11 @@ class _AddressFormSheetState extends State<_AddressFormSheet> {
       setState(() => _formError = 'Pincode must be exactly 6 digits.');
       return;
     }
-    if (phone.isNotEmpty && !RegExp(r'^\d{10}$').hasMatch(phone)) {
+    if (phone.isEmpty) {
+      setState(() => _formError = 'Phone number is required.');
+      return;
+    }
+    if (!RegExp(r'^\d{10}$').hasMatch(phone)) {
       setState(() => _formError = 'Phone number must be exactly 10 digits.');
       return;
     }
@@ -830,7 +834,7 @@ class _AddressFormSheetState extends State<_AddressFormSheet> {
                       keyboardType: TextInputType.phone,
                       maxLength: 10,
                       decoration: InputDecoration(
-                        labelText: 'Phone number (optional)',
+                        labelText: 'Phone number *',
                         counterText: '',
                         hintText: '10-digit mobile number',
                         prefixIcon: const Icon(CupertinoIcons.phone_fill),

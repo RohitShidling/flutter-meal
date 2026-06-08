@@ -212,13 +212,15 @@ class BulkOrderProvider with ChangeNotifier {
           : await _repository.updateSavedDeliveryAddress(address.id!, body);
       final normalized = BulkDeliveryAddress.fromJson(Map<String, dynamic>.from(saved));
       await loadSavedDeliveryAddresses(force: true);
-      _deliveryAddress = normalized;
+      // Use the freshly loaded version from the list (has joined state/city names)
+      final fresh = _savedAddresses.where((a) => a.id == normalized.id).firstOrNull;
+      _deliveryAddress = fresh ?? normalized;
       if (makeDefault && normalized.id != null) {
         await selectSavedDeliveryAddress(normalized.id!);
       } else {
         notifyListeners();
       }
-      await BulkAddressStorage.save(normalized);
+      await BulkAddressStorage.save(_deliveryAddress);
       return true;
     } catch (e) {
       _error = ErrorHandler.getErrorMessage(e);
