@@ -6,7 +6,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 class AnnouncementProvider with ChangeNotifier {
   final AnnouncementRepository _repository;
 
-  AnnouncementProvider(this._repository);
+  AnnouncementProvider(this._repository) {
+    // Load persisted read IDs immediately on startup so the badge
+    // reflects the correct unread count before the first fetch completes.
+    _loadReadAnnouncements();
+  }
 
   List<AnnouncementModel> _announcements = [];
   bool _isLoading = false;
@@ -40,10 +44,9 @@ class AnnouncementProvider with ChangeNotifier {
       final readIds = prefs.getStringList('read_announcement_ids');
       if (readIds != null) {
         _readAnnouncementIds = readIds.toSet();
+        notifyListeners();
       }
-    } catch (e) {
-      // Handle error silently
-    }
+    } catch (_) {}
   }
 
   Future<void> _saveReadAnnouncements() async {
@@ -51,11 +54,9 @@ class AnnouncementProvider with ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList(
         'read_announcement_ids',
-        _readAnnouncementIds.map((id) => id.toString()).toList(),
+        _readAnnouncementIds.toList(),
       );
-    } catch (e) {
-      // Handle error silently
-    }
+    } catch (_) {}
   }
 
   Future<void> markAsRead(String announcementId) async {
@@ -67,31 +68,50 @@ class AnnouncementProvider with ChangeNotifier {
   }
 
   Future<void> markAllAsRead() async {
-    for (final announcement in _announcements) {
-      _readAnnouncementIds.add(announcement.id);
+    final before = _readAnnouncementIds.length;
+    for (final a in _announcements) {
+      _readAnnouncementIds.add(a.id);
     }
-    await _saveReadAnnouncements();
-    notifyListeners();
+    if (_readAnnouncementIds.length != before) {
+      await _saveReadAnnouncements();
+      notifyListeners();
+    }
   }
 
-  Future<void> fetchAnnouncements({String? location}) async {
+  /// Fetches announcements. Pass [force] = true to always hit the network
+  /// (e.g. when the user opens the bell or when a new announcement may exist).
+  Future<void> fetchAnnouncements({String? location, bool force = false}) async {
+    // Skip if recently fetched and not forced — avoids hammering the API
+    if (!force && !shouldRefresh()) return;
+
     _isLoading = true;
     notifyListeners();
 
     try {
       await _loadReadAnnouncements();
-      _announcements = await _repository.getAnnouncements(location: location);
+      final fetched = await _repository.getAnnouncements(location: location);
+      _announcements = fetched;
       _lastFetchedAt = DateTime.now();
-    } catch (e) {
-      // Handle error silently - announcements are optional
+
+      // Any announcement not in the fetched list (deleted/expired) should be
+      // removed from readIds to avoid stale entries growing indefinitely.
+      final currentIds = fetched.map((a) => a.id).toSet();
+      final pruned = _readAnnouncementIds.intersection(currentIds);
+      if (pruned.length != _readAnnouncementIds.length) {
+        _readAnnouncementIds = pruned;
+        await _saveReadAnnouncements();
+      }
+    } catch (_) {
+      // Keep old data on error — announcements are non-critical
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
+  /// Returns true if data is stale (older than 5 minutes) or not yet loaded.
   bool shouldRefresh() {
     if (_lastFetchedAt == null) return true;
-    return DateTime.now().difference(_lastFetchedAt!).inMinutes > 30;
+    return DateTime.now().difference(_lastFetchedAt!).inMinutes >= 5;
   }
 }

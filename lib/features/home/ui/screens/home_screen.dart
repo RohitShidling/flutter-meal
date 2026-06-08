@@ -53,7 +53,7 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _bootstrapHome();
       context.read<LookupProvider>().fetchContactUsInfo();
-      context.read<AnnouncementProvider>().fetchAnnouncements(location: 'home');
+      context.read<AnnouncementProvider>().fetchAnnouncements(location: 'home', force: true);
     });
   }
 
@@ -311,7 +311,11 @@ class _HomeScreenState extends State<HomeScreen> {
     return Stack(
       children: [
         IconButton(
-          onPressed: () {
+          onPressed: () async {
+            // Force-refresh before navigating so the user sees the latest list
+            await context.read<AnnouncementProvider>()
+                .fetchAnnouncements(location: 'home', force: true);
+            if (!mounted) return;
             Navigator.pushNamed(context, AppRoutes.announcements);
           },
           icon: Icon(
@@ -327,7 +331,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: AppTheme.primaryColor,
+                color: Colors.red,
                 shape: BoxShape.circle,
               ),
               constraints: const BoxConstraints(
@@ -826,8 +830,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final Color bg;
     final String label;
     if (hasActive) {
-      bg = const Color(0xFF059669);
-      label = 'Your plan includes this meal';
+      return null;
     } else if (hasUpcoming) {
       bg = const Color(0xFFD97706);
       label = 'Upcoming plan';

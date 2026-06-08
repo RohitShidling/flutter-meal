@@ -18,7 +18,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final provider = context.read<AnnouncementProvider>();
-      await provider.fetchAnnouncements(location: 'home');
+      // Force refresh so the user always sees latest announcements
+      await provider.fetchAnnouncements(location: 'home', force: true);
       await provider.markAllAsRead();
     });
   }
