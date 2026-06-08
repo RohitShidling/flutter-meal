@@ -399,21 +399,25 @@ class _OptionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final effectiveColor = disabled
         ? Colors.grey.shade400
         : (selected ? AppTheme.primaryColor : Colors.grey);
 
+    // Dark-mode safe background for unselected/disabled tiles
+    final tileBg = isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : Colors.grey.shade100;
+
     return GestureDetector(
       onTap: disabled ? null : onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        curve: Curves.easeOut,
+      child: Container(
         decoration: BoxDecoration(
           color: disabled
-              ? Colors.grey.shade100
+              ? tileBg
               : (selected
-                  ? AppTheme.primaryColor.withValues(alpha: 0.1)
-                  : Colors.grey.shade100),
+                  ? AppTheme.primaryColor.withValues(alpha: isDark ? 0.14 : 0.1)
+                  : tileBg),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: selected && !disabled
@@ -441,13 +445,17 @@ class _OptionTile extends StatelessWidget {
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 16,
-                      color: disabled ? Colors.grey.shade500 : null,
+                      color: disabled
+                          ? (isDark ? Colors.white38 : Colors.grey.shade500)
+                          : null,
                     ),
                   ),
                   Text(
                     subtitle,
                     style: TextStyle(
-                      color: disabled ? Colors.grey.shade400 : Colors.grey.shade700,
+                      color: disabled
+                          ? (isDark ? Colors.white30 : Colors.grey.shade400)
+                          : (isDark ? Colors.white60 : Colors.grey.shade700),
                       fontSize: 13,
                     ),
                   ),

@@ -42,6 +42,9 @@ class BulkOrderProvider with ChangeNotifier {
   final Map<String, String> _mealCategoryNames = {};
   BulkDeliveryAddress? _deliveryAddress;
   BulkDeliveryAddress? get deliveryAddress => _deliveryAddress;
+  List<BulkDeliveryAddress> _savedAddresses = [];
+  List<BulkDeliveryAddress> get savedAddresses => List.unmodifiable(_savedAddresses);
+  int get savedAddressLimit => 5;
   Map<String, int> get varietyQty => Map.unmodifiable(_varietyQty);
 
   int? _standardQty;
@@ -159,9 +162,10 @@ class BulkOrderProvider with ChangeNotifier {
   }
 
   Future<void> loadSavedDeliveryAddress() async {
-    final saved = await BulkAddressStorage.load();
-    if (saved != null) {
-      _deliveryAddress = saved;
+    await loadSavedDeliveryAddresses();
+    final persisted = await BulkAddressStorage.load();
+    if (persisted != null && _deliveryAddress == null) {
+      _deliveryAddress = persisted;
       notifyListeners();
     }
   }
@@ -171,6 +175,104 @@ class BulkOrderProvider with ChangeNotifier {
     notifyListeners();
     if (address != null && address.isComplete) {
       BulkAddressStorage.save(address);
+    }
+  }
+
+  Future<void> loadSavedDeliveryAddresses({bool force = false}) async {
+    if (_savedAddresses.isNotEmpty && !force) return;
+    try {
+      final rows = await _repository.getSavedDeliveryAddresses();
+      _savedAddresses = rows
+          .whereType<Map>()
+          .map((row) => BulkDeliveryAddress.fromJson(Map<String, dynamic>.from(row)))
+          .toList();
+      if (_deliveryAddress == null && _savedAddresses.isNotEmpty) {
+        _deliveryAddress = _savedAddresses.firstWhere(
+          (a) => a.isDefault,
+          orElse: () => _savedAddresses.first,
+        );
+      }
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<bool> saveDeliveryAddress({
+    required BulkDeliveryAddress address,
+    bool makeDefault = true,
+  }) async {
+    try {
+      final body = {
+        ...address.toApiPayload(),
+        'label': address.label,
+        if (address.id != null) 'saved_address_id': address.id,
+        'is_default': makeDefault,
+      };
+      final saved = address.id == null
+          ? await _repository.createSavedDeliveryAddress(body)
+          : await _repository.updateSavedDeliveryAddress(address.id!, body);
+      final normalized = BulkDeliveryAddress.fromJson(Map<String, dynamic>.from(saved));
+      await loadSavedDeliveryAddresses(force: true);
+      _deliveryAddress = normalized;
+      if (makeDefault && normalized.id != null) {
+        await selectSavedDeliveryAddress(normalized.id!);
+      } else {
+        notifyListeners();
+      }
+      await BulkAddressStorage.save(normalized);
+      return true;
+    } catch (e) {
+      _error = ErrorHandler.getErrorMessage(e);
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> deleteSavedDeliveryAddress(int addressId) async {
+    try {
+      await _repository.deleteSavedDeliveryAddress(addressId);
+      await loadSavedDeliveryAddresses(force: true);
+      if (_deliveryAddress != null) {
+        await BulkAddressStorage.save(_deliveryAddress);
+      } else {
+        await BulkAddressStorage.save(null);
+      }
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = ErrorHandler.getErrorMessage(e);
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> selectSavedDeliveryAddress(int addressId) async {
+    try {
+      final saved = await _repository.selectSavedDeliveryAddress(addressId);
+      final selected = BulkDeliveryAddress.fromJson(saved);
+      _deliveryAddress = selected;
+      _savedAddresses = _savedAddresses
+          .map((addr) => BulkDeliveryAddress(
+                id: addr.id,
+                label: addr.label,
+                stateId: addr.stateId,
+                cityId: addr.cityId,
+                addressLine: addr.addressLine,
+                pincode: addr.pincode,
+                stateName: addr.stateName,
+                cityName: addr.cityName,
+                isDefault: addr.id == addressId,
+                deliveryTime: addr.deliveryTime,
+                phoneNumber: addr.phoneNumber,
+                altPhoneNumber: addr.altPhoneNumber,
+              ))
+          .toList();
+      await BulkAddressStorage.save(selected);
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = ErrorHandler.getErrorMessage(e);
+      notifyListeners();
+      return false;
     }
   }
 

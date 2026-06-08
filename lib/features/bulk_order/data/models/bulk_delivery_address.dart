@@ -1,29 +1,45 @@
 class BulkDeliveryAddress {
+  final int? id;
+  final String label;
   final int stateId;
   final int cityId;
   final String addressLine;
   final String? pincode;
   final String? stateName;
   final String? cityName;
-  /// Preferred delivery time, e.g. "1:30 PM" or "13:30".
+  final bool isDefault;
   final String? deliveryTime;
+  final String? phoneNumber;
+  final String? altPhoneNumber;
 
   const BulkDeliveryAddress({
+    this.id,
+    this.label = '',
     required this.stateId,
     required this.cityId,
     required this.addressLine,
     this.pincode,
     this.stateName,
     this.cityName,
+    this.isDefault = false,
     this.deliveryTime,
+    this.phoneNumber,
+    this.altPhoneNumber,
   });
 
   Map<String, dynamic> toApiPayload() => {
+        if (id != null) 'saved_address_id': id,
+        if (label.trim().isNotEmpty) 'label': label.trim(),
         'stateId': stateId,
         'cityId': cityId,
         'address': addressLine,
         if (pincode != null && pincode!.trim().isNotEmpty) 'pincode': pincode!.trim(),
-        if (deliveryTime != null && deliveryTime!.trim().isNotEmpty) 'deliveryTime': deliveryTime!.trim(),
+        if (deliveryTime != null && deliveryTime!.trim().isNotEmpty)
+          'deliveryTime': deliveryTime!.trim(),
+        if (phoneNumber != null && phoneNumber!.trim().isNotEmpty)
+          'phoneNumber': phoneNumber!.trim(),
+        if (altPhoneNumber != null && altPhoneNumber!.trim().isNotEmpty)
+          'altPhoneNumber': altPhoneNumber!.trim(),
       };
 
   String get formatted {
@@ -39,27 +55,50 @@ class BulkDeliveryAddress {
   bool get isComplete =>
       stateId > 0 && cityId > 0 && addressLine.trim().length >= 5;
 
-  bool get hasDeliveryTime => deliveryTime != null && deliveryTime!.trim().isNotEmpty;
+  bool get hasDeliveryTime =>
+      deliveryTime != null && deliveryTime!.trim().isNotEmpty;
 
   Map<String, dynamic> toJson() => {
+        'id': id,
+        'label': label,
         'stateId': stateId,
         'cityId': cityId,
         'addressLine': addressLine,
         'pincode': pincode,
         'stateName': stateName,
         'cityName': cityName,
+        'isDefault': isDefault,
         'deliveryTime': deliveryTime,
+        'phoneNumber': phoneNumber,
+        'altPhoneNumber': altPhoneNumber,
       };
 
   factory BulkDeliveryAddress.fromJson(Map<String, dynamic> json) {
     return BulkDeliveryAddress(
-      stateId: json['stateId'] as int? ?? 0,
-      cityId: json['cityId'] as int? ?? 0,
-      addressLine: json['addressLine']?.toString() ?? '',
+      id: json['id'] is int
+          ? json['id'] as int
+          : int.tryParse('${json['id']}'),
+      label: json['label']?.toString() ?? '',
+      stateId:
+          int.tryParse('${json['stateId'] ?? json['state_id']}') ?? 0,
+      cityId:
+          int.tryParse('${json['cityId'] ?? json['city_id']}') ?? 0,
+      addressLine: json['addressLine']?.toString() ??
+          json['address_line']?.toString() ??
+          '',
       pincode: json['pincode']?.toString(),
-      stateName: json['stateName']?.toString(),
-      cityName: json['cityName']?.toString(),
-      deliveryTime: json['deliveryTime']?.toString(),
+      stateName: json['stateName']?.toString() ??
+          json['state_name']?.toString(),
+      cityName:
+          json['cityName']?.toString() ?? json['city_name']?.toString(),
+      isDefault:
+          json['isDefault'] == true || json['is_default'] == true,
+      deliveryTime: json['deliveryTime']?.toString() ??
+          json['delivery_time']?.toString(),
+      phoneNumber: json['phoneNumber']?.toString() ??
+          json['phone_number']?.toString(),
+      altPhoneNumber: json['altPhoneNumber']?.toString() ??
+          json['alt_phone_number']?.toString(),
     );
   }
 }

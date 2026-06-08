@@ -94,6 +94,53 @@ class BulkOrderRepository {
     }
   }
 
+  Future<List<dynamic>> getSavedDeliveryAddresses() async {
+    final response = await _dioClient.dio.get(ApiEndpoints.clientDeliveryAddresses);
+    if (response.data['success'] == true) {
+      final data = response.data['data'];
+      if (data is List) return data;
+      return [];
+    }
+    throw response.data['message']?.toString() ?? 'Failed to load saved addresses';
+  }
+
+  Future<Map<String, dynamic>> createSavedDeliveryAddress(Map<String, dynamic> body) async {
+    final response = await _dioClient.dio.post(
+      ApiEndpoints.clientDeliveryAddresses,
+      data: body,
+    );
+    if (response.data['success'] == true) {
+      return Map<String, dynamic>.from(response.data['data'] as Map);
+    }
+    throw response.data['message']?.toString() ?? 'Failed to save address';
+  }
+
+  Future<Map<String, dynamic>> updateSavedDeliveryAddress(int addressId, Map<String, dynamic> body) async {
+    final response = await _dioClient.dio.put(
+      '${ApiEndpoints.clientDeliveryAddresses}/$addressId',
+      data: body,
+    );
+    if (response.data['success'] == true) {
+      return Map<String, dynamic>.from(response.data['data'] as Map);
+    }
+    throw response.data['message']?.toString() ?? 'Failed to update address';
+  }
+
+  Future<void> deleteSavedDeliveryAddress(int addressId) async {
+    final response = await _dioClient.dio.delete('${ApiEndpoints.clientDeliveryAddresses}/$addressId');
+    if (response.data['success'] != true) {
+      throw response.data['message']?.toString() ?? 'Failed to delete address';
+    }
+  }
+
+  Future<Map<String, dynamic>> selectSavedDeliveryAddress(int addressId) async {
+    final response = await _dioClient.dio.post('${ApiEndpoints.clientDeliveryAddresses}/$addressId/select');
+    if (response.data['success'] == true) {
+      return Map<String, dynamic>.from(response.data['data'] as Map);
+    }
+    throw response.data['message']?.toString() ?? 'Failed to select address';
+  }
+
   Future<Map<String, dynamic>> initiateBundlePayment({
     required String deliveryDate,
     required Map<String, dynamic> deliveryAddress,
