@@ -356,13 +356,13 @@ class _OverlayToastState extends State<_OverlayToast> with SingleTickerProviderS
   @override
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
-    final topPadding = mediaQuery.padding.top + 16;
+    final bottomPadding = mediaQuery.padding.bottom + 16;
 
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
         return Positioned(
-          top: topPadding + _yAnimation.value,
+          bottom: bottomPadding + _yAnimation.value,
           left: 16,
           right: 16,
           child: Opacity(
