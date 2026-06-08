@@ -178,6 +178,18 @@ class AuthRepository {
     }
   }
 
+  Future<Map<String, dynamic>?> fetchMeProfile() async {
+    try {
+      final response = await _dioClient.dio.get(ApiEndpoints.me);
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return response.data['data'] as Map<String, dynamic>?;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   AuthApiException _handleError(DioException error) {
     if (error.response != null) {
       final data = error.response?.data;

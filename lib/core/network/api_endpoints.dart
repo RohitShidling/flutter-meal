@@ -143,4 +143,9 @@ class ApiEndpoints {
       '/api/client/quick-service/special-dishes/categories/$categoryId/items';
   static const String specialDishCart = '/api/client/quick-service/special-dishes/cart';
   static const String specialDishInitiatePayment = '/api/client/quick-service/special-dishes/initiate-payment';
+
+  // Referral system
+  static const String referralRewards = '/api/client/referrals/rewards';
+  static const String applyReferralCode = '/api/client/referrals/apply-code';
+  static const String allocateReferral = '/api/client/referrals/allocate';
 }

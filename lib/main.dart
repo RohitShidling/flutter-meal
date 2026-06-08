@@ -47,6 +47,8 @@ import 'package:meal_app/core/providers/announcement_provider.dart';
 import 'package:meal_app/features/announcements/ui/screens/announcements_screen.dart';
 import 'package:meal_app/features/quick_service/data/repositories/quick_service_repository.dart';
 import 'package:meal_app/features/quick_service/providers/quick_service_provider.dart';
+import 'package:meal_app/core/network/referral_repository.dart';
+import 'package:meal_app/features/profile/providers/referral_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -81,6 +83,7 @@ class MyApp extends StatelessWidget {
     final bulkOrderRepository = BulkOrderRepository(dioClient);
     final announcementRepository = AnnouncementRepository(dioClient);
     final quickServiceRepository = QuickServiceRepository(dioClient);
+    final referralRepository = ReferralRepository(dioClient);
 
     // Start global online/offline monitor + attach Dio for queue replay.
     NetworkStatusService.instance.attachDioClient(dioClient);
@@ -104,6 +107,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => BulkOrderProvider(bulkOrderRepository)),
         ChangeNotifierProvider(create: (_) => AnnouncementProvider(announcementRepository)),
         ChangeNotifierProvider(create: (_) => QuickServiceProvider(quickServiceRepository)),
+        ChangeNotifierProvider(create: (_) => ReferralProvider(referralRepository)),
       ],
       child: const MainApp(),
     );

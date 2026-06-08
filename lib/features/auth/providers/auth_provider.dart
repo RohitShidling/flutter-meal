@@ -29,6 +29,13 @@ class AuthProvider with ChangeNotifier {
   int? _remainingAttempts;
   int _resendCooldownSeconds = 0;
   int _otpExpiresInSeconds = 300;
+  
+  String _referralCode = '';
+  String? _referredById;
+  bool _isReferEarnActive = false;
+  int _mealsReward = 2;
+  int _pendingRewardsCount = 0;
+  List<dynamic> _pendingRewardsList = [];
 
   AuthProvider(this._authRepository) {
     _checkAuthStatus();
@@ -45,6 +52,13 @@ class AuthProvider with ChangeNotifier {
   int? get remainingAttempts => _remainingAttempts;
   int get resendCooldownSeconds => _resendCooldownSeconds;
   int get otpExpiresInSeconds => _otpExpiresInSeconds;
+  
+  String get referralCode => _referralCode;
+  String? get referredById => _referredById;
+  bool get isReferEarnActive => _isReferEarnActive;
+  int get mealsReward => _mealsReward;
+  int get pendingRewardsCount => _pendingRewardsCount;
+  List<dynamic> get pendingRewardsList => _pendingRewardsList;
 
   void clearTransientState() {
     _errorMessage = '';
@@ -310,6 +324,12 @@ class AuthProvider with ChangeNotifier {
     _state = AuthState.unauthenticated;
     _phoneNumber = '';
     _username = '';
+    _referralCode = '';
+    _referredById = null;
+    _isReferEarnActive = false;
+    _mealsReward = 2;
+    _pendingRewardsCount = 0;
+    _pendingRewardsList = [];
     _authMode = AuthMode.login;
     notifyListeners();
   }
@@ -327,11 +347,28 @@ class AuthProvider with ChangeNotifier {
         }
         return;
       }
-      final liveUsername = await _authRepository
-          .fetchCurrentUsername()
-          .timeout(const Duration(seconds: 12), onTimeout: () => null);
-      if (liveUsername != null && liveUsername.trim().isNotEmpty) {
-        _username = liveUsername.trim();
+      final data = await _authRepository.fetchMeProfile();
+      if (data != null && data['user'] != null) {
+        final user = data['user'] as Map<String, dynamic>;
+        _username = user['username']?.toString().trim() ?? '';
+        _referralCode = user['referralCode']?.toString() ?? '';
+        _referredById = user['referredById']?.toString();
+        _isReferEarnActive = user['isReferEarnActive'] == true;
+        _mealsReward = user['mealsReward'] as int? ?? 2;
+        _pendingRewardsCount = user['pendingRewardsCount'] as int? ?? 0;
+        _pendingRewardsList = user['pendingRewardsList'] as List<dynamic>? ?? [];
+      } else {
+        final liveUsername = await _authRepository
+            .fetchCurrentUsername()
+            .timeout(const Duration(seconds: 12), onTimeout: () => null);
+        if (liveUsername != null && liveUsername.trim().isNotEmpty) {
+          _username = liveUsername.trim();
+        }
+      }
+    } catch (_) {
+      final cached = await _authRepository.getUsername();
+      if (cached != null && cached.trim().isNotEmpty) {
+        _username = cached.trim();
       }
     } finally {
       _isProfileLoading = false;

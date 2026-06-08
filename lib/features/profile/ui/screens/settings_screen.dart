@@ -20,6 +20,7 @@ import 'package:meal_app/features/profile/ui/screens/legal_screen.dart';
 import 'package:meal_app/features/home/ui/widgets/bottom_footer_nav.dart';
 import 'package:meal_app/core/navigation/app_routes.dart';
 import 'package:meal_app/features/announcements/ui/screens/announcements_screen.dart';
+import 'package:meal_app/features/profile/ui/screens/refer_earn_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -90,6 +91,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 );
               },
             ),
+            if (authProvider.isReferEarnActive) ...[
+              const SizedBox(height: 8),
+              _buildNavigationTile(
+                context,
+                CupertinoIcons.gift_fill,
+                'Refer & Earn',
+                isDark,
+                () {
+                  Navigator.push(
+                    context,
+                    CupertinoPageRoute(builder: (context) => const ReferEarnScreen()),
+                  );
+                },
+              ),
+            ],
             const SizedBox(height: 8),
             _buildNavigationTile(
               context,
