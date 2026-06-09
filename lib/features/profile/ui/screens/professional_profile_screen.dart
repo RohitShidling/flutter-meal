@@ -444,7 +444,10 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                           ],
                         ),
                       ),
-                      label: const Text("Can't find company? Chat on WhatsApp"),
+                      label: const Text(
+                        "Can't find company?\nChat on WhatsApp",
+                        textAlign: TextAlign.center,
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF25D366),
                         foregroundColor: Colors.white,

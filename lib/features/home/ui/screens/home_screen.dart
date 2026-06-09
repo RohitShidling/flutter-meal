@@ -53,7 +53,7 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _bootstrapHome();
       context.read<LookupProvider>().fetchContactUsInfo();
-      context.read<AnnouncementProvider>().fetchAnnouncements(location: 'home');
+      context.read<AnnouncementProvider>().fetchAnnouncements(location: 'home', force: true);
     });
   }
 
@@ -220,6 +220,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   silent: true,
                   forceNetwork: NetworkStatusService.instance.isOnline,
                 ),
+                context.read<AnnouncementProvider>().fetchAnnouncements(location: 'home', force: true),
               ]);
               if (!mounted) return;
               await _refreshMealDataBundle();
@@ -980,8 +981,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final Color bg;
     final String label;
     if (hasActive) {
-      bg = const Color(0xFF059669);
-      label = 'Your plan includes this meal';
+      return null;
     } else if (hasUpcoming) {
       bg = const Color(0xFFD97706);
       label = 'Upcoming plan';

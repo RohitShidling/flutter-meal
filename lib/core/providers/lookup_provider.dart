@@ -48,6 +48,10 @@ class LookupProvider with ChangeNotifier {
       if (deliveryTimeSettings is Map) {
         _deliveryTimeSettings = DeliveryTimeSettingsModel.fromJson(Map<String, dynamic>.from(deliveryTimeSettings));
       }
+      final contactUsInfo = raw['contactUsInfo'];
+      if (contactUsInfo is Map) {
+        _contactUsInfo = ContactUsModel.fromJson(Map<String, dynamic>.from(contactUsInfo));
+      }
       notifyListeners();
     } catch (_) {
       // ignore cache parse errors
@@ -64,6 +68,7 @@ class LookupProvider with ChangeNotifier {
       'subscriptions': _subscriptions,
       'states': _states.map((e) => e.toJson()).toList(),
       'deliveryTimeSettings': _deliveryTimeSettings?.toJson(),
+      'contactUsInfo': _contactUsInfo?.toJson(),
     }, ttl: const Duration(days: 7));
   }
 

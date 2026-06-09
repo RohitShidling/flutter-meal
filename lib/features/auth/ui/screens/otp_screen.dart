@@ -79,6 +79,9 @@ class _OtpScreenState extends State<OtpScreen> {
   }
 
   Future<void> _submit() async {
+    final provider = Provider.of<AuthProvider>(context, listen: false);
+    if (provider.state == AuthState.loading) return;
+
     if (_otpController.text.trim().length < 6) {
       ErrorHandler.showError(context, 'Please enter the complete 6-digit code');
       return;
@@ -87,7 +90,6 @@ class _OtpScreenState extends State<OtpScreen> {
     FocusScope.of(context).unfocus();
     SystemChannels.textInput.invokeMethod('TextInput.hide');
 
-    final provider = Provider.of<AuthProvider>(context, listen: false);
     final code = _otpController.text.trim();
 
     bool success;
@@ -97,9 +99,13 @@ class _OtpScreenState extends State<OtpScreen> {
       success = await provider.loginVerifyOtp(code);
     }
 
-    if (success && mounted) {
+    if (!mounted) return;
+
+    if (success) {
+      // AuthWrapper will reactively rebuild to HomeScreen when it sees
+      // AuthState.authenticated. We just need to clear the navigation stack.
       Navigator.of(context).popUntil((route) => route.isFirst);
-    } else if (mounted) {
+    } else {
       ErrorHandler.showError(context, provider.errorMessage);
     }
   }

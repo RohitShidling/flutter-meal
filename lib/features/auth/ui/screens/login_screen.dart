@@ -187,7 +187,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                 children: [
                   SizedBox(
-                    height: 210 + MediaQuery.paddingOf(context).top,
+                    height: 160 + MediaQuery.paddingOf(context).top,
                     width: double.infinity,
                     child: Stack(
                       clipBehavior: Clip.none,
