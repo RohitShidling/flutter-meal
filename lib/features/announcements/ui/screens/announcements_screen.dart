@@ -87,16 +87,12 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
   }
 
   Widget _buildAnnouncementCard(AnnouncementModel announcement, bool isDark) {
-    final isActive = announcement.isActive && !DateTime.now().isBefore(announcement.startDate) && !DateTime.now().isAfter(announcement.endDate);
-
     return Container(
       decoration: BoxDecoration(
         color: isDark ? AppTheme.surfaceDark : Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isActive
-              ? const Color(0xFF16A34A).withValues(alpha: 0.35)
-              : (isDark ? AppTheme.borderDark : AppTheme.borderLight),
+          color: isDark ? AppTheme.borderDark : AppTheme.borderLight,
         ),
         boxShadow: [
           BoxShadow(
@@ -111,22 +107,13 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    announcement.title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: isDark ? Colors.white : const Color(0xFF1B1C1C),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                _buildStatusBadge(announcement),
-              ],
+            Text(
+              announcement.title,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: isDark ? Colors.white : const Color(0xFF1B1C1C),
+              ),
             ),
             const SizedBox(height: 8),
             Text(
@@ -137,61 +124,11 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                 height: 1.45,
               ),
             ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Icon(CupertinoIcons.calendar, size: 14, color: Colors.grey.shade600),
-                const SizedBox(width: 6),
-                Text(
-                  '${_formatDate(announcement.startDate)} – ${_formatDate(announcement.endDate)}',
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                ),
-              ],
-            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildStatusBadge(AnnouncementModel announcement) {
-    String label;
-    Color bgColor;
-    Color textColor;
-
-    if (!announcement.isActive) {
-      label = 'Inactive';
-      bgColor = Colors.grey.shade200;
-      textColor = Colors.grey.shade700;
-    } else if (DateTime.now().isBefore(announcement.startDate)) {
-      label = 'Scheduled';
-      bgColor = Colors.orange.shade100;
-      textColor = Colors.orange.shade800;
-    } else if (DateTime.now().isAfter(announcement.endDate)) {
-      label = 'Expired';
-      bgColor = Colors.red.shade100;
-      textColor = Colors.red.shade700;
-    } else {
-      label = 'Active';
-      bgColor = const Color(0xFF16A34A);
-      textColor = Colors.white;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textColor),
-      ),
-    );
-  }
-
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
-  }
-
 }
+

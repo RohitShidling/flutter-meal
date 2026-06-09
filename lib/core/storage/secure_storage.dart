@@ -12,7 +12,12 @@ class SecureStorage {
   static const String _phoneKey = 'phone_number';
   static const String _usernameKey = 'cached_username';
 
+  String? _cachedAccessToken;
+  String? _cachedRefreshToken;
+
   Future<void> saveTokens(String accessToken, String refreshToken) async {
+    _cachedAccessToken = accessToken;
+    _cachedRefreshToken = refreshToken;
     await _storage.write(key: _accessTokenKey, value: accessToken);
     await _storage.write(key: _refreshTokenKey, value: refreshToken);
   }
@@ -34,14 +39,20 @@ class SecureStorage {
   }
 
   Future<String?> getAccessToken() async {
-    return await _storage.read(key: _accessTokenKey);
+    if (_cachedAccessToken != null) return _cachedAccessToken;
+    _cachedAccessToken = await _storage.read(key: _accessTokenKey);
+    return _cachedAccessToken;
   }
 
   Future<String?> getRefreshToken() async {
-    return await _storage.read(key: _refreshTokenKey);
+    if (_cachedRefreshToken != null) return _cachedRefreshToken;
+    _cachedRefreshToken = await _storage.read(key: _refreshTokenKey);
+    return _cachedRefreshToken;
   }
 
   Future<void> clearTokens() async {
+    _cachedAccessToken = null;
+    _cachedRefreshToken = null;
     await _storage.delete(key: _accessTokenKey);
     await _storage.delete(key: _refreshTokenKey);
     await _storage.delete(key: _phoneKey);

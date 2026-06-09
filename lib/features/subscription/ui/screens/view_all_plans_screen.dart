@@ -152,7 +152,7 @@ class _ViewAllPlansScreenState extends State<ViewAllPlansScreen> {
         ),
       ),
       body: SafeArea(
-        bottom: false,
+        top: false,
         child: Column(
           children: [
             if (segments.length >= 2)

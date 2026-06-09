@@ -220,6 +220,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   silent: true,
                   forceNetwork: NetworkStatusService.instance.isOnline,
                 ),
+                context.read<AnnouncementProvider>().fetchAnnouncements(location: 'home', force: true),
               ]);
               if (!mounted) return;
               await _refreshMealDataBundle();
