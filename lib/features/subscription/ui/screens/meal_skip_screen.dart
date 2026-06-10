@@ -14,7 +14,7 @@ import 'package:meal_app/core/services/app_route_tracker.dart';
 import 'package:meal_app/features/home/ui/widgets/bottom_footer_nav.dart';
 import 'package:meal_app/core/navigation/app_routes.dart';
 
-/// Keys are `${entityType}_${entityId}` where type is child, teacher, or professional (G8).
+/// Keys are `${entityType}_${entityId}` where type is child, teacher, or professional.
 ({String type, String id})? parseMealSkipEntityKey(String key) {
   const prefixes = <String>['child_', 'teacher_', 'professional_'];
   for (final p in prefixes) {
@@ -35,14 +35,12 @@ class MealSkipScreen extends StatefulWidget {
 }
 
 class _MealSkipScreenState extends State<MealSkipScreen> {
-
   @override
   void initState() {
     super.initState();
     AppRouteTracker.instance.setCurrent(AppScreen.mealSkip);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchAll();
-      // Re-fetch when coming back online
       NetworkStatusService.instance.addBecameOnlineListener(_fetchAll);
     });
   }
@@ -63,24 +61,6 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
     context.read<ProfileProvider>().fetchProfiles();
   }
 
-  DateTime _computeEndDateByMealDays(DateTime startDate, int mealDays, bool includeSaturday) {
-    if (mealDays <= 0) return startDate;
-    int remaining = mealDays;
-    DateTime cursor = startDate;
-    while (remaining > 0) {
-      final dow = cursor.weekday; // 1 = Monday, ..., 7 = Sunday
-      final isSunday = dow == 7;
-      final isSaturday = dow == 6;
-      final isMealDay = !isSunday && (includeSaturday || !isSaturday);
-      if (isMealDay) {
-        remaining--;
-        if (remaining == 0) break;
-      }
-      cursor = cursor.add(const Duration(days: 1));
-    }
-    return cursor;
-  }
-
   int _countSkippableMealDays(DateTime start, DateTime end, bool includeSaturday) {
     int count = 0;
     DateTime cursor = start;
@@ -89,9 +69,7 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
       final isSunday = dow == 7;
       final isSaturday = dow == 6;
       final isMealDay = !isSunday && (includeSaturday || !isSaturday);
-      if (isMealDay) {
-        count++;
-      }
+      if (isMealDay) count++;
       cursor = cursor.add(const Duration(days: 1));
     }
     return count;
@@ -100,8 +78,7 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
   Widget _buildSummaryBanner(BuildContext context, bool isDark, MealProvider mealProvider) {
     final now = DateTime.now();
     final todayYmd = DateTime(now.year, now.month, now.day);
-    
-    // Count currently active skips
+
     int activeSkips = 0;
     for (final skip in mealProvider.skips) {
       final status = skip['status']?.toString().toLowerCase() ?? '';
@@ -198,67 +175,243 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
         value: AppTheme.overlayFor(background: pageBg, isDark: isDark, navigationBarColor: navBarColor),
         child: Scaffold(
           backgroundColor: pageBg,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showSkipDialog(context),
-        backgroundColor: AppTheme.primaryColor,
-        icon: const Icon(CupertinoIcons.calendar_badge_plus, color: Colors.white),
-        label: const Text('New Skip', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Custom Header with rounded bottom corners
-            Container(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              decoration: BoxDecoration(
-                color: isDark ? Colors.black26 : const Color(0xFFF3EBE0),
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
-              ),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(CupertinoIcons.back, color: Color(0xFF8B7A66)),
-                    onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: () => _showSkipDialog(context),
+            backgroundColor: AppTheme.primaryColor,
+            icon: const Icon(CupertinoIcons.calendar_badge_plus, color: Colors.white),
+            label: const Text('New Skip', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+          ),
+          body: SafeArea(
+            child: Column(
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.fromLTRB(8, 8, 16, 16),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.black26 : const Color(0xFFF3EBE0),
+                    borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
                   ),
-                  Expanded(
-                    child: Text(
-                      'Meal Skips',
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                        color: isDark ? Colors.white : const Color(0xFF5A4D42),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(CupertinoIcons.back, color: Color(0xFF8B7A66)),
+                        onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
                       ),
-                    ),
-                    const SizedBox(width: 48),
-                  ],
+                      Expanded(
+                        child: Text(
+                          'Meal Skips',
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                            color: isDark ? Colors.white : const Color(0xFF5A4D42),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 48),
+                    ],
+                  ),
                 ),
-              ),
-              Expanded(
-                child: showSpinner
-                    ? const Center(child: CupertinoActivityIndicator())
-                    : RefreshIndicator(
-                        onRefresh: () async {
-                          _fetchAll();
-                        },
-                        color: AppTheme.primaryColor,
-                        child: SingleChildScrollView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildSummaryBanner(context, isDark, mealProvider),
 
-                              // Meal status section
-                              if (mealProvider.mealStatus.isNotEmpty) ...[
+                // Body
+                Expanded(
+                  child: showSpinner
+                      ? const Center(child: CupertinoActivityIndicator())
+                      : RefreshIndicator(
+                          onRefresh: () async => _fetchAll(),
+                          color: AppTheme.primaryColor,
+                          child: SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildSummaryBanner(context, isDark, mealProvider),
+
+                                // Meal Balances
+                                if (mealProvider.mealStatus.isNotEmpty) ...[
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                                    child: Row(
+                                      children: [
+                                        Text(
+                                          'Meal Balances',
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w800,
+                                            color: isDark ? Colors.white70 : const Color(0xFF5A4D42),
+                                            letterSpacing: -0.2,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            '${mealProvider.mealStatus.length}',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              color: isDark ? Colors.white60 : Colors.black54,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    height: 125,
+                                    child: ListView.builder(
+                                      scrollDirection: Axis.horizontal,
+                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                                      itemCount: mealProvider.mealStatus.length,
+                                      itemBuilder: (context, index) {
+                                        final ms = mealProvider.mealStatus[index];
+                                        final remaining = int.tryParse('${ms['remaining_meals'] ?? 0}') ?? 0;
+                                        final total = int.tryParse('${ms['total_meals'] ?? 0}') ?? 1;
+                                        final ratio = total > 0 ? (remaining / total).clamp(0.0, 1.0) : 0.0;
+                                        final name = ms['entity_name']?.toString() ?? 'Profile';
+                                        final type = ms['entity_type']?.toString() ?? '';
+                                        final plan = ms['plan_name']?.toString() ?? 'No Plan';
+
+                                        Color typeColor;
+                                        IconData typeIcon;
+                                        if (type.toLowerCase() == 'child') {
+                                          typeColor = const Color(0xFF3B82F6);
+                                          typeIcon = CupertinoIcons.person_solid;
+                                        } else if (type.toLowerCase() == 'teacher') {
+                                          typeColor = const Color(0xFFD97706);
+                                          typeIcon = CupertinoIcons.person_crop_square_fill;
+                                        } else {
+                                          typeColor = const Color(0xFF8B5CF6);
+                                          typeIcon = CupertinoIcons.briefcase_fill;
+                                        }
+
+                                        return Container(
+                                          width: 220,
+                                          margin: const EdgeInsets.only(right: 14),
+                                          padding: const EdgeInsets.all(12),
+                                          decoration: BoxDecoration(
+                                            color: isDark ? AppTheme.surfaceDark : Colors.white,
+                                            borderRadius: BorderRadius.circular(24),
+                                            border: Border.all(
+                                              color: isDark ? AppTheme.borderDark : AppTheme.borderLight,
+                                              width: 1.5,
+                                            ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+                                                blurRadius: 8,
+                                                offset: const Offset(0, 4),
+                                              ),
+                                            ],
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Stack(
+                                                alignment: Alignment.center,
+                                                children: [
+                                                  SizedBox(
+                                                    width: 52,
+                                                    height: 52,
+                                                    child: CircularProgressIndicator(
+                                                      value: ratio,
+                                                      backgroundColor: isDark ? Colors.white10 : Colors.grey.shade100,
+                                                      color: typeColor,
+                                                      strokeWidth: 4.5,
+                                                    ),
+                                                  ),
+                                                  Column(
+                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                    children: [
+                                                      Text(
+                                                        '$remaining',
+                                                        style: TextStyle(
+                                                          fontWeight: FontWeight.w900,
+                                                          fontSize: 15,
+                                                          color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                                                        ),
+                                                      ),
+                                                      Text(
+                                                        '/$total',
+                                                        style: TextStyle(
+                                                          fontSize: 8,
+                                                          color: isDark ? Colors.white38 : Colors.grey.shade500,
+                                                          fontWeight: FontWeight.w600,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(width: 12),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                  children: [
+                                                    Row(
+                                                      children: [
+                                                        Icon(typeIcon, color: typeColor, size: 10),
+                                                        const SizedBox(width: 4),
+                                                        Flexible(
+                                                          child: Text(
+                                                            type.toUpperCase(),
+                                                            style: TextStyle(
+                                                              fontSize: 9,
+                                                              fontWeight: FontWeight.w800,
+                                                              color: typeColor,
+                                                              letterSpacing: 0.3,
+                                                            ),
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 2),
+                                                    Text(
+                                                      name,
+                                                      style: TextStyle(
+                                                        fontWeight: FontWeight.w800,
+                                                        fontSize: 13,
+                                                        color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                                                      ),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                    const SizedBox(height: 2),
+                                                    Text(
+                                                      plan,
+                                                      style: TextStyle(
+                                                        fontSize: 10,
+                                                        color: isDark ? Colors.white54 : AppTheme.textSecondaryLight,
+                                                      ),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
+
+                                // Skip History
                                 Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
                                   child: Row(
                                     children: [
                                       Text(
-                                        'Meal Balances',
+                                        'Skip History & Schedule',
                                         style: TextStyle(
                                           fontSize: 15,
                                           fontWeight: FontWeight.w800,
@@ -267,328 +420,145 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
                                         ),
                                       ),
                                       const SizedBox(width: 8),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: Text(
-                                          '${mealProvider.mealStatus.length}',
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.bold,
-                                            color: isDark ? Colors.white60 : Colors.black54,
+                                      if (mealProvider.skips.isNotEmpty)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            '${mealProvider.skips.length}',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              color: isDark ? Colors.white60 : Colors.black54,
+                                            ),
                                           ),
                                         ),
-                                      ),
                                     ],
                                   ),
                                 ),
-                                SizedBox(
-                                  height: 125,
-                                  child: ListView.builder(
-                                    scrollDirection: Axis.horizontal,
-                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                                    itemCount: mealProvider.mealStatus.length,
-                                    itemBuilder: (context, index) {
-                                      final ms = mealProvider.mealStatus[index];
-                                      final remaining = int.tryParse('${ms['remaining_meals'] ?? 0}') ?? 0;
-                                      final total = int.tryParse('${ms['total_meals'] ?? 0}') ?? 1;
-                                      final ratio = total > 0 ? (remaining / total).clamp(0.0, 1.0) : 0.0;
-                                      final name = ms['entity_name']?.toString() ?? 'Profile';
-                                      final type = ms['entity_type']?.toString() ?? '';
-                                      final plan = ms['plan_name']?.toString() ?? 'No Plan';
 
-                                      Color typeColor;
-                                      IconData typeIcon;
-                                      if (type.toLowerCase() == 'child') {
-                                        typeColor = const Color(0xFF3B82F6);
-                                        typeIcon = CupertinoIcons.person_solid;
-                                      } else if (type.toLowerCase() == 'teacher') {
-                                        typeColor = const Color(0xFFD97706);
-                                        typeIcon = CupertinoIcons.person_crop_square_fill;
-                                      } else {
-                                        typeColor = const Color(0xFF8B5CF6);
-                                        typeIcon = CupertinoIcons.briefcase_fill;
-                                      }
-
-                                      return Container(
-                                        width: 220,
-                                        margin: const EdgeInsets.only(right: 14),
-                                        padding: const EdgeInsets.all(12),
-                                        decoration: BoxDecoration(
-                                          color: isDark ? AppTheme.surfaceDark : Colors.white,
-                                          borderRadius: BorderRadius.circular(24),
-                                          border: Border.all(
-                                            color: isDark ? AppTheme.borderDark : AppTheme.borderLight,
-                                            width: 1.5,
+                                if (mealProvider.skips.isEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 40),
+                                    child: Center(
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            CupertinoIcons.calendar,
+                                            size: 64,
+                                            color: isDark ? Colors.white24 : Colors.grey.withValues(alpha: 0.3),
                                           ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
-                                              blurRadius: 8,
-                                              offset: const Offset(0, 4),
+                                          const SizedBox(height: 16),
+                                          Text(
+                                            'No meal skips scheduled',
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w700,
+                                              color: isDark ? Colors.white : AppTheme.textPrimaryLight,
                                             ),
-                                          ],
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Stack(
-                                              alignment: Alignment.center,
-                                              children: [
-                                                SizedBox(
-                                                  width: 52,
-                                                  height: 52,
-                                                  child: CircularProgressIndicator(
-                                                    value: ratio,
-                                                    backgroundColor: isDark ? Colors.white10 : Colors.grey.shade100,
-                                                    color: typeColor,
-                                                    strokeWidth: 4.5,
-                                                  ),
-                                                ),
-                                                Column(
-                                                  mainAxisAlignment: MainAxisAlignment.center,
-                                                  children: [
-                                                    Text(
-                                                      '$remaining',
-                                                      style: TextStyle(
-                                                        fontWeight: FontWeight.w900,
-                                                        fontSize: 15,
-                                                        color: isDark ? Colors.white : AppTheme.textPrimaryLight,
-                                                      ),
-                                                    ),
-                                                    Text(
-                                                      '/$total',
-                                                      style: TextStyle(
-                                                        fontSize: 8,
-                                                        color: isDark ? Colors.white38 : Colors.grey.shade500,
-                                                        fontWeight: FontWeight.w600,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(width: 12),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                mainAxisAlignment: MainAxisAlignment.center,
-                                                children: [
-                                                  Row(
-                                                    children: [
-                                                      Icon(typeIcon, color: typeColor, size: 10),
-                                                      const SizedBox(width: 4),
-                                                      Flexible(
-                                                        child: Text(
-                                                          type.toUpperCase(),
-                                                          style: TextStyle(
-                                                            fontSize: 9,
-                                                            fontWeight: FontWeight.w800,
-                                                            color: typeColor,
-                                                            letterSpacing: 0.3,
-                                                          ),
-                                                          maxLines: 1,
-                                                          overflow: TextOverflow.ellipsis,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  const SizedBox(height: 2),
-                                                  Text(
-                                                    name,
-                                                    style: TextStyle(
-                                                      fontWeight: FontWeight.w800,
-                                                      fontSize: 13,
-                                                      color: isDark ? Colors.white : AppTheme.textPrimaryLight,
-                                                    ),
-                                                    maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
-                                                  ),
-                                                  const SizedBox(height: 2),
-                                                  Text(
-                                                    plan,
-                                                    style: TextStyle(
-                                                      fontSize: 10,
-                                                      color: isDark ? Colors.white54 : AppTheme.textSecondaryLight,
-                                                    ),
-                                                    maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
-                                                  ),
-                                                ],
+                                            textAlign: TextAlign.center,
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                                            child: Text(
+                                              'Tap "New Skip" below to select dates and schedule skips according to policy.',
+                                              textAlign: TextAlign.center,
+                                              softWrap: true,
+                                              maxLines: 3,
+                                              style: TextStyle(
+                                                color: isDark ? Colors.white54 : AppTheme.textSecondaryLight,
                                               ),
                                             ),
-                                          ],
-                                        ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  Builder(
+                                    builder: (context) {
+                                      final sortedSkips = List.from(mealProvider.skips)
+                                        ..sort((a, b) {
+                                          final statusA = a['status']?.toString().toLowerCase() ?? '';
+                                          final statusB = b['status']?.toString().toLowerCase() ?? '';
+
+                                          int getPriority(String status) {
+                                            if (status == 'approved' || status == 'active') return 0;
+                                            if (status == 'requested') return 1;
+                                            if (status == 'cancelled') return 3;
+                                            return 2;
+                                          }
+
+                                          return getPriority(statusA).compareTo(getPriority(statusB));
+                                        });
+
+                                      return ListView.builder(
+                                        shrinkWrap: true,
+                                        physics: const NeverScrollableScrollPhysics(),
+                                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                                        itemCount: sortedSkips.length,
+                                        itemBuilder: (context, index) {
+                                          final skip = sortedSkips[index];
+                                          final isCancelled = skip['status']?.toString().toLowerCase() == 'cancelled';
+                                          final card = _buildSkipCard(context, skip, isDark, mealProvider);
+
+                                          Widget item = card;
+                                          if (isCancelled) {
+                                            item = Dismissible(
+                                              key: ValueKey('skip_${skip['id']}'),
+                                              direction: DismissDirection.endToStart,
+                                              background: Container(
+                                                margin: const EdgeInsets.only(bottom: 14),
+                                                padding: const EdgeInsets.only(right: 22),
+                                                alignment: Alignment.centerRight,
+                                                decoration: BoxDecoration(
+                                                  color: Colors.red.shade400,
+                                                  borderRadius: BorderRadius.circular(20),
+                                                ),
+                                                child: const Icon(CupertinoIcons.delete_solid, color: Colors.white),
+                                              ),
+                                              confirmDismiss: (_) async {
+                                                final id = skip['id'];
+                                                if (id == null) return false;
+                                                final skipId = id is int ? id : int.tryParse(id.toString()) ?? 0;
+                                                return _confirmDeleteSkip(context, skipId, mealProvider);
+                                              },
+                                              child: card,
+                                            );
+                                          }
+
+                                          return item
+                                              .animate()
+                                              .fadeIn(delay: (index * 80).ms)
+                                              .slideX(begin: 0.05, end: 0);
+                                        },
                                       );
                                     },
                                   ),
-                                ),
+                                const SizedBox(height: 100),
                               ],
-
-                              // Skip List Section
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
-                                child: Row(
-                                  children: [
-                                    Text(
-                                      'Skip History & Schedule',
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w800,
-                                        color: isDark ? Colors.white70 : const Color(0xFF5A4D42),
-                                        letterSpacing: -0.2,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    if (mealProvider.skips.isNotEmpty)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: Text(
-                                          '${mealProvider.skips.length}',
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.bold,
-                                            color: isDark ? Colors.white60 : Colors.black54,
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-
-                              if (mealProvider.skips.isEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 40),
-                                  child: Center(
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          CupertinoIcons.calendar,
-                                          size: 64,
-                                          color: isDark ? Colors.white24 : Colors.grey.withValues(alpha: 0.3),
-                                        ),
-                                        const SizedBox(height: 16),
-                                        Text(
-                                          'No meal skips scheduled',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w700,
-                                            color: isDark ? Colors.white : AppTheme.textPrimaryLight,
-                                          ),
-                                          textAlign: TextAlign.center,
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(horizontal: 24),
-                                          child: Text(
-                                            'Tap "New Skip" below to select dates and schedule skips according to policy.',
-                                            textAlign: TextAlign.center,
-                                            softWrap: true,
-                                            maxLines: 3,
-                                            style: TextStyle(
-                                              color: isDark ? Colors.white54 : AppTheme.textSecondaryLight,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                )
-                              else
-                                Builder(
-                                  builder: (context) {
-                                    final sortedSkips = List.from(mealProvider.skips)
-                                      ..sort((a, b) {
-                                        final statusA = a['status']?.toString().toLowerCase() ?? '';
-                                        final statusB = b['status']?.toString().toLowerCase() ?? '';
-
-                                        int getPriority(String status) {
-                                          if (status == 'approved' || status == 'active') return 0;
-                                          if (status == 'requested') return 1;
-                                          if (status == 'cancelled') return 3;
-                                          return 2;
-                                        }
-
-                                        return getPriority(statusA).compareTo(getPriority(statusB));
-                                      });
-
-                                    return ListView.builder(
-                                      shrinkWrap: true,
-                                      physics: const NeverScrollableScrollPhysics(),
-                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                                      itemCount: sortedSkips.length,
-                                      itemBuilder: (context, index) {
-                                        final skip = sortedSkips[index];
-                                        final isCancelled = skip['status']?.toString().toLowerCase() == 'cancelled';
-                                        final card = _buildSkipCard(context, skip, isDark, mealProvider);
-
-                                        Widget item = card;
-                                        if (isCancelled) {
-                                          item = Dismissible(
-                                            key: ValueKey('skip_${skip['id']}'),
-                                            direction: DismissDirection.endToStart,
-                                            background: Container(
-                                              margin: const EdgeInsets.only(bottom: 14),
-                                              padding: const EdgeInsets.only(right: 22),
-                                              alignment: Alignment.centerRight,
-                                              decoration: BoxDecoration(
-                                                color: Colors.red.shade400,
-                                                borderRadius: BorderRadius.circular(20),
-                                              ),
-                                              child: const Icon(CupertinoIcons.delete_solid, color: Colors.white),
-                                            ),
-                                            confirmDismiss: (_) async {
-                                              final id = skip['id'];
-                                              if (id == null) return false;
-                                              final skipId = id is int ? id : int.tryParse(id.toString()) ?? 0;
-                                              return _confirmDeleteSkip(context, skipId, mealProvider);
-                                            },
-                                            child: card,
-                                          );
-                                        }
-
-                                        return item
-                                            .animate()
-                                            .fadeIn(delay: (index * 80).ms)
-                                            .slideX(begin: 0.05, end: 0);
-                                      },
-                                    );
-                                  },
-                                ),
-                              const SizedBox(height: 100), // Spacing for floating button
-                            ],
+                            ),
                           ),
                         ),
-                      ),
-              ),
-            ],
+                ),
+              ],
+            ),
+          ),
+          bottomNavigationBar: BuuttiiFooterNav(
+            currentIndex: 2,
+            onHomeTap: () => Navigator.of(context).popUntil((route) => route.isFirst),
+            onWeekMenuTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.weeklyMenu),
+            onMealSkipTap: () {},
+            onSettingsTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.settings),
           ),
         ),
-        bottomNavigationBar: BuuttiiFooterNav(
-          currentIndex: 2,
-          onHomeTap: () => Navigator.of(context).popUntil((route) => route.isFirst),
-          onWeekMenuTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.weeklyMenu),
-          onMealSkipTap: () {},
-          onSettingsTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.settings),
-        ),
       ),
-      bottomNavigationBar: BuuttiiFooterNav(
-        currentIndex: 2,
-        onHomeTap: () => Navigator.of(context).popUntil((route) => route.isFirst),
-        onWeekMenuTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.weeklyMenu),
-        onMealSkipTap: () {},
-        onSettingsTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.settings),
-      ),
-     ),
-    ),
-   );
+    );
   }
 
   Widget _buildSkipCard(BuildContext context, Map<String, dynamic> skip, bool isDark, MealProvider mealProvider) {
@@ -599,8 +569,8 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
 
     final startStr = skip['skip_start_date']?.toString() ?? '';
     final endStr = skip['skip_end_date']?.toString() ?? '';
-    DateTime? start = DateTime.tryParse(startStr);
-    DateTime? end = DateTime.tryParse(endStr);
+    final DateTime? start = DateTime.tryParse(startStr);
+    final DateTime? end = DateTime.tryParse(endStr);
 
     final isFuture = start != null && start.isAfter(DateTime.now());
     final isActive = status == 'approved' || status == 'active';
@@ -664,10 +634,7 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(
-                width: 6,
-                color: statusColor,
-              ),
+              Container(width: 6, color: statusColor),
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -903,7 +870,6 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
     final childrenProvider = context.read<ChildrenProvider>();
     final profileProvider = context.read<ProfileProvider>();
     final mealProvider = context.read<MealProvider>();
-    // Save messenger BEFORE sheet opens so it works after sheet is popped
     final messenger = ScaffoldMessenger.of(context);
 
     // Build entity list
@@ -912,10 +878,18 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
       entities.add({'type': 'child', 'id': child.id!, 'name': child.name});
     }
     if (profileProvider.teacherProfile != null) {
-      entities.add({'type': 'teacher', 'id': profileProvider.teacherProfile!.id!, 'name': profileProvider.teacherProfile!.name});
+      entities.add({
+        'type': 'teacher',
+        'id': profileProvider.teacherProfile!.id!,
+        'name': profileProvider.teacherProfile!.name,
+      });
     }
     if (profileProvider.professionalProfile != null) {
-      entities.add({'type': 'professional', 'id': profileProvider.professionalProfile!.id!, 'name': profileProvider.professionalProfile!.name});
+      entities.add({
+        'type': 'professional',
+        'id': profileProvider.professionalProfile!.id!,
+        'name': profileProvider.professionalProfile!.name,
+      });
     }
 
     if (entities.isEmpty) {
@@ -942,309 +916,387 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
       return int.tryParse(remaining?.toString() ?? '0') ?? 0;
     }
 
+    bool resolveEntityIncludesSaturday(String entityKey) {
+      final parsed = parseMealSkipEntityKey(entityKey);
+      if (parsed == null) return true;
+      final match = mealProvider.mealStatus.firstWhere(
+        (s) => s['entity_type'] == parsed.type && s['entity_id']?.toString() == parsed.id,
+        orElse: () => <String, dynamic>{},
+      );
+      if (match.isEmpty) return true;
+      return match['include_saturday'] != false;
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) {
-        return StatefulBuilder(builder: (sheetCtx, setSheetState) {
-          final isDark = Theme.of(sheetCtx).brightness == Brightness.dark;
-          return Container(
-            padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(sheetCtx).viewInsets.bottom + MediaQuery.paddingOf(sheetCtx).bottom + 36),
-            decoration: BoxDecoration(
-              color: Theme.of(sheetCtx).scaffoldBackgroundColor,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 48,
-                      height: 5,
-                      margin: const EdgeInsets.only(bottom: 20),
-                      decoration: BoxDecoration(
-                        color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(10),
+        return StatefulBuilder(
+          builder: (sheetCtx, setSheetState) {
+            final isDark = Theme.of(sheetCtx).brightness == Brightness.dark;
+
+            return Container(
+              padding: EdgeInsets.fromLTRB(
+                24,
+                24,
+                24,
+                MediaQuery.of(sheetCtx).viewInsets.bottom + MediaQuery.paddingOf(sheetCtx).bottom + 36,
+              ),
+              decoration: BoxDecoration(
+                color: Theme.of(sheetCtx).scaffoldBackgroundColor,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Drag handle
+                    Center(
+                      child: Container(
+                        width: 48,
+                        height: 5,
+                        margin: const EdgeInsets.only(bottom: 20),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
-                      onSelected: (_) => setSheetState(() {
-                        selectedEntity = key;
-                        selectedRange = null; // reset date when entity changes
-                        sheetError = null;
-                      }),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 20),
+                    ),
 
-                // Date range
-                Text('Skip Dates', style: TextStyle(fontWeight: FontWeight.w700, color: isDark ? Colors.white : AppTheme.textPrimaryLight)),
-                const SizedBox(height: 8),
-                InkWell(
-                  onTap: selectedEntity == null
-                      ? null
-                      : () async {
-                          final tomorrow = DateTime.now().add(Duration(days: minNoticeDays));
-                          final remainingMeals = resolveEntityRemainingMeals(selectedEntity!);
+                    Text(
+                      'Schedule a Meal Skip',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                        color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Select who to skip for and choose the date range.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isDark ? Colors.white54 : AppTheme.textSecondaryLight,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
 
-                          if (remainingMeals <= 0) {
-                            setSheetState(() => sheetError = 'No remaining meals left for this profile. Please purchase or renew a plan.');
-                            return;
-                          }
+                    // Profile selector
+                    Text(
+                      'Select Profile',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: entities.map((e) {
+                        final key = '${e['type']}_${e['id']}';
+                        final isSelected = selectedEntity == key;
+                        return ChoiceChip(
+                          label: Text(e['name'] ?? ''),
+                          selected: isSelected,
+                          onSelected: (_) => setSheetState(() {
+                            selectedEntity = key;
+                            selectedRange = null;
+                            sheetError = null;
+                          }),
+                          selectedColor: AppTheme.primaryColor,
+                          labelStyle: TextStyle(
+                            color: isSelected ? Colors.white : (isDark ? Colors.white70 : AppTheme.textPrimaryLight),
+                            fontWeight: FontWeight.w700,
+                          ),
+                          backgroundColor: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.shade100,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          side: BorderSide(
+                            color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 20),
 
-                          final lastDate = tomorrow.add(const Duration(days: 90));
-
-                          final range = await showDateRangePicker(
-                            context: sheetCtx,
-                            firstDate: tomorrow,
-                            lastDate: lastDate,
-                            helpText: 'Select skip range (min 3 days)',
-                          );
-                          if (range != null) {
-                            final days = range.end.difference(range.start).inDays + 1;
-                            if (days < minSkipDays) {
-                              setSheetState(() => sheetError = 'Minimum $minSkipDays consecutive days required');
-                              return;
-                            }
-
-                            final range = await showDateRangePicker(
-                              context: sheetCtx,
-                              firstDate: tomorrow,
-                              lastDate: lastDate,
-                              helpText: expiry != null
-                                  ? 'Select skip range (max: ${DateFormat('dd MMM yyyy').format(expiry)})'
-                                  : 'Select skip range (min $minSkipDays days)',
-                            );
-                            if (range != null) {
-                              final days = range.end.difference(range.start).inDays + 1;
-                              if (days < minSkipDays) {
-                                setSheetState(() => sheetError = 'Minimum $minSkipDays consecutive days required');
+                    // Date range picker
+                    Text(
+                      'Skip Dates',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    InkWell(
+                      onTap: selectedEntity == null
+                          ? null
+                          : () async {
+                              final remainingMeals = resolveEntityRemainingMeals(selectedEntity!);
+                              if (remainingMeals <= 0) {
+                                setSheetState(() => sheetError =
+                                    'No remaining meals left for this profile. Please purchase or renew a plan.');
                                 return;
                               }
+
+                              final tomorrow = DateTime.now().add(Duration(days: minNoticeDays));
+                              final includeSat = resolveEntityIncludesSaturday(selectedEntity!);
+
+                              // lastDate = start + enough days to cover `remainingMeals` meal days
+                              // We'll allow up to 90 calendar days as a generous upper bound
+                              final lastDate = tomorrow.add(const Duration(days: 90));
+
+                              final range = await showDateRangePicker(
+                                context: sheetCtx,
+                                firstDate: tomorrow,
+                                lastDate: lastDate,
+                                helpText: 'Select skip range (min $minSkipDays days)',
+                                builder: (context, child) {
+                                  return Theme(
+                                    data: Theme.of(context).copyWith(
+                                      colorScheme: Theme.of(context).colorScheme.copyWith(
+                                            primary: AppTheme.primaryColor,
+                                          ),
+                                    ),
+                                    child: child!,
+                                  );
+                                },
+                              );
+
+                              if (range == null) return;
+
+                              final mealDays = _countSkippableMealDays(range.start, range.end, includeSat);
+                              if (mealDays < minSkipDays) {
+                                setSheetState(() => sheetError =
+                                    'Minimum $minSkipDays meal days required. Selected range has only $mealDays meal day(s).');
+                                return;
+                              }
+
                               setSheetState(() {
                                 selectedRange = range;
                                 sheetError = null;
                               });
-                            }
-                          },
-                    borderRadius: BorderRadius.circular(16),
-                    child: Container(
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: selectedEntity == null
-                            ? (isDark ? Colors.white.withValues(alpha: 0.01) : Colors.grey.shade100)
-                            : (isDark ? AppTheme.surfaceDark : const Color(0xFFFDF7F4)),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
+                            },
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
                           color: selectedEntity == null
-                              ? (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade200)
-                              : (selectedRange != null ? AppTheme.primaryColor : (isDark ? Colors.white10 : Colors.grey.shade300)),
-                          width: selectedRange != null ? 2.0 : 1.5,
+                              ? (isDark ? Colors.white.withValues(alpha: 0.01) : Colors.grey.shade100)
+                              : (isDark ? AppTheme.surfaceDark : const Color(0xFFFDF7F4)),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: selectedEntity == null
+                                ? (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade200)
+                                : (selectedRange != null
+                                    ? AppTheme.primaryColor
+                                    : (isDark ? Colors.white10 : Colors.grey.shade300)),
+                            width: selectedRange != null ? 2.0 : 1.5,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: selectedEntity == null
+                                    ? Colors.transparent
+                                    : AppTheme.primaryColor.withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                CupertinoIcons.calendar,
+                                color: selectedEntity == null
+                                    ? (isDark ? Colors.white24 : Colors.grey.shade400)
+                                    : AppTheme.primaryColor,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Select Date Range',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: isDark ? Colors.white38 : Colors.grey.shade500,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    selectedRange != null
+                                        ? '${DateFormat('dd MMM').format(selectedRange!.start)} – ${DateFormat('dd MMM yyyy').format(selectedRange!.end)}'
+                                        : (selectedEntity == null ? 'Select a profile first' : 'Tap to choose dates'),
+                                    style: TextStyle(
+                                      color: selectedRange != null
+                                          ? (isDark ? Colors.white : AppTheme.textPrimaryLight)
+                                          : (selectedEntity == null
+                                              ? (isDark ? Colors.white24 : Colors.grey.shade400)
+                                              : AppTheme.primaryColor),
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (selectedEntity != null)
+                              Icon(
+                                CupertinoIcons.chevron_right,
+                                color: isDark ? Colors.white38 : Colors.grey.shade400,
+                                size: 16,
+                              ),
+                          ],
                         ),
                       ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: selectedEntity == null
-                                  ? Colors.transparent
-                                  : AppTheme.primaryColor.withValues(alpha: 0.1),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              CupertinoIcons.calendar,
-                              color: selectedEntity == null
-                                  ? (isDark ? Colors.white24 : Colors.grey.shade400)
-                                  : AppTheme.primaryColor,
-                              size: 20,
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
+                    ),
+
+                    // Summary info
+                    if (selectedRange != null && selectedEntity != null) ...[
+                      const SizedBox(height: 8),
+                      Builder(
+                        builder: (builderCtx) {
+                          final includeSat = resolveEntityIncludesSaturday(selectedEntity!);
+                          final calendarDays = selectedRange!.end.difference(selectedRange!.start).inDays + 1;
+                          final mealDays = _countSkippableMealDays(selectedRange!.start, selectedRange!.end, includeSat);
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Select Date Range',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: isDark ? Colors.white38 : Colors.grey.shade500,
-                                    fontWeight: FontWeight.w600,
+                                  'Total skip duration: $calendarDays calendar day(s)',
+                                  style: const TextStyle(
+                                    color: AppTheme.primaryColor,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 13,
                                   ),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  selectedRange != null
-                                      ? '${DateFormat('dd MMM').format(selectedRange!.start)} - ${DateFormat('dd MMM yyyy').format(selectedRange!.end)}'
-                                      : (selectedEntity == null ? 'Select a profile first' : 'Tap to choose dates'),
+                                  'Total meals skipped: $mealDays meal(s)',
                                   style: TextStyle(
-                                    color: selectedRange != null
-                                        ? (isDark ? Colors.white : AppTheme.textPrimaryLight)
-                                        : (selectedEntity == null
-                                            ? (isDark ? Colors.white24 : Colors.grey.shade400)
-                                            : AppTheme.primaryColor),
+                                    color: isDark ? const Color(0xFF34D399) : const Color(0xFF059669),
                                     fontWeight: FontWeight.w800,
-                                    fontSize: 14,
+                                    fontSize: 13,
                                   ),
                                 ),
                               ],
                             ),
-                          ),
-                          if (selectedEntity != null)
-                            Icon(
-                              CupertinoIcons.chevron_right,
-                              color: isDark ? Colors.white38 : Colors.grey.shade400,
-                              size: 16,
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  if (selectedRange != null) ...[
-                    const SizedBox(height: 8),
-                    Builder(
-                      builder: (builderCtx) {
-                        final parsed = parseMealSkipEntityKey(selectedEntity!);
-                        bool includeSat = true;
-                        if (parsed != null) {
-                          final match = mealProvider.mealStatus.firstWhere(
-                            (s) => s['entity_type'] == parsed.type && s['entity_id']?.toString() == parsed.id,
-                            orElse: () => null,
                           );
-                          if (match != null) {
-                            includeSat = match['include_saturday'] != false;
-                          }
-                        }
-                        final calendarDays = selectedRange!.end.difference(selectedRange!.start).inDays + 1;
-                        final mealDays = _countSkippableMealDays(selectedRange!.start, selectedRange!.end, includeSat);
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Total skips duration: $calendarDays calendar day(s)',
-                                style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.w800, fontSize: 13),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Total meals skipped: $mealDays meal(s)',
-                                style: TextStyle(
-                                  color: isDark ? const Color(0xFF34D399) : const Color(0xFF059669),
-                                  fontWeight: FontWeight.w800,
+                        },
+                      ),
+                    ],
+
+                    // Error
+                    if (sheetError != null) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.red.withValues(alpha: 0.15)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(CupertinoIcons.exclamationmark_circle_fill, color: Colors.red, size: 18),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                sheetError!,
+                                style: const TextStyle(
+                                  color: Colors.red,
                                   fontSize: 13,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
-                            ],
-                          ),
-                        );
-                      }
-                    ),
-                  ],
-
-                  // In-sheet error message
-                  if (sheetError != null) ...[
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.red.withValues(alpha: 0.15)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(CupertinoIcons.exclamationmark_circle_fill, color: Colors.red, size: 18),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              sheetError!,
-                              style: const TextStyle(
-                                color: Colors.red,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
 
-                  const SizedBox(height: 32),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: (selectedEntity != null && selectedRange != null && !isSubmitting)
-                          ? () async {
-                              final parsed = parseMealSkipEntityKey(selectedEntity!);
-                              if (parsed == null) {
-                                setSheetState(() => sheetError = 'Invalid profile selection.');
-                                return;
-                              }
-                              final fmt = DateFormat('yyyy-MM-dd');
+                    const SizedBox(height: 32),
 
-                              setSheetState(() {
-                                isSubmitting = true;
-                                sheetError = null;
-                              });
+                    // Submit button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: (selectedEntity != null && selectedRange != null && !isSubmitting)
+                            ? () async {
+                                final parsed = parseMealSkipEntityKey(selectedEntity!);
+                                if (parsed == null) {
+                                  setSheetState(() => sheetError = 'Invalid profile selection.');
+                                  return;
+                                }
+                                final fmt = DateFormat('yyyy-MM-dd');
 
-                              final success = await mealProvider.skipMeal(
-                                entityType: parsed.type,
-                                entityId: parsed.id,
-                                startDate: fmt.format(selectedRange!.start),
-                                endDate: fmt.format(selectedRange!.end),
-                              );
-
-                              if (!sheetCtx.mounted) return;
-                              if (success) {
-                                Navigator.pop(sheetCtx);
-                                messenger.showSnackBar(SnackBar(
-                                  content: const Text('Meal skip scheduled successfully!'),
-                                  backgroundColor: Colors.green,
-                                  behavior: SnackBarBehavior.floating,
-                                ));
-                              } else {
                                 setSheetState(() {
-                                  isSubmitting = false;
-                                  sheetError = mealProvider.error ?? 'Failed to schedule skip';
+                                  isSubmitting = true;
+                                  sheetError = null;
                                 });
+
+                                final success = await mealProvider.skipMeal(
+                                  entityType: parsed.type,
+                                  entityId: parsed.id,
+                                  startDate: fmt.format(selectedRange!.start),
+                                  endDate: fmt.format(selectedRange!.end),
+                                );
+
+                                if (!sheetCtx.mounted) return;
+                                if (success) {
+                                  Navigator.pop(sheetCtx);
+                                  messenger.showSnackBar(const SnackBar(
+                                    content: Text('Meal skip scheduled successfully!'),
+                                    backgroundColor: Colors.green,
+                                    behavior: SnackBarBehavior.floating,
+                                  ));
+                                } else {
+                                  setSheetState(() {
+                                    isSubmitting = false;
+                                    sheetError = mealProvider.error ?? 'Failed to schedule skip';
+                                  });
+                                }
                               }
-                            }
-                          : null,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                        backgroundColor: AppTheme.primaryColor,
-                        elevation: 2,
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                          backgroundColor: AppTheme.primaryColor,
+                          foregroundColor: Colors.white,
+                          elevation: 2,
+                        ),
+                        child: isSubmitting
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                              )
+                            : const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(CupertinoIcons.calendar_badge_plus, size: 20),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Confirm Skip Period',
+                                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, letterSpacing: 0.2),
+                                  ),
+                                ],
+                              ),
                       ),
-                      child: isSubmitting
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                            )
-                          : const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(CupertinoIcons.calendar_badge_plus, size: 20),
-                                SizedBox(width: 8),
-                                Text(
-                                  'Confirm Skip Period',
-                                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, letterSpacing: 0.2),
-                                ),
-                              ],
-                            ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          );
-        });
+            );
+          },
+        );
       },
     );
   }
