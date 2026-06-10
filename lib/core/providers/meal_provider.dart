@@ -10,9 +10,8 @@ import 'package:meal_app/core/utils/subscription_status_normalize.dart';
 class MealProvider with ChangeNotifier {
   final MealRepository _repository;
   final LocalCache _cache;
-  static const _statusCacheKey = 'cache_subscription_status_v1';
-  static const _mealStatusCacheKey = 'cache_meal_status_v1';
   static const _skipHistoryCacheKey = 'cache_meal_skips_v1';
+  static const _skipPolicyCacheKey = 'cache_skip_policy_v1';
 
   MealProvider(this._repository, this._cache) {
     _loadCachedData();
@@ -89,6 +88,14 @@ class MealProvider with ChangeNotifier {
       if (subStatusCache is Map<String, dynamic>) {
         _subscriptionStatusData = SubscriptionStatusNormalizer.normalize(subStatusCache);
         _syncSubscribedFromStatusMap(_subscriptionStatusData!);
+      }
+      final policyCache = await _cache.loadJson(_skipPolicyCacheKey);
+      if (policyCache != null) {
+        _skipPolicy = policyCache;
+      }
+      final skipsCache = await _cache.loadJson(_skipHistoryCacheKey);
+      if (skipsCache != null && skipsCache['items'] is List) {
+        _skips = (skipsCache['items'] as List).toList();
       }
       _hasInitiallyLoaded = true;
       notifyListeners();
@@ -261,11 +268,18 @@ class MealProvider with ChangeNotifier {
     // Skip the network call if the policy is already fresh.
     if (!force && _isSkipPolicyFresh()) return;
 
+    final cached = await _cache.loadJson(_skipPolicyCacheKey);
+    if (cached != null && _skipPolicy == const {'min_skip_days': 3, 'min_notice_days': 1}) {
+      _skipPolicy = cached;
+      notifyListeners();
+    }
+
     try {
       final data = await _repository.fetchMealSkipPolicy();
       if (data.isNotEmpty) {
         _skipPolicy = data;
         _lastSkipPolicyFetchedAt = DateTime.now();
+        await _cache.saveJson(_skipPolicyCacheKey, data);
         notifyListeners();
       }
     } catch (e) {

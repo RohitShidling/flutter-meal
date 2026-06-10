@@ -4,10 +4,27 @@ import 'package:meal_app/core/services/phonepe_service.dart';
 import 'package:meal_app/core/utils/error_handler.dart';
 import 'package:meal_app/features/bulk_order/data/models/bulk_delivery_address.dart';
 import 'package:meal_app/features/quick_service/data/repositories/quick_service_repository.dart';
+import 'package:meal_app/core/storage/cache_store.dart';
 
 class QuickServiceProvider with ChangeNotifier {
   final QuickServiceRepository _repository;
-  QuickServiceProvider(this._repository);
+  QuickServiceProvider(this._repository) {
+    _loadCachedData();
+  }
+
+  Future<void> _loadCachedData() async {
+    try {
+      final cachedConfig = await CacheStore.getJson('one_day_lunch_config');
+      if (cachedConfig is Map<String, dynamic>) {
+        _oneDayConfig = cachedConfig;
+      }
+      final cachedCategories = await CacheStore.getJson('special_categories');
+      if (cachedCategories is List) {
+        _categories = cachedCategories;
+      }
+      notifyListeners();
+    } catch (_) {}
+  }
 
   bool _loading = false;
   bool get isLoading => _loading;
@@ -78,13 +95,27 @@ class QuickServiceProvider with ChangeNotifier {
   }
 
   Future<void> loadOneDayConfig() async {
-    _loading = true;
-    _error = null;
-    notifyListeners();
+    if (_oneDayConfig == null) {
+      _loading = true;
+      _error = null;
+      notifyListeners();
+      try {
+        final cached = await CacheStore.getJson('one_day_lunch_config');
+        if (cached is Map<String, dynamic>) {
+          _oneDayConfig = cached;
+          notifyListeners();
+        }
+      } catch (_) {}
+    }
+
     try {
       _oneDayConfig = await _repository.getOneDayLunchConfig();
+      await CacheStore.setJson('one_day_lunch_config', _oneDayConfig, ttl: const Duration(hours: 6));
+      _error = null;
     } catch (e) {
-      _error = e.toString();
+      if (_oneDayConfig == null) {
+        _error = e.toString();
+      }
     } finally {
       _loading = false;
       notifyListeners();
@@ -97,13 +128,27 @@ class QuickServiceProvider with ChangeNotifier {
   }
 
   Future<void> loadCategories() async {
-    _loading = true;
-    _error = null;
-    notifyListeners();
+    if (_categories.isEmpty) {
+      _loading = true;
+      _error = null;
+      notifyListeners();
+      try {
+        final cached = await CacheStore.getJson('special_categories');
+        if (cached is List) {
+          _categories = cached;
+          notifyListeners();
+        }
+      } catch (_) {}
+    }
+
     try {
       _categories = await _repository.getSpecialCategories();
+      await CacheStore.setJson('special_categories', _categories, ttl: const Duration(hours: 6));
+      _error = null;
     } catch (e) {
-      _error = e.toString();
+      if (_categories.isEmpty) {
+        _error = e.toString();
+      }
     } finally {
       _loading = false;
       notifyListeners();
@@ -114,6 +159,22 @@ class QuickServiceProvider with ChangeNotifier {
     _loading = true;
     _error = null;
     _items = [];
+    
+    // Check cache first
+    try {
+      final cachedItems = await CacheStore.getJson('special_items_$categoryId');
+      if (cachedItems is List && _items.isEmpty) {
+        _items = cachedItems;
+        for (final item in _items) {
+          final id = item['id']?.toString();
+          if (id != null) {
+            _itemCache[id] = Map<String, dynamic>.from(item);
+          }
+        }
+        notifyListeners();
+      }
+    } catch (_) {}
+    
     notifyListeners();
     try {
       _items = await _repository.getSpecialItems(categoryId);
@@ -123,6 +184,7 @@ class QuickServiceProvider with ChangeNotifier {
           _itemCache[id] = Map<String, dynamic>.from(item);
         }
       }
+      await CacheStore.setJson('special_items_$categoryId', _items, ttl: const Duration(hours: 6));
     } catch (e) {
       _error = e.toString();
     } finally {

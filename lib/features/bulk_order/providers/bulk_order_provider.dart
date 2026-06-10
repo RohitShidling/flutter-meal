@@ -135,15 +135,15 @@ class BulkOrderProvider with ChangeNotifier {
     if (!force && _config != null && _canReuseCache(_lastConfigFetchTime)) {
       return;
     }
-    if (!NetworkStatusService.instance.isOnline) {
-      if (_config != null) return;
+
+    if (_config == null) {
       final configJson = await CacheStore.getJson('bulk_config');
       if (configJson is Map<String, dynamic>) {
         _config = BulkOrderConfig.fromJson(configJson);
         notifyListeners();
       }
-      return;
     }
+
     _loading = true;
     _error = null;
     notifyListeners();
@@ -153,8 +153,11 @@ class BulkOrderProvider with ChangeNotifier {
       if (_config != null) {
         await CacheStore.setJson('bulk_config', _config!.toJson(), ttl: const Duration(days: 1));
       }
+      _error = null;
     } catch (e) {
-      _error = ErrorHandler.getErrorMessage(e);
+      if (_config == null) {
+        _error = ErrorHandler.getErrorMessage(e);
+      }
     } finally {
       _loading = false;
       notifyListeners();
@@ -549,15 +552,15 @@ class BulkOrderProvider with ChangeNotifier {
     if (!force && _varietyCategories.isNotEmpty && _canReuseCache(_lastCategoriesFetchTime)) {
       return;
     }
-    if (!NetworkStatusService.instance.isOnline) {
-      if (_varietyCategories.isNotEmpty) return;
+
+    if (_varietyCategories.isEmpty) {
       final cachedList = await CacheStore.getJsonList('bulk_variety_categories');
       if (cachedList.isNotEmpty) {
         _varietyCategories = cachedList.map(BulkVarietyCategory.fromJson).toList();
         notifyListeners();
       }
-      return;
     }
+
     _loading = true;
     _error = null;
     notifyListeners();
@@ -569,8 +572,11 @@ class BulkOrderProvider with ChangeNotifier {
         _varietyCategories.map((e) => e.toJson()).toList(),
         ttl: const Duration(days: 1),
       );
+      _error = null;
     } catch (e) {
-      _error = ErrorHandler.getErrorMessage(e);
+      if (_varietyCategories.isEmpty) {
+        _error = ErrorHandler.getErrorMessage(e);
+      }
     } finally {
       _loading = false;
       notifyListeners();
@@ -581,7 +587,8 @@ class BulkOrderProvider with ChangeNotifier {
     if (!force && _categoryMeals.isNotEmpty && _canReuseCache(_lastMealsFetchTime[categoryId])) {
       return;
     }
-    if (!NetworkStatusService.instance.isOnline) {
+
+    if (_categoryMeals.isEmpty) {
       final cachedList = await CacheStore.getJsonList('bulk_meals_category_$categoryId');
       if (cachedList.isNotEmpty) {
         _categoryMeals = cachedList.map(BulkMenuOption.fromJson).toList();
@@ -593,8 +600,8 @@ class BulkOrderProvider with ChangeNotifier {
         }
         notifyListeners();
       }
-      return;
     }
+
     _loading = true;
     _error = null;
     notifyListeners();
@@ -612,8 +619,11 @@ class BulkOrderProvider with ChangeNotifier {
           _mealCategoryNames[m.id] = categoryName;
         }
       }
+      _error = null;
     } catch (e) {
-      _error = ErrorHandler.getErrorMessage(e);
+      if (_categoryMeals.isEmpty) {
+        _error = ErrorHandler.getErrorMessage(e);
+      }
     } finally {
       _loading = false;
       notifyListeners();

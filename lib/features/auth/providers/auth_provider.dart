@@ -8,6 +8,7 @@ import 'package:meal_app/features/auth/data/models/otp_send_result.dart';
 import 'package:meal_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:meal_app/core/services/offline_cache_bootstrap.dart';
 import 'package:meal_app/core/storage/cache_store.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 enum AuthState { initial, loading, authenticated, unauthenticated, error }
 enum AuthMode { login, register }
@@ -324,6 +325,11 @@ class AuthProvider with ChangeNotifier {
     } catch (_) {
       // Still clear local session even if server is unreachable.
     }
+    
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('read_announcement_ids');
+    } catch (_) {}
     
     OfflineCacheBootstrap.resetSession();
     await CacheStore.clearAll();

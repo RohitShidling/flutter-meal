@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:meal_app/core/models/announcement_model.dart';
 import 'package:meal_app/core/network/announcement_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:meal_app/core/storage/cache_store.dart';
 
 class AnnouncementProvider with ChangeNotifier {
   final AnnouncementRepository _repository;
@@ -10,6 +11,7 @@ class AnnouncementProvider with ChangeNotifier {
     // Load persisted read IDs immediately on startup so the badge
     // reflects the correct unread count before the first fetch completes.
     _loadReadAnnouncements();
+    _loadCachedAnnouncements();
   }
 
   List<AnnouncementModel> _announcements = [];
@@ -44,6 +46,16 @@ class AnnouncementProvider with ChangeNotifier {
       final readIds = prefs.getStringList('read_announcement_ids');
       if (readIds != null) {
         _readAnnouncementIds = readIds.toSet();
+        notifyListeners();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadCachedAnnouncements() async {
+    try {
+      final cached = await CacheStore.getJson('announcements_v1');
+      if (cached is List) {
+        _announcements = cached.map((a) => AnnouncementModel.fromJson(Map<String, dynamic>.from(a))).toList();
         notifyListeners();
       }
     } catch (_) {}
@@ -93,14 +105,10 @@ class AnnouncementProvider with ChangeNotifier {
       _announcements = fetched;
       _lastFetchedAt = DateTime.now();
 
-      // Any announcement not in the fetched list (deleted/expired) should be
-      // removed from readIds to avoid stale entries growing indefinitely.
-      final currentIds = fetched.map((a) => a.id).toSet();
-      final pruned = _readAnnouncementIds.intersection(currentIds);
-      if (pruned.length != _readAnnouncementIds.length) {
-        _readAnnouncementIds = pruned;
-        await _saveReadAnnouncements();
-      }
+      // Keep read IDs persisted as read to avoid race conditions clearing them
+      // when temporary token refreshes or partial fetches happen.
+      final serialized = fetched.map((a) => a.toJson()).toList();
+      await CacheStore.setJson('announcements_v1', serialized, ttl: const Duration(hours: 6));
     } catch (_) {
       // Keep old data on error — announcements are non-critical
     } finally {

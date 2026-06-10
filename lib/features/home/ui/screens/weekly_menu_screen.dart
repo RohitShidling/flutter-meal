@@ -378,15 +378,6 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
                         },
                       ),
                     )
-                  else if (!isLoading)
-                    Text(
-                      'Nutrition info not available',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: isDark ? Colors.white54 : Colors.black.withValues(alpha: 0.45),
-                      ),
-                    ),
                 ],
               ),
             ),
