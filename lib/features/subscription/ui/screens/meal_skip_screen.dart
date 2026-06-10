@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -184,56 +185,51 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
         mealProvider.mealStatus.isEmpty &&
         mealProvider.skips.isEmpty;
 
+    final pageBg = isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5);
+    final navBarColor = isDark ? AppTheme.surfaceDark : Colors.white;
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
         Navigator.of(context).popUntil((route) => route.isFirst);
       },
-      child: Scaffold(
-        backgroundColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: () => _showSkipDialog(context),
-          backgroundColor: AppTheme.primaryColor,
-          elevation: 6,
-          icon: const Icon(CupertinoIcons.calendar_badge_plus, color: Colors.white, size: 20),
-          label: const Text(
-            'New Skip',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-              fontSize: 14,
-              letterSpacing: 0.2,
-            ),
-          ),
-        ),
-        body: SafeArea(
-          child: Column(
-            children: [
-              // Custom Header with rounded bottom corners
-              Container(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.black26 : const Color(0xFFF3EBE0),
-                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
-                ),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(CupertinoIcons.back, color: Color(0xFF8B7A66)),
-                      onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
-                    ),
-                    Expanded(
-                      child: Text(
-                        'Meal Skips',
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          color: isDark ? Colors.white : const Color(0xFF5A4D42),
-                        ),
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: AppTheme.overlayFor(background: pageBg, isDark: isDark, navigationBarColor: navBarColor),
+        child: Scaffold(
+          backgroundColor: pageBg,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showSkipDialog(context),
+        backgroundColor: AppTheme.primaryColor,
+        icon: const Icon(CupertinoIcons.calendar_badge_plus, color: Colors.white),
+        label: const Text('New Skip', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Custom Header with rounded bottom corners
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.black26 : const Color(0xFFF3EBE0),
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
+              ),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(CupertinoIcons.back, color: Color(0xFF8B7A66)),
+                    onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
+                  ),
+                  Expanded(
+                    child: Text(
+                      'Meal Skips',
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                        color: isDark ? Colors.white : const Color(0xFF5A4D42),
                       ),
                     ),
                     const SizedBox(width: 48),
@@ -583,7 +579,16 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
           onSettingsTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.settings),
         ),
       ),
-    );
+      bottomNavigationBar: BuuttiiFooterNav(
+        currentIndex: 2,
+        onHomeTap: () => Navigator.of(context).popUntil((route) => route.isFirst),
+        onWeekMenuTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.weeklyMenu),
+        onMealSkipTap: () {},
+        onSettingsTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.settings),
+      ),
+     ),
+    ),
+   );
   }
 
   Widget _buildSkipCard(BuildContext context, Map<String, dynamic> skip, bool isDark, MealProvider mealProvider) {
@@ -925,35 +930,16 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
     final minSkipDays = int.tryParse(mealProvider.skipPolicy['min_skip_days']?.toString() ?? '') ?? 3;
     final minNoticeDays = int.tryParse(mealProvider.skipPolicy['min_notice_days']?.toString() ?? '') ?? 1;
 
-    // Helper: get subscription end_date for the selected entity from mealStatus
-    DateTime? resolveEntityExpiry(String entityKey) {
+    int resolveEntityRemainingMeals(String entityKey) {
       final parsed = parseMealSkipEntityKey(entityKey);
-      if (parsed == null) return null;
+      if (parsed == null) return 0;
       final match = mealProvider.mealStatus.firstWhere(
         (s) => s['entity_type'] == parsed.type && s['entity_id']?.toString() == parsed.id,
-        orElse: () => null,
+        orElse: () => <String, dynamic>{},
       );
-      if (match == null) return null;
-      final endStr = match['end_date']?.toString();
-      final expiry = endStr != null ? DateTime.tryParse(endStr) : null;
-      if (expiry == null) return null;
-
-      final remainingMeals = int.tryParse(match['remaining_meals']?.toString() ?? '') ?? 0;
-      final includeSat = match['include_saturday'] != false;
-      final startStr = match['start_date']?.toString();
-      final startDate = startStr != null ? DateTime.tryParse(startStr) : null;
-
-      if (remainingMeals <= 0) return expiry;
-
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-      DateTime baseDate = today;
-      if (startDate != null && startDate.isAfter(today)) {
-        baseDate = DateTime(startDate.year, startDate.month, startDate.day);
-      }
-
-      final projectedDate = _computeEndDateByMealDays(baseDate, remainingMeals, includeSat);
-      return expiry.isAfter(projectedDate) ? expiry : projectedDate;
+      if (match.isEmpty) return 0;
+      final remaining = match['remaining_meals'] ?? match['remainingMeals'];
+      return int.tryParse(remaining?.toString() ?? '0') ?? 0;
     }
 
     showModalBottomSheet(
@@ -983,110 +969,43 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
                         color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                    ),
-                  ),
-                  Text(
-                    'Schedule a Meal Skip',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: isDark ? Colors.white : AppTheme.textPrimaryLight),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Minimum $minSkipDays consecutive day(s). Start date must be at least $minNoticeDays day(s) in advance.',
-                    style: TextStyle(fontSize: 12, color: isDark ? Colors.white54 : AppTheme.textSecondaryLight),
-                  ),
-                  const SizedBox(height: 24),
+                      onSelected: (_) => setSheetState(() {
+                        selectedEntity = key;
+                        selectedRange = null; // reset date when entity changes
+                        sheetError = null;
+                      }),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 20),
 
-                  // Entity selection
-                  Text(
-                    'Select Profile',
-                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: isDark ? Colors.white : AppTheme.textPrimaryLight),
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: entities.map((e) {
-                      final key = '${e['type']}_${e['id']}';
-                      final isSelected = selectedEntity == key;
+                // Date range
+                Text('Skip Dates', style: TextStyle(fontWeight: FontWeight.w700, color: isDark ? Colors.white : AppTheme.textPrimaryLight)),
+                const SizedBox(height: 8),
+                InkWell(
+                  onTap: selectedEntity == null
+                      ? null
+                      : () async {
+                          final tomorrow = DateTime.now().add(Duration(days: minNoticeDays));
+                          final remainingMeals = resolveEntityRemainingMeals(selectedEntity!);
 
-                      Color entityColor;
-                      IconData entityIcon;
-                      if (e['type'] == 'child') {
-                        entityColor = const Color(0xFF3B82F6);
-                        entityIcon = CupertinoIcons.person_solid;
-                      } else if (e['type'] == 'teacher') {
-                        entityColor = const Color(0xFFD97706);
-                        entityIcon = CupertinoIcons.person_crop_square_fill;
-                      } else {
-                        entityColor = const Color(0xFF8B5CF6);
-                        entityIcon = CupertinoIcons.briefcase_fill;
-                      }
+                          if (remainingMeals <= 0) {
+                            setSheetState(() => sheetError = 'No remaining meals left for this profile. Please purchase or renew a plan.');
+                            return;
+                          }
 
-                      return InkWell(
-                        onTap: () => setSheetState(() {
-                          selectedEntity = key;
-                          selectedRange = null; // reset date when entity changes
-                          sheetError = null;
-                        }),
-                        borderRadius: BorderRadius.circular(16),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? entityColor.withValues(alpha: 0.08)
-                                : (isDark ? Colors.white.withValues(alpha: 0.02) : Colors.grey.shade50),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: isSelected ? entityColor : (isDark ? Colors.white10 : Colors.grey.shade200),
-                              width: isSelected ? 2 : 1.5,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                entityIcon,
-                                color: isSelected ? entityColor : Colors.grey,
-                                size: 16,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                e['name']!,
-                                style: TextStyle(
-                                  color: isSelected
-                                      ? (isDark ? Colors.white : AppTheme.textPrimaryLight)
-                                      : Colors.grey.shade600,
-                                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 24),
+                          final lastDate = tomorrow.add(const Duration(days: 90));
 
-                  // Date range selector
-                  Text(
-                    'Skip Dates',
-                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: isDark ? Colors.white : AppTheme.textPrimaryLight),
-                  ),
-                  const SizedBox(height: 10),
-                  InkWell(
-                    onTap: selectedEntity == null
-                        ? null
-                        : () async {
-                            final tomorrow = DateTime.now().add(Duration(days: minNoticeDays));
-                            // Cap lastDate to subscription expiry for the selected entity
-                            final expiry = resolveEntityExpiry(selectedEntity!);
-                            final lastDate = expiry != null
-                                ? (expiry.isBefore(tomorrow.add(const Duration(days: 90))) ? expiry : tomorrow.add(const Duration(days: 90)))
-                                : tomorrow.add(const Duration(days: 90));
-
-                            if (expiry != null && expiry.isBefore(tomorrow)) {
-                              setSheetState(() => sheetError = 'Your subscription for this profile has expired.');
+                          final range = await showDateRangePicker(
+                            context: sheetCtx,
+                            firstDate: tomorrow,
+                            lastDate: lastDate,
+                            helpText: 'Select skip range (min 3 days)',
+                          );
+                          if (range != null) {
+                            final days = range.end.difference(range.start).inDays + 1;
+                            if (days < minSkipDays) {
+                              setSheetState(() => sheetError = 'Minimum $minSkipDays consecutive days required');
                               return;
                             }
 

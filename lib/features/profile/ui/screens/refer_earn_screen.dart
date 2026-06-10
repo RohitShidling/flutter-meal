@@ -40,6 +40,7 @@ class ReferEarnScreen extends StatefulWidget {
 class _ReferEarnScreenState extends State<ReferEarnScreen> {
   CandidateProfile? _selectedCandidate;
   bool _isActionLoading = false;
+  int? _mealsToClaimQty;
 
   @override
   void initState() {
@@ -47,6 +48,7 @@ class _ReferEarnScreenState extends State<ReferEarnScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _refreshAllData(silent: false);
+      context.read<ReferralProvider>().markRewardsAsSeen();
     });
   }
 
@@ -94,7 +96,7 @@ class _ReferEarnScreenState extends State<ReferEarnScreen> {
   }
 
 
-  Future<void> _claimReward(int rewardId) async {
+  Future<void> _claimReward(int mealsToClaim) async {
     if (_selectedCandidate == null) {
       ErrorHandler.showError(context, 'Please select a profile to receive extra meals.');
       return;
@@ -104,15 +106,16 @@ class _ReferEarnScreenState extends State<ReferEarnScreen> {
 
     try {
       final referralProvider = context.read<ReferralProvider>();
-      final success = await referralProvider.allocateMeals(
-        rewardId: rewardId,
+      final success = await referralProvider.allocateMultipleMeals(
         entityType: _selectedCandidate!.type,
         entityId: _selectedCandidate!.id,
+        totalMealsToClaim: mealsToClaim,
       );
 
       if (success) {
         final profileName = _selectedCandidate!.name;
         _selectedCandidate = null;
+        _mealsToClaimQty = null;
         if (mounted) {
           showDialog(
             context: context,
@@ -126,7 +129,7 @@ class _ReferEarnScreenState extends State<ReferEarnScreen> {
                 ],
               ),
               content: Text(
-                'Extra meals have been successfully added to $profileName\'s subscription. Enjoy your extra meals!',
+                '$mealsToClaim extra meals have been successfully added to $profileName\'s subscription. Enjoy your extra meals!',
               ),
               actions: [
                 TextButton(
@@ -210,8 +213,15 @@ class _ReferEarnScreenState extends State<ReferEarnScreen> {
 
     // Pending rewards for allocation
     final pendingRewards = referralProvider.rewards
-        .where((r) => r.status == 'pending_allocation')
+        .where((r) => r.mealsRemaining > 0)
         .toList();
+
+    if (pendingRewards.isNotEmpty) {
+      final maxClaimable = pendingRewards.first.mealsRemaining;
+      if (_mealsToClaimQty == null || _mealsToClaimQty! > maxClaimable || _mealsToClaimQty! <= 0) {
+        _mealsToClaimQty = 1; // Default to 1 instead of maxClaimable
+      }
+    }
 
     return Scaffold(
       backgroundColor: isDark ? AppTheme.backgroundDark : const Color(0xFFFAF8F5),
@@ -412,7 +422,8 @@ class _ReferEarnScreenState extends State<ReferEarnScreen> {
     List<CandidateProfile> candidates,
     bool isDark,
   ) {
-    final firstReward = pendingRewards.first;
+    final totalRewarded = pendingRewards.fold<int>(0, (sum, r) => sum + r.mealsRewarded);
+    final totalRemaining = pendingRewards.fold<int>(0, (sum, r) => sum + r.mealsRemaining);
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -450,7 +461,7 @@ class _ReferEarnScreenState extends State<ReferEarnScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'You earned ${firstReward.mealsRewarded} extra meals from referring ${firstReward.referredUsername}. Select which candidate profile should receive these meals:',
+            'You earned $totalRewarded extra meals from referrals. You have $totalRemaining meals left to claim. Select which candidate profile should receive these meals:',
             style: TextStyle(
               fontSize: 13,
               color: isDark ? Colors.white70 : AppTheme.textSecondaryLight,
@@ -571,13 +582,88 @@ class _ReferEarnScreenState extends State<ReferEarnScreen> {
                 );
               },
             ),
+            const SizedBox(height: 16),
+            Text(
+              'CHOOSE QUANTITY TO CLAIM',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.2,
+                color: isDark ? Colors.grey : AppTheme.textSecondaryLight,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.black26 : const Color(0xFFFAF8F5),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.2),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Meals to Claim:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: (_mealsToClaimQty ?? 1) <= 1
+                            ? null
+                            : () {
+                                setState(() {
+                                  _mealsToClaimQty = (_mealsToClaimQty ?? 1) - 1;
+                                });
+                              },
+                        icon: const Icon(CupertinoIcons.minus_circle_fill),
+                        color: AppTheme.primaryColor,
+                        disabledColor: Colors.grey.withValues(alpha: 0.3),
+                        iconSize: 28,
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Text(
+                          '${_mealsToClaimQty ?? 1}',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: (_mealsToClaimQty ?? 1) >= totalRemaining
+                            ? null
+                            : () {
+                                setState(() {
+                                  _mealsToClaimQty = (_mealsToClaimQty ?? 1) + 1;
+                                });
+                              },
+                        icon: const Icon(CupertinoIcons.plus_circle_fill),
+                        color: AppTheme.primaryColor,
+                        disabledColor: Colors.grey.withValues(alpha: 0.3),
+                        iconSize: 28,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _selectedCandidate == null
                     ? null
-                    : () => _claimReward(firstReward.id),
+                    : () => _claimReward(_mealsToClaimQty ?? 1),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primaryColor,
                   disabledBackgroundColor: Colors.grey.withValues(alpha: 0.2),
@@ -586,7 +672,7 @@ class _ReferEarnScreenState extends State<ReferEarnScreen> {
                 ),
                 child: Text(
                   _selectedCandidate != null
-                      ? 'Claim Extra Meals for ${_selectedCandidate!.name}'
+                      ? 'Claim ${_mealsToClaimQty ?? 1} Extra Meals for ${_selectedCandidate!.name}'
                       : 'Select an Active Profile to Claim',
                 ),
               ),

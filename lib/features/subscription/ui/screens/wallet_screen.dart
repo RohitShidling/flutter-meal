@@ -124,11 +124,15 @@ class _WalletScreenState extends State<WalletScreen> {
                 final isCredit = direction == 'credit';
                 final amount = MoneyFormat.display(tx['amount']);
                 final whenRaw = (tx['created_at'] ?? '').toString();
-                final when = whenRaw.isNotEmpty
-                    ? (DateFormat('d MMM yyyy, h:mm a').tryParse(whenRaw) != null
-                        ? DateFormat('d MMM yyyy, h:mm a').format(DateTime.parse(whenRaw))
-                        : whenRaw)
-                    : '';
+                String when = '';
+                if (whenRaw.isNotEmpty) {
+                  final parsedDt = DateTime.tryParse(whenRaw);
+                  if (parsedDt != null) {
+                    when = DateFormat('d MMM yyyy, h:mm a').format(parsedDt.toLocal());
+                  } else {
+                    when = whenRaw;
+                  }
+                }
                 // Strip internal order IDs (e.g. "ORD-123" or "Order ID: ...") from user-facing description
                 final rawDesc = (tx['description'] ?? 'Wallet credit').toString();
                 final desc = rawDesc.replaceAll(RegExp(r'\s*\(?(?:ORD-|Order\s*ID:?|Order\s*#)[^\)\s]+\)?', caseSensitive: false), '').trim();

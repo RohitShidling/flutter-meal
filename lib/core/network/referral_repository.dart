@@ -39,6 +39,7 @@ class ReferralRepository {
     required int rewardId,
     required String entityType,
     required String entityId,
+    int? mealsToClaim,
   }) async {
     try {
       final response = await _dioClient.dio.post(
@@ -47,6 +48,7 @@ class ReferralRepository {
           'rewardId': rewardId,
           'entityType': entityType,
           'entityId': entityId,
+          if (mealsToClaim != null) 'mealsToClaim': mealsToClaim,
         },
       );
       return response.statusCode == 200 && response.data['success'] == true;

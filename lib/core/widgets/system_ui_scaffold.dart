@@ -25,9 +25,12 @@ class SystemUiScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = backgroundColor ?? (isDark ? AppTheme.backgroundDark : Colors.white);
+    final navBarColor = bottomNavigationBar != null
+        ? (isDark ? AppTheme.surfaceDark : Colors.white)
+        : bg;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: AppTheme.overlayFor(background: bg, isDark: isDark),
+      value: AppTheme.overlayFor(background: bg, isDark: isDark, navigationBarColor: navBarColor),
       child: Scaffold(
         backgroundColor: bg,
         extendBody: false,

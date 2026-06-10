@@ -24,6 +24,7 @@ import 'package:meal_app/features/subscription/ui/screens/cart_screen.dart';
 import 'package:meal_app/core/widgets/image_preview_dialog.dart';
 import 'package:meal_app/features/subscription/ui/screens/subscription_management_screen.dart';
 import 'package:meal_app/features/home/ui/widgets/bottom_footer_nav.dart';
+import 'package:meal_app/features/profile/providers/referral_provider.dart';
 import 'package:meal_app/core/navigation/app_routes.dart';
 
 import 'package:meal_app/core/services/network_status_service.dart';
@@ -77,6 +78,7 @@ class _HomeScreenState extends State<HomeScreen> {
         context.read<MenuProvider>().fetchTodayMenu(silent: true),
         context.read<CartProvider>().fetchCart(force: true, silent: true),
         context.read<AuthProvider>().refreshMeProfile(silent: true, forceNetwork: true),
+        context.read<ReferralProvider>().fetchRewards(),
       ]);
     } else {
       await _loadAllData();
@@ -101,6 +103,7 @@ class _HomeScreenState extends State<HomeScreen> {
       context.read<MenuProvider>().fetchTodayMenu(silent: true),
       context.read<CartProvider>().fetchCart(silent: true),
       context.read<AuthProvider>().refreshMeProfile(silent: true),
+      context.read<ReferralProvider>().fetchRewards(),
     ]);
   }
 
@@ -190,8 +193,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
     final pageBg = isDark ? AppTheme.backgroundDark : Colors.white;
+    final navBarColor = isDark ? AppTheme.surfaceDark : Colors.white;
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: AppTheme.overlayFor(background: pageBg, isDark: isDark),
+      value: AppTheme.overlayFor(background: pageBg, isDark: isDark, navigationBarColor: navBarColor),
       child: Scaffold(
       backgroundColor: pageBg,
       bottomNavigationBar: BuuttiiFooterNav(

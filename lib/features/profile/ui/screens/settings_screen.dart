@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:meal_app/core/theme/app_theme.dart';
@@ -21,6 +22,7 @@ import 'package:meal_app/features/home/ui/widgets/bottom_footer_nav.dart';
 import 'package:meal_app/core/navigation/app_routes.dart';
 import 'package:meal_app/features/announcements/ui/screens/announcements_screen.dart';
 import 'package:meal_app/features/profile/ui/screens/refer_earn_screen.dart';
+import 'package:meal_app/features/profile/providers/referral_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -38,6 +40,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<PaymentProvider>().fetchWallet(silent: true);
+      context.read<ReferralProvider>().fetchRewards();
       _loadAboutConfig();
     });
   }
@@ -54,8 +57,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final themeProvider = context.watch<ThemeProvider>();
     final authProvider = context.read<AuthProvider>();
     final pay = context.watch<PaymentProvider>();
+    final referralProvider = context.watch<ReferralProvider>();
     final walletBalance = pay.walletBalance;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final showReferralBadge = referralProvider.hasUnclaimedRewards;
+
+    final pageBg = isDark ? AppTheme.backgroundDark : const Color(0xFFFAF8F5);
+    final navBarColor = isDark ? AppTheme.surfaceDark : Colors.white;
 
     return PopScope(
       canPop: false,
@@ -63,8 +71,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (didPop) return;
         Navigator.of(context).popUntil((route) => route.isFirst);
       },
-      child: Scaffold(
-        backgroundColor: isDark ? AppTheme.backgroundDark : const Color(0xFFFAF8F5),
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: AppTheme.overlayFor(background: pageBg, isDark: isDark, navigationBarColor: navBarColor),
+        child: Scaffold(
+          backgroundColor: pageBg,
         appBar: AppBar(
           title: Text(
             'Settings',
@@ -104,6 +114,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     CupertinoPageRoute(builder: (context) => const ReferEarnScreen()),
                   );
                 },
+                showBadge: showReferralBadge,
               ),
             ],
             const SizedBox(height: 8),
@@ -247,6 +258,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           onMealSkipTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.mealSkip),
           onSettingsTap: () {},
         ),
+       ),
       ),
     );
   }
@@ -304,17 +316,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildNavigationTile(BuildContext context, IconData icon, String title, bool isDark, VoidCallback onTap) {
+  Widget _buildNavigationTile(BuildContext context, IconData icon, String title, bool isDark, VoidCallback onTap, {bool showBadge = false}) {
     return ListTile(
       onTap: onTap,
       leading: Icon(icon, color: AppTheme.primaryColor, size: 20),
-      title: Text(
-        title,
-        style: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: isDark ? Colors.white : AppTheme.textPrimaryLight,
-        ),
+      title: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+            ),
+          ),
+          if (showBadge) ...[
+            const SizedBox(width: 8),
+            Container(
+              width: 8,
+              height: 8,
+              decoration: const BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ],
+        ],
       ),
       trailing: const Icon(CupertinoIcons.chevron_right, size: 16, color: Colors.grey),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),

@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 import 'package:dio/dio.dart';
 import 'package:meal_app/core/providers/session_provider.dart';
 import 'package:meal_app/features/auth/providers/auth_provider.dart';
@@ -362,6 +363,17 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
         data['bulkOrder'] is Map ? Map<String, dynamic>.from(data['bulkOrder'] as Map) : null;
     final List bulkItems = bulkOrder?['items'] is List ? bulkOrder!['items'] as List : [];
 
+    final createdAtRaw = data['createdAt']?.toString() ?? '';
+    String paymentTime = '';
+    if (createdAtRaw.isNotEmpty) {
+      final parsedDt = DateTime.tryParse(createdAtRaw);
+      if (parsedDt != null) {
+        paymentTime = DateFormat('d MMM yyyy, h:mm a').format(parsedDt.toLocal());
+      } else {
+        paymentTime = createdAtRaw;
+      }
+    }
+
     return SingleChildScrollView(
       child: Column(
         children: [
@@ -398,12 +410,13 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
             ),
           const SizedBox(height: 32),
 
-          // Transaction details card
           AppleCard(
             child: Column(
               children: [
                 _buildStatusRow('Transaction ID', transactionId, isDark),
                 _buildStatusRow('Amount Paid', '₹$amountPaid', isDark),
+                if (paymentTime.isNotEmpty)
+                  _buildStatusRow('Payment Date/Time', paymentTime, isDark),
                 if (orderType.isNotEmpty)
                   _buildStatusRow('Order Type', orderType.toUpperCase(), isDark),
                 if (orderType != 'cart' && planName.isNotEmpty)
