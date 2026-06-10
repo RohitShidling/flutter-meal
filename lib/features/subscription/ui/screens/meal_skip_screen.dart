@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -72,14 +73,19 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
         mealProvider.mealStatus.isEmpty &&
         mealProvider.skips.isEmpty;
 
+    final pageBg = isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5);
+    final navBarColor = isDark ? AppTheme.surfaceDark : Colors.white;
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
         Navigator.of(context).popUntil((route) => route.isFirst);
       },
-      child: Scaffold(
-        backgroundColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: AppTheme.overlayFor(background: pageBg, isDark: isDark, navigationBarColor: navBarColor),
+        child: Scaffold(
+          backgroundColor: pageBg,
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showSkipDialog(context),
         backgroundColor: AppTheme.primaryColor,
@@ -301,7 +307,8 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
         onSettingsTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.settings),
       ),
      ),
-    );
+    ),
+   );
   }
 
   Widget _buildSkipCard(BuildContext context, Map<String, dynamic> skip, bool isDark, MealProvider mealProvider) {
@@ -512,17 +519,16 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
     final minSkipDays = int.tryParse(mealProvider.skipPolicy['min_skip_days']?.toString() ?? '') ?? 3;
     final minNoticeDays = int.tryParse(mealProvider.skipPolicy['min_notice_days']?.toString() ?? '') ?? 1;
 
-    // Helper: get subscription end_date for the selected entity from mealStatus
-    DateTime? resolveEntityExpiry(String entityKey) {
+    int resolveEntityRemainingMeals(String entityKey) {
       final parsed = parseMealSkipEntityKey(entityKey);
-      if (parsed == null) return null;
+      if (parsed == null) return 0;
       final match = mealProvider.mealStatus.firstWhere(
         (s) => s['entity_type'] == parsed.type && s['entity_id']?.toString() == parsed.id,
-        orElse: () => null,
+        orElse: () => <String, dynamic>{},
       );
-      if (match == null) return null;
-      final endStr = match['end_date']?.toString();
-      return endStr != null ? DateTime.tryParse(endStr) : null;
+      if (match.isEmpty) return 0;
+      final remaining = match['remaining_meals'] ?? match['remainingMeals'];
+      return int.tryParse(remaining?.toString() ?? '0') ?? 0;
     }
 
     showModalBottomSheet(
@@ -588,24 +594,20 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
                       ? null
                       : () async {
                           final tomorrow = DateTime.now().add(Duration(days: minNoticeDays));
-                          // Cap lastDate to subscription expiry for the selected entity
-                          final expiry = resolveEntityExpiry(selectedEntity!);
-                          final lastDate = expiry != null
-                              ? (expiry.isBefore(tomorrow.add(const Duration(days: 90))) ? expiry : tomorrow.add(const Duration(days: 90)))
-                              : tomorrow.add(const Duration(days: 90));
+                          final remainingMeals = resolveEntityRemainingMeals(selectedEntity!);
 
-                          if (expiry != null && expiry.isBefore(tomorrow)) {
-                            setSheetState(() => sheetError = 'Your subscription for this profile has expired.');
+                          if (remainingMeals <= 0) {
+                            setSheetState(() => sheetError = 'No remaining meals left for this profile. Please purchase or renew a plan.');
                             return;
                           }
+
+                          final lastDate = tomorrow.add(const Duration(days: 90));
 
                           final range = await showDateRangePicker(
                             context: sheetCtx,
                             firstDate: tomorrow,
                             lastDate: lastDate,
-                            helpText: expiry != null
-                                ? 'Select skip range (max: ${DateFormat('dd MMM yyyy').format(expiry)})'
-                                : 'Select skip range (min 3 days)',
+                            helpText: 'Select skip range (min 3 days)',
                           );
                           if (range != null) {
                             final days = range.end.difference(range.start).inDays + 1;

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -69,6 +70,8 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
   Widget build(BuildContext context) {
     final menuProvider = context.watch<MenuProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final pageBg = Theme.of(context).scaffoldBackgroundColor;
+    final navBarColor = isDark ? AppTheme.surfaceDark : Colors.white;
 
     return PopScope(
       canPop: false,
@@ -76,39 +79,42 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
         if (didPop) return;
         Navigator.of(context).popUntil((route) => route.isFirst);
       },
-      child: Scaffold(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: isDark ? Colors.white : AppTheme.textPrimaryLight,
-        scrolledUnderElevation: 0,
-        toolbarHeight: 84,
-        centerTitle: false,
-        titleSpacing: 20,
-        title: Text(
-          'Weekly Menu',
-          style: TextStyle(
-            fontSize: 32,
-            fontWeight: FontWeight.w500,
-            letterSpacing: -1.2,
-            color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: AppTheme.overlayFor(background: pageBg, isDark: isDark, navigationBarColor: navBarColor),
+        child: Scaffold(
+          backgroundColor: pageBg,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          foregroundColor: isDark ? Colors.white : AppTheme.textPrimaryLight,
+          scrolledUnderElevation: 0,
+          toolbarHeight: 84,
+          centerTitle: false,
+          titleSpacing: 20,
+          title: Text(
+            'Weekly Menu',
+            style: TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.w500,
+              letterSpacing: -1.2,
+              color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+            ),
           ),
         ),
+        body: RefreshIndicator(
+          onRefresh: () => context.read<MenuProvider>().fetchWeeklyMenu(forceRefresh: true),
+          child: _buildBody(context, menuProvider, isDark),
+        ),
+        bottomNavigationBar: BuuttiiFooterNav(
+          currentIndex: 1,
+          onHomeTap: () => Navigator.of(context).popUntil((route) => route.isFirst),
+          onWeekMenuTap: () {},
+          onMealSkipTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.mealSkip),
+          onSettingsTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.settings),
+        ),
+       ),
       ),
-      body: RefreshIndicator(
-        onRefresh: () => context.read<MenuProvider>().fetchWeeklyMenu(forceRefresh: true),
-        child: _buildBody(context, menuProvider, isDark),
-      ),
-      bottomNavigationBar: BuuttiiFooterNav(
-        currentIndex: 1,
-        onHomeTap: () => Navigator.of(context).popUntil((route) => route.isFirst),
-        onWeekMenuTap: () {},
-        onMealSkipTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.mealSkip),
-        onSettingsTap: () => Navigator.of(context).pushReplacementNamed(AppRoutes.settings),
-      ),
-     ),
     );
   }
 

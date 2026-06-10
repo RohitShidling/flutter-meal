@@ -31,23 +31,21 @@ class SubscriptionStatusNormalizer {
   /// Active window: paid flag, meals left, and calendar today within [start, end].
   static bool rowIsServingToday(Map<String, dynamic> row, String todayYmd) {
     if (!_truthy(row['subscription_status'] ?? row['is_active'])) return false;
-    if (_remaining(row) <= 0) return false;
+    final remaining = _remaining(row);
+    if (remaining <= 0) return false;
     final start = _ymd(row['start_date']);
-    final end = _ymd(row['end_date']);
     if (start != null && start.compareTo(todayYmd) > 0) return false;
-    if (end != null && end.compareTo(todayYmd) < 0) return false;
     return true;
   }
 
   /// Paid / active row but service window starts after today.
   static bool rowIsUpcoming(Map<String, dynamic> row, String todayYmd) {
     if (!_truthy(row['subscription_status'] ?? row['is_active'])) return false;
-    if (_remaining(row) <= 0) return false;
+    final remaining = _remaining(row);
+    if (remaining <= 0) return false;
     final start = _ymd(row['start_date']);
-    final end = _ymd(row['end_date']);
     if (start == null) return false;
     if (start.compareTo(todayYmd) <= 0) return false;
-    if (end != null && end.compareTo(todayYmd) < 0) return false;
     return true;
   }
 

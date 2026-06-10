@@ -153,6 +153,11 @@ class _ContactUsScreenState extends State<ContactUsScreen> {
                     onCopy: () => _copyText(context, 'Phone', phone),
                     extraAction: TextButton.icon(
                       onPressed: () => _openWhatsApp(context, phone),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
                       icon: const Icon(Icons.chat, size: 16, color: Color(0xFF25D366)),
                       label: const Text(
                         'WhatsApp',
@@ -230,11 +235,26 @@ class _ContactUsScreenState extends State<ContactUsScreen> {
               ],
             ),
           ),
-          if (extraAction != null) extraAction,
-          TextButton.icon(
-            onPressed: onCopy,
-            icon: const Icon(CupertinoIcons.doc_on_doc, size: 16),
-            label: const Text('Copy'),
+          const SizedBox(width: 10),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              TextButton.icon(
+                onPressed: onCopy,
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                icon: const Icon(CupertinoIcons.doc_on_doc, size: 16),
+                label: const Text('Copy'),
+              ),
+              if (extraAction != null) ...[
+                const SizedBox(height: 6),
+                extraAction,
+              ],
+            ],
           ),
         ],
       ),

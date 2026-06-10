@@ -1,6 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:meal_app/core/theme/app_theme.dart';
+import 'package:meal_app/features/profile/providers/referral_provider.dart';
 
 class BuuttiiFooterNav extends StatelessWidget {
   const BuuttiiFooterNav({
@@ -22,12 +24,11 @@ class BuuttiiFooterNav extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final surfaceColor = isDark ? AppTheme.surfaceDark : Colors.white;
-    final borderColor = isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.10);
-
-    final pageBg = isDark ? AppTheme.backgroundDark : AppTheme.pageBackgroundLight;
+    final referralProvider = context.watch<ReferralProvider>();
+    final showSettingsBadge = referralProvider.hasUnclaimedRewards;
 
     return ColoredBox(
-      color: pageBg,
+      color: surfaceColor,
       child: SafeArea(
         top: false,
         minimum: EdgeInsets.zero,
@@ -35,7 +36,13 @@ class BuuttiiFooterNav extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           decoration: BoxDecoration(
             color: surfaceColor,
-            border: Border(top: BorderSide(color: borderColor)),
+            border: isDark
+                ? null
+                : Border(
+                    top: BorderSide(
+                      color: Colors.grey.withValues(alpha: 0.10),
+                    ),
+                  ),
           ),
         child: Row(
           children: [
@@ -69,6 +76,7 @@ class BuuttiiFooterNav extends StatelessWidget {
                 label: 'Settings',
                 isActive: currentIndex == 3,
                 onTap: onSettingsTap,
+                showBadge: showSettingsBadge,
               ),
             ),
           ],
@@ -85,12 +93,14 @@ class _FooterNavItem extends StatelessWidget {
     required this.label,
     required this.onTap,
     required this.isActive,
+    this.showBadge = false,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
   final bool isActive;
+  final bool showBadge;
 
   @override
   Widget build(BuildContext context) {
@@ -108,10 +118,28 @@ class _FooterNavItem extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                icon,
-                size: 22,
-                color: isActive ? activeColor : inactiveColor,
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(
+                    icon,
+                    size: 22,
+                    color: isActive ? activeColor : inactiveColor,
+                  ),
+                  if (showBadge)
+                    Positioned(
+                      top: -1,
+                      right: -2,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(height: 4),
               FittedBox(

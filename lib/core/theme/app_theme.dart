@@ -31,14 +31,16 @@ class AppTheme {
   static SystemUiOverlayStyle overlayFor({
     required Color background,
     required bool isDark,
+    Color? navigationBarColor,
   }) {
+    final navColor = navigationBarColor ?? (isDark ? AppTheme.surfaceDark : background);
     return SystemUiOverlayStyle(
       statusBarColor: background,
       statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
       statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
-      systemNavigationBarColor: background,
+      systemNavigationBarColor: navColor,
       systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
-      systemNavigationBarDividerColor: background,
+      systemNavigationBarDividerColor: navColor,
       systemStatusBarContrastEnforced: false,
       systemNavigationBarContrastEnforced: false,
     );
