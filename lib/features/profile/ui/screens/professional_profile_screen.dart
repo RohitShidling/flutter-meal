@@ -37,6 +37,7 @@ class ProfessionalProfileScreen extends StatefulWidget {
 class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
+  late TextEditingController _phoneController;
   late TextEditingController _timeController;
   
   CorporateLocationModel? _selectedCorporateLocation;
@@ -57,6 +58,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
   String _snapshot() {
     return [
       _nameController.text.trim(),
+      _phoneController.text.trim(),
       _selectedCorporateLocation?.id ?? '',
       _selectedMealSize?.id ?? '',
       _selectedState?.id ?? '',
@@ -93,6 +95,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
   void initState() {
     super.initState();
     _nameController = TextEditingController();
+    _phoneController = TextEditingController();
     _timeController = TextEditingController();
 
     AppRouteTracker.instance.setCurrent(AppScreen.professionalProfile);
@@ -133,6 +136,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
         if (mounted) {
           setState(() {
             _nameController.text = profile.name;
+            _phoneController.text = profile.phoneNumber ?? '';
             _timeController.text = profile.lunchTime;
             _selectedCorporateLocation = corpLoc;
             _selectedState = state;
@@ -174,6 +178,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
   void dispose() {
     AppRouteTracker.instance.clearIfCurrent(AppScreen.professionalProfile);
     _nameController.dispose();
+    _phoneController.dispose();
     _timeController.dispose();
     super.dispose();
   }
@@ -279,6 +284,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
       state: _selectedState?.name ?? _selectedCorporateLocation!.state,
       lunchTime: _timeController.text,
       mealSizeId: _selectedMealSize!.id,
+      phoneNumber: _phoneController.text.trim(),
     );
     
     final success = await profileProvider.saveProfessionalProfile(profile);
@@ -295,6 +301,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
         _isEditing = false;
         if (saved != null) {
           _nameController.text = saved.name;
+          _phoneController.text = saved.phoneNumber ?? '';
           _timeController.text = saved.lunchTime;
           _selectedMealSize = context.read<LookupProvider>().mealSizes.where((m) => m.id == saved.mealSizeId).firstOrNull;
           _corporateLocksLocation = _selectedCorporateLocation != null;
@@ -390,8 +397,22 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                         labelText: 'Full Name',
                         prefixIcon: Icon(CupertinoIcons.person_fill),
                       ),
-                      textInputAction: TextInputAction.done,
+                      textInputAction: TextInputAction.next,
                       validator: (v) => Validators.name(v, fieldName: 'Full Name'),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Phone Number
+                    TextFormField(
+                      controller: _phoneController,
+                      autofocus: false,
+                      decoration: const InputDecoration(
+                        labelText: 'Phone Number',
+                        prefixIcon: Icon(CupertinoIcons.phone_fill),
+                      ),
+                      keyboardType: TextInputType.phone,
+                      textInputAction: TextInputAction.next,
+                      validator: (v) => Validators.phone(v),
                     ),
                     const SizedBox(height: 20),
                     // 2. Company Name (from Corporate Locations API)
@@ -649,6 +670,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                 final profile = provider.professionalProfile;
                 if (profile != null) {
                   _nameController.text = profile.name;
+                  _phoneController.text = profile.phoneNumber ?? '';
                   _timeController.text = profile.lunchTime;
                   
                   final lookup = context.read<LookupProvider>();
@@ -760,6 +782,10 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                       children: [
                         const Divider(height: 1),
                         const SizedBox(height: 20),
+                        if (profile.phoneNumber != null && profile.phoneNumber!.isNotEmpty) ...[
+                          _buildInfoRow(CupertinoIcons.phone_fill, profile.phoneNumber!, isDark),
+                          const SizedBox(height: 14),
+                        ],
                         _buildInfoRow(CupertinoIcons.building_2_fill, profile.companyName, isDark),
                         const SizedBox(height: 14),
                         _buildInfoRow(CupertinoIcons.location_solid, '${profile.city}, ${profile.state}', isDark),

@@ -12,6 +12,7 @@ class TeacherProfileModel {
   final String? standardName;
   final int? divisionId;
   final String? divisionName;
+  final String? phoneNumber;
 
   TeacherProfileModel({
     this.id,
@@ -27,6 +28,7 @@ class TeacherProfileModel {
     this.standardName,
     this.divisionId,
     this.divisionName,
+    this.phoneNumber,
   });
 
   factory TeacherProfileModel.fromJson(Map<String, dynamic> json) {
@@ -56,6 +58,7 @@ class TeacherProfileModel {
           ? json['division_id'] as int
           : int.tryParse('${json['division_id'] ?? json['divisionId'] ?? ''}'),
       divisionName: json['division_name']?.toString(),
+      phoneNumber: json['phone_number']?.toString() ?? json['phoneNumber']?.toString(),
     );
   }
 
@@ -76,6 +79,8 @@ class TeacherProfileModel {
       'division_id': divisionId,
       'divisionId': divisionId,
       'division_name': divisionName,
+      'phone_number': phoneNumber,
+      'phoneNumber': phoneNumber,
     };
   }
 }
@@ -90,6 +95,7 @@ class ProfessionalProfileModel {
   final String lunchTime;
   final String? corporateLocationName;
   final int? mealSizeId;
+  final String? phoneNumber;
 
   ProfessionalProfileModel({
     this.id,
@@ -101,6 +107,7 @@ class ProfessionalProfileModel {
     required this.lunchTime,
     this.corporateLocationName,
     this.mealSizeId,
+    this.phoneNumber,
   });
 
   factory ProfessionalProfileModel.fromJson(Map<String, dynamic> json) {
@@ -118,6 +125,7 @@ class ProfessionalProfileModel {
       lunchTime: json['lunch_time'],
       corporateLocationName: json['corporate_location_name'],
       mealSizeId: json['meal_size_id'],
+      phoneNumber: json['phone_number']?.toString() ?? json['phoneNumber']?.toString(),
     );
   }
 
@@ -132,6 +140,8 @@ class ProfessionalProfileModel {
       'state': state,
       'lunch_time': lunchTime,
       'meal_size_id': mealSizeId,
+      'phone_number': phoneNumber,
+      'phoneNumber': phoneNumber,
     };
   }
 }

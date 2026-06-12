@@ -109,6 +109,7 @@ class ChildrenProvider with ChangeNotifier {
         mealSizeName: child.mealSizeName,
         divisionId: child.divisionId,
         divisionName: child.divisionName,
+        phoneNumber: child.phoneNumber,
       );
       _children = [..._children, optimistic];
       notifyListeners();
@@ -164,6 +165,7 @@ class ChildrenProvider with ChangeNotifier {
                   mealSizeName: child.mealSizeName ?? c.mealSizeName,
                   divisionId: child.divisionId ?? c.divisionId,
                   divisionName: child.divisionName ?? c.divisionName,
+                  phoneNumber: child.phoneNumber ?? c.phoneNumber,
                 )
               : c)
           .toList();

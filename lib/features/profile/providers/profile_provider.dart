@@ -147,6 +147,7 @@ class ProfileProvider with ChangeNotifier {
         standardName: profile.standardName,
         divisionId: profile.divisionId,
         divisionName: profile.divisionName,
+        phoneNumber: profile.phoneNumber,
       );
       notifyListeners();
       await CacheStore.setJson(
@@ -232,6 +233,7 @@ class ProfileProvider with ChangeNotifier {
         lunchTime: profile.lunchTime,
         corporateLocationName: profile.corporateLocationName,
         mealSizeId: profile.mealSizeId,
+        phoneNumber: profile.phoneNumber,
       );
       notifyListeners();
       await CacheStore.setJson(

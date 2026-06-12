@@ -156,7 +156,7 @@ class CartProvider with ChangeNotifier {
     required String entityType,
     required String entityId,
     required bool includeSaturday,
-    required String startDate,
+    String? startDate,
     String? entityName,
     String? planName,
     double? unitPrice,
@@ -165,9 +165,7 @@ class CartProvider with ChangeNotifier {
     String? mealTiming,
   }) async {
     _bumpLocalCartMutation();
-    final safeStart = MealDate.isValidFutureStartDate(startDate)
-        ? startDate
-        : MealDate.tomorrowYmd();
+    final safeStart = startDate ?? '';
     _items = [
       ..._items.where((i) =>
           !(i.subscriptionId == subscriptionId &&
@@ -257,7 +255,11 @@ class CartProvider with ChangeNotifier {
   /// are swallowed so a transient network glitch never blocks the UI.
   Future<void> _autoCorrectInvalidStartDates() async {
     if (_items.isEmpty) return;
-    final invalid = _items.where((i) => !MealDate.isValidFutureStartDate(i.startDate)).toList();
+    final invalid = _items.where((i) => 
+        i.startDate != null && 
+        i.startDate!.trim().isNotEmpty && 
+        !MealDate.isValidFutureStartDate(i.startDate)
+    ).toList();
     if (invalid.isEmpty) return;
 
     final tomorrow = MealDate.tomorrowYmd();
@@ -293,7 +295,7 @@ class CartProvider with ChangeNotifier {
     required String entityType,
     required String entityId,
     required bool includeSaturday,
-    required String startDate,
+    String? startDate,
     String? entityName,
     String? planName,
     double? unitPrice,
@@ -302,9 +304,7 @@ class CartProvider with ChangeNotifier {
     String? mealTiming,
   }) async {
     if (!NetworkStatusService.instance.canAttemptApi) {
-      final safeStart = MealDate.isValidFutureStartDate(startDate)
-          ? startDate
-          : MealDate.tomorrowYmd();
+      final safeStart = startDate ?? '';
       await OfflineQueue.enqueue(
         method: 'POST',
         path: ApiEndpoints.addToCart,
@@ -313,7 +313,7 @@ class CartProvider with ChangeNotifier {
           'entityType': entityType,
           'entityId': entityId,
           'includeSaturday': includeSaturday,
-          'startDate': safeStart,
+          if (safeStart.isNotEmpty) 'startDate': safeStart,
         },
       );
       // Same metadata + pricing as when we queue after a failed network call.
@@ -339,17 +339,12 @@ class CartProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      // Defensive: never allow today / past as add-to-cart start date.
-      final safeStart = MealDate.isValidFutureStartDate(startDate)
-          ? startDate
-          : MealDate.tomorrowYmd();
-
       await _repository.addToCart(
         subscriptionId: subscriptionId,
         entityType: entityType,
         entityId: entityId,
         includeSaturday: includeSaturday,
-        startDate: safeStart,
+        startDate: startDate,
       );
 
       // Refresh cart from server to get updated state

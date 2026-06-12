@@ -42,6 +42,18 @@ class MenuProvider with ChangeNotifier {
   bool _hasInitiallyLoaded = false;
   bool get hasInitiallyLoaded => _hasInitiallyLoaded;
 
+  // TTL guards — avoids redundant API calls on repeated screen opens
+  DateTime? _lastWeeklyFetchedAt;
+  DateTime? _lastTodayFetchedAt;
+
+  bool _isWeeklyFresh() =>
+      _lastWeeklyFetchedAt != null &&
+      DateTime.now().difference(_lastWeeklyFetchedAt!).inMinutes < 60;
+
+  bool _isTodayFresh() =>
+      _lastTodayFetchedAt != null &&
+      DateTime.now().difference(_lastTodayFetchedAt!).inMinutes < 10;
+
   String _normalizeDateKey(dynamic raw) {
     final value = raw?.toString() ?? '';
     if (value.isEmpty) return '';
@@ -130,7 +142,10 @@ class MenuProvider with ChangeNotifier {
     }
   }
 
-  Future<void> fetchTodayMenu({bool silent = false}) async {
+  Future<void> fetchTodayMenu({bool silent = false, bool force = false}) async {
+    // Skip if data is fresh and caller is not forcing a refresh
+    if (!force && _todayMenu != null && _isTodayFresh()) return;
+
     if (!silent) {
       if (_todayMenu == null) _isLoading = true;
       _error = null;
@@ -168,6 +183,7 @@ class MenuProvider with ChangeNotifier {
         _subscriptionSummary = [];
       }
       _homeMealMessage = data['message']?.toString();
+      _lastTodayFetchedAt = DateTime.now();
       // Cache the response structure
       await CacheStore.setJson('today_menu', {
         'is_subscribed': _isSubscribed,
@@ -192,8 +208,11 @@ class MenuProvider with ChangeNotifier {
     }
   }
 
-  /// Opens from cache when available, then always refreshes from network.
+  /// Opens from cache when available, then refreshes from network if stale.
   Future<void> fetchWeeklyMenuSilent({bool forceRefresh = false}) async {
+    // If data is already in memory and fresh, skip API entirely
+    if (!forceRefresh && _weeklyMenu.isNotEmpty && _isWeeklyFresh()) return;
+
     if (!forceRefresh) {
       final cached = await _cache.loadJson(_weeklyCacheKey);
       if (cached != null && _weeklyMenu.isEmpty) {
@@ -269,6 +288,7 @@ class MenuProvider with ChangeNotifier {
           return menu;
         }).toList();
         _subscriptionSummary = data['subscription_summary'] ?? [];
+        _lastWeeklyFetchedAt = DateTime.now();
         await _cache.saveJson(_weeklyCacheKey, {
           'is_subscribed': _isSubscribed,
           'menu': _weeklyMenu,

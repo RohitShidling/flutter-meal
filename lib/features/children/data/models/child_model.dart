@@ -11,6 +11,7 @@ class ChildModel {
   final String? mealSizeName;
   final int? divisionId;
   final String? divisionName;
+  final String? phoneNumber;
 
   ChildModel({
     this.id,
@@ -25,6 +26,7 @@ class ChildModel {
     this.mealSizeName,
     this.divisionId,
     this.divisionName,
+    this.phoneNumber,
   });
 
   factory ChildModel.fromJson(Map<String, dynamic> json) {
@@ -41,6 +43,7 @@ class ChildModel {
       mealSizeName: json['meal_size_name'],
       divisionId: json['division_id'] ?? json['divisionId'],
       divisionName: json['division_name'],
+      phoneNumber: json['phone_number']?.toString() ?? json['phoneNumber']?.toString(),
     );
   }
 
@@ -64,6 +67,8 @@ class ChildModel {
       'divisionId': divisionId,
       'division_id': divisionId,
       'division_name': divisionName,
+      'phone_number': phoneNumber,
+      'phoneNumber': phoneNumber,
     };
   }
 }

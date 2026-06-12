@@ -219,11 +219,25 @@ class PaymentRepository {
     }
   }
 
-  Future<List<dynamic>> getPaymentHistory() async {
+  /// Fetches a page of payment history.
+  /// Returns `{'data': List, 'total': int, 'page': int, 'limit': int}`.
+  Future<Map<String, dynamic>> getPaymentHistory({
+    int page = 1,
+    int limit = 10,
+  }) async {
     try {
-      final response = await _dioClient.dio.get(ApiEndpoints.paymentHistory);
+      final response = await _dioClient.dio.get(
+        ApiEndpoints.paymentHistory,
+        queryParameters: {'page': page, 'limit': limit},
+      );
       if (response.data['success'] == true) {
-        return response.data['data'] ?? [];
+        final pagination = response.data['pagination'] as Map? ?? {};
+        return {
+          'data': (response.data['data'] as List?) ?? [],
+          'total': pagination['total'] ?? 0,
+          'page': pagination['page'] ?? page,
+          'limit': pagination['limit'] ?? limit,
+        };
       } else {
         throw response.data['message']?.toString() ?? 'Failed to fetch payment history';
       }
