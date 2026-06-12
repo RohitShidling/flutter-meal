@@ -11,6 +11,7 @@ import 'package:meal_app/core/utils/meal_date.dart';
 import 'package:meal_app/core/utils/time_utils.dart';
 import 'package:meal_app/core/network/api_endpoints.dart';
 import 'package:meal_app/core/utils/error_handler.dart';
+
 import 'package:meal_app/features/subscription/ui/screens/payment_status_screen.dart';
 import 'package:meal_app/features/subscription/ui/screens/payment_webview_screen.dart';
 import 'package:meal_app/core/providers/payment_provider.dart';
@@ -31,6 +32,7 @@ class _CartScreenState extends State<CartScreen> {
   double? _walletApplied;
   double? _gatewayAmount;
   CartProvider? _cartProvider;
+  String? _localError;
 
   static double _parseMoney(dynamic value) {
     if (value == null) return 0;
@@ -179,6 +181,15 @@ class _CartScreenState extends State<CartScreen> {
                         ),
                       ),
                     ),
+                    Builder(
+                      builder: (context) {
+                        final displayError = _localError ?? cartProvider.error;
+                        if (displayError != null && displayError.isNotEmpty) {
+                          return _buildErrorBanner(displayError, isDark);
+                        }
+                        return const SizedBox.shrink();
+                      }
+                    ),
                     _buildCheckoutBar(context, cartProvider, isDark),
                   ],
                 ),
@@ -234,7 +245,9 @@ class _CartScreenState extends State<CartScreen> {
       confirmDismiss: (_) async {
         final success = await cartProvider.removeItem(item.id);
         if (!success && mounted) {
-          ErrorHandler.showError(this.context, cartProvider.error ?? 'Could not remove item');
+          setState(() {
+            _localError = cartProvider.error ?? 'Could not remove item';
+          });
         }
         return false; // Don't animate dismiss — fetchCart will refresh the list
       },
@@ -300,8 +313,9 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Widget _buildStartDateRow(BuildContext context, CartItem item, bool isDark, CartProvider cartProvider) {
-    final value = MealDate.formatDisplay(item.startDate);
-    final isFlagged = !MealDate.isValidFutureStartDate(item.startDate);
+    final hasNoDate = item.startDate == null || item.startDate!.trim().isEmpty;
+    final value = hasNoDate ? 'Choose start date' : MealDate.formatDisplay(item.startDate);
+    final isFlagged = hasNoDate || !MealDate.isValidFutureStartDate(item.startDate);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -318,7 +332,7 @@ class _CartScreenState extends State<CartScreen> {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: isFlagged ? Colors.orange : (isDark ? Colors.white : AppTheme.textPrimaryLight),
+                    color: isFlagged ? Colors.orange.shade600 : (isDark ? Colors.white : AppTheme.textPrimaryLight),
                   ),
                 ),
               ],
@@ -364,9 +378,19 @@ class _CartScreenState extends State<CartScreen> {
     final ok = await cartProvider.updateItemStartDate(item.id, dateStr);
     if (!context.mounted) return;
     if (ok) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Start date updated'), behavior: SnackBarBehavior.floating));
+      setState(() {
+        final invalid = cartProvider.items.where((i) => i.startDate == null || i.startDate!.trim().isEmpty).toList();
+        if (invalid.isEmpty) {
+          _localError = null;
+        } else if (_localError == 'Please select a start date for all items in your cart.') {
+          _localError = 'Please select a start date for all items in your cart.';
+        }
+      });
+      ErrorHandler.showSuccess(context, 'Start date updated');
     } else if (cartProvider.error != null) {
-      ErrorHandler.showError(context, cartProvider.error);
+      setState(() {
+        _localError = cartProvider.error;
+      });
     }
   }
 
@@ -474,6 +498,14 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   void _handleCheckout(BuildContext context, CartProvider cartProvider) async {
+    final invalid = cartProvider.items.where((i) => i.startDate == null || i.startDate!.trim().isEmpty).toList();
+    if (invalid.isNotEmpty) {
+      setState(() {
+        _localError = 'Please select a start date for all items in your cart.';
+      });
+      return;
+    }
+
     showCupertinoDialog(
       context: context,
       barrierDismissible: false,
@@ -506,13 +538,9 @@ class _CartScreenState extends State<CartScreen> {
     if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
     if (!context.mounted || result == null) {
       if (context.mounted && cartProvider.error != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(cartProvider.error!),
-            backgroundColor: Colors.red.shade700,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        setState(() {
+          _localError = cartProvider.error;
+        });
       }
       return;
     }
@@ -541,7 +569,9 @@ class _CartScreenState extends State<CartScreen> {
           ),
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Payment failed or was cancelled.'), backgroundColor: Colors.red.shade700, behavior: SnackBarBehavior.floating));
+        setState(() {
+          _localError = 'Payment failed or was cancelled.';
+        });
       }
     } else {
       if (paymentUrl.isNotEmpty && txnId.isNotEmpty) {
@@ -561,17 +591,11 @@ class _CartScreenState extends State<CartScreen> {
         }
       } else {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                sdkStatus == 'INTERRUPTED'
-                    ? 'Payment cancelled. Wallet balance has been restored.'
-                    : (result['sdkError']?.toString() ?? 'Payment failed or was cancelled.'),
-              ),
-              backgroundColor: sdkStatus == 'INTERRUPTED' ? Colors.orange.shade800 : Colors.red.shade700,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+          setState(() {
+            _localError = sdkStatus == 'INTERRUPTED'
+                ? 'Payment cancelled. Wallet balance has been restored.'
+                : (result?['sdkError']?.toString() ?? 'Payment failed or was cancelled.');
+          });
         }
       }
     }
@@ -590,8 +614,19 @@ class _CartScreenState extends State<CartScreen> {
             onPressed: () async {
               Navigator.pop(context);
               final ok = await cartProvider.removeItem(item.id);
-              if (context.mounted && !ok && cartProvider.error != null) {
-                ErrorHandler.showError(context, cartProvider.error);
+              if (context.mounted) {
+                setState(() {
+                  if (!ok && cartProvider.error != null) {
+                    _localError = cartProvider.error;
+                  } else {
+                    final invalid = cartProvider.items.where((i) => i.startDate == null || i.startDate!.trim().isEmpty).toList();
+                    if (invalid.isEmpty) {
+                      _localError = null;
+                    } else if (_localError == 'Please select a start date for all items in your cart.') {
+                      _localError = 'Please select a start date for all items in your cart.';
+                    }
+                  }
+                });
               }
             },
             child: const Text('Remove'),
@@ -614,11 +649,67 @@ class _CartScreenState extends State<CartScreen> {
             onPressed: () async {
               Navigator.pop(context);
               final ok = await cartProvider.clearCart();
-              if (context.mounted && !ok && cartProvider.error != null) {
-                ErrorHandler.showError(context, cartProvider.error);
+              if (context.mounted) {
+                setState(() {
+                  if (!ok && cartProvider.error != null) {
+                    _localError = cartProvider.error;
+                  } else {
+                    _localError = null;
+                  }
+                });
               }
             },
             child: const Text('Clear All'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorBanner(String message, bool isDark) {
+    final isSelectStartDate = message.toLowerCase().contains('select a start date') ||
+        message.toLowerCase().contains('select start date');
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: isSelectStartDate ? 8 : 12),
+      decoration: isSelectStartDate
+          ? null
+          : BoxDecoration(
+              color: isDark ? const Color(0xFF3A1A1A) : const Color(0xFFFEE2E2),
+              border: Border(
+                top: BorderSide(
+                  color: isDark ? const Color(0xFF3A1A1A) : Colors.red.shade200,
+                  width: 1,
+                ),
+                bottom: BorderSide(
+                  color: isDark ? const Color(0xFF3A1A1A) : Colors.red.shade200,
+                  width: 1,
+                ),
+              ),
+            ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            CupertinoIcons.exclamationmark_triangle_fill,
+            color: isSelectStartDate
+                ? Colors.orange.shade700
+                : (isDark ? Colors.red.shade400 : Colors.red.shade700),
+            size: 18,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                height: 1.4,
+                color: isSelectStartDate
+                    ? (isDark ? Colors.orange.shade300 : Colors.orange.shade800)
+                    : (isDark ? Colors.red.shade200 : Colors.red.shade800),
+              ),
+            ),
           ),
         ],
       ),

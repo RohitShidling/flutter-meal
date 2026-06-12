@@ -7,7 +7,6 @@ import 'package:meal_app/core/providers/subscription_provider.dart';
 import 'package:meal_app/core/providers/lookup_provider.dart';
 import 'package:meal_app/core/theme/app_theme.dart';
 import 'package:meal_app/core/utils/error_handler.dart';
-import 'package:meal_app/core/utils/meal_date.dart';
 import 'package:meal_app/core/utils/money_format.dart';
 import 'package:meal_app/core/widgets/app_skeleton.dart';
 import 'package:meal_app/features/subscription/ui/widgets/plan_features_row.dart';
@@ -90,7 +89,7 @@ class _PlanPickerSheetState extends State<_PlanPickerSheet> {
       entityType: widget.entityType,
       entityId: widget.entityId,
       includeSaturday: includeSaturday,
-      startDate: MealDate.tomorrowYmd(),
+      startDate: null,
       entityName: widget.entityName,
       planName: plan.planName,
       unitPrice: MoneyFormat.parseAmount(priceStr),
@@ -140,7 +139,7 @@ class _PlanPickerSheetState extends State<_PlanPickerSheet> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
+                padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
                 child: Row(
                   children: [
                     Expanded(
@@ -148,21 +147,50 @@ class _PlanPickerSheetState extends State<_PlanPickerSheet> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Choose a plan',
+                            'Select Subscription Plan',
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.w900,
                               color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                              letterSpacing: -0.5,
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${widget.entityName} • ${_mealSizeLabel()}',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? Colors.white54 : AppTheme.textSecondaryLight,
-                            ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  widget.entityName,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppTheme.primaryColor,
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: isDark ? Colors.white12 : Colors.grey.shade200,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  _mealSizeLabel(),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                    color: isDark ? Colors.white70 : AppTheme.textPrimaryLight,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -222,13 +250,16 @@ class _PlanPickerSheetState extends State<_PlanPickerSheet> {
   }
 
   Widget _sectionTitle(String title, bool isDark) {
-    return Text(
-      title.toUpperCase(),
-      style: TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.w900,
-        letterSpacing: 1,
-        color: AppTheme.primaryColor.withValues(alpha: isDark ? 0.9 : 1),
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 4),
+      child: Text(
+        title.toUpperCase(),
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 1.2,
+          color: isDark ? Colors.white38 : Colors.grey.shade500,
+        ),
       ),
     );
   }
@@ -254,79 +285,75 @@ class _PlanPickerSheetState extends State<_PlanPickerSheet> {
       ));
     }
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Material(
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
         color: isDark ? AppTheme.surfaceDark : Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: isDark ? Colors.white12 : Colors.grey.shade200,
-            ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.12),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.02),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        ],
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      plan.planName,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 16,
-                        color: isDark ? Colors.white : AppTheme.textPrimaryLight,
-                      ),
-                    ),
+              Expanded(
+                child: Text(
+                  plan.planName,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 17,
+                    color: isDark ? Colors.white : AppTheme.textPrimaryLight,
                   ),
-                  if (isTrial)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFF6B00),
-                        borderRadius: BorderRadius.circular(8),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFFF6B00).withValues(alpha: 0.3),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Text(
-                        'TRIAL',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                plan.billingCycle,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? Colors.white54 : AppTheme.textSecondaryLight,
                 ),
               ),
-              const SizedBox(height: 12),
-              ...variants.map((v) => _variantRow(context, plan, v, isDark)),
-              if (plan.features.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                PlanFeaturesRow(features: plan.features, isDark: isDark),
-              ],
+              if (isTrial)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF6B00),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    'TRIAL',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
             ],
           ),
-        ),
+          const SizedBox(height: 4),
+          Text(
+            plan.billingCycle,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white54 : AppTheme.textSecondaryLight,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ...variants.map((v) => _variantRow(context, plan, v, isDark)),
+          if (plan.features.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            PlanFeaturesRow(features: plan.features, isDark: isDark),
+          ],
+        ],
       ),
     );
   }
@@ -348,76 +375,117 @@ class _PlanPickerSheetState extends State<_PlanPickerSheet> {
         );
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: isDark ? const Color(0xFF282828) : const Color(0xFFF7F2EA),
-        borderRadius: BorderRadius.circular(12),
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Container(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF252528) : const Color(0xFFFBFBFD),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: inCart
+                ? const Color(0xFF22C55E)
+                : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.08)),
+            width: inCart ? 2.0 : 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.02),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           onTap: _adding || inCart ? null : () => _addPlan(plan, includeSaturday),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.all(16),
             child: Row(
               children: [
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        variant.label,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14,
-                          color: isDark ? Colors.white : AppTheme.textPrimaryLight,
-                        ),
+                      Row(
+                        children: [
+                          Text(
+                            variant.label,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 15,
+                              color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          if (days > 0)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                '$days days',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                  color: AppTheme.primaryColor,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 4),
                       Text(
                         variant.hint,
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
                           color: isDark ? Colors.white54 : AppTheme.textSecondaryLight,
                         ),
                       ),
-                      if (days > 0) ...[
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF2E2420) : const Color(0xFFE8E0D0),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            '$days delivery days',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              color: isDark ? Colors.white : AppTheme.primaryColor,
-                            ),
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ),
+                const SizedBox(width: 12),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
                       '₹${MoneyFormat.display(price)}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.w900,
-                        fontSize: 15,
-                        color: AppTheme.primaryColor,
+                        fontSize: 18,
+                        color: inCart ? const Color(0xFF22C55E) : AppTheme.primaryColor,
+                        letterSpacing: -0.5,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      inCart ? 'In cart' : 'Add to cart',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        color: inCart ? Colors.green.shade700 : AppTheme.primaryColor,
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: inCart
+                            ? const Color(0xFF22C55E).withValues(alpha: 0.1)
+                            : AppTheme.primaryColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            inCart ? CupertinoIcons.checkmark_alt : CupertinoIcons.cart_badge_plus,
+                            size: 12,
+                            color: inCart ? const Color(0xFF22C55E) : AppTheme.primaryColor,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            inCart ? 'In Cart' : 'Select',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: inCart ? const Color(0xFF22C55E) : AppTheme.primaryColor,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],

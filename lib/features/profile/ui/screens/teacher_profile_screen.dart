@@ -36,6 +36,7 @@ class TeacherProfileScreen extends StatefulWidget {
 class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
+  late TextEditingController _phoneController;
   late TextEditingController _schoolController;
   late TextEditingController _cityController;
   late TextEditingController _stateController;
@@ -60,6 +61,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
   String _snapshot() {
     return [
       _nameController.text.trim(),
+      _phoneController.text.trim(),
       _schoolController.text.trim(),
       _selectedSchool?.id ?? '',
       '',
@@ -99,6 +101,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
   void initState() {
     super.initState();
     _nameController = TextEditingController();
+    _phoneController = TextEditingController();
     _schoolController = TextEditingController();
     _cityController = TextEditingController();
     _stateController = TextEditingController();
@@ -135,6 +138,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
         if (mounted) {
           setState(() {
             _nameController.text = profile.name;
+            _phoneController.text = profile.phoneNumber ?? '';
             _schoolController.text = profile.schoolCollegeName;
             _cityController.text = profile.city;
             _stateController.text = profile.state;
@@ -178,6 +182,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
   void dispose() {
     AppRouteTracker.instance.clearIfCurrent(AppScreen.teacherProfile);
     _nameController.dispose();
+    _phoneController.dispose();
     _schoolController.dispose();
     _cityController.dispose();
     _stateController.dispose();
@@ -286,6 +291,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
       mealTime: _timeController.text,
       standardId: null,
       divisionId: null,
+      phoneNumber: _phoneController.text.trim(),
     );
     
     final success = await profileProvider.saveTeacherProfile(profile);
@@ -302,6 +308,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
         _isEditing = false;
         if (saved != null) {
           _nameController.text = saved.name;
+          _phoneController.text = saved.phoneNumber ?? '';
           _schoolController.text = saved.schoolCollegeName;
           _cityController.text = saved.city;
           _stateController.text = saved.state;
@@ -403,8 +410,22 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
                         labelText: 'Full Name',
                         prefixIcon: Icon(CupertinoIcons.person_fill),
                       ),
-                      textInputAction: TextInputAction.done,
+                      textInputAction: TextInputAction.next,
                       validator: (v) => Validators.name(v, fieldName: 'Full Name'),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Phone Number
+                    TextFormField(
+                      controller: _phoneController,
+                      autofocus: false,
+                      decoration: const InputDecoration(
+                        labelText: 'Phone Number',
+                        prefixIcon: Icon(CupertinoIcons.phone_fill),
+                      ),
+                      keyboardType: TextInputType.phone,
+                      textInputAction: TextInputAction.next,
+                      validator: (v) => Validators.phone(v),
                     ),
                     const SizedBox(height: 20),
 
@@ -676,6 +697,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
                 final profile = provider.teacherProfile;
                 if (profile != null) {
                   _nameController.text = profile.name;
+                  _phoneController.text = profile.phoneNumber ?? '';
                   _schoolController.text = profile.schoolCollegeName;
                   _cityController.text = profile.city;
                   _stateController.text = profile.state;
@@ -786,6 +808,10 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
                       children: [
                         const Divider(height: 1),
                         const SizedBox(height: 20),
+                        if (profile.phoneNumber != null && profile.phoneNumber!.isNotEmpty) ...[
+                          _buildInfoRow(CupertinoIcons.phone_fill, profile.phoneNumber!, isDark),
+                          const SizedBox(height: 14),
+                        ],
                         _buildInfoRow(CupertinoIcons.building_2_fill, profile.schoolCollegeName, isDark),
                         const SizedBox(height: 14),
                         if (profile.standardName != null && profile.standardName!.isNotEmpty) ...[

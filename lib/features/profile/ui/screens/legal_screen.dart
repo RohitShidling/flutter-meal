@@ -40,23 +40,11 @@ class LegalScreen extends StatelessWidget {
         ),
         body: SafeArea(
           top: false,
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  AppTheme.primaryColor.withValues(alpha: isDark ? 0.05 : 0.01),
-                  Theme.of(context).scaffoldBackgroundColor,
-                ],
-              ),
-            ),
-            child: TabBarView(
-              children: [
-                _buildTermsTab(context, isDark),
-                _buildPrivacyTab(context, isDark),
-              ],
-            ),
+          child: TabBarView(
+            children: [
+              _buildTermsTab(context, isDark),
+              _buildPrivacyTab(context, isDark),
+            ],
           ),
         ),
       ),
@@ -183,53 +171,84 @@ class LegalScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppTheme.primaryColor.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(16),
+        color: isDark ? AppTheme.surfaceDark : Colors.white,
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: AppTheme.primaryColor.withValues(alpha: 0.2),
-          width: 1,
+          color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.12),
+          width: 1.5,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.02),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(
-                CupertinoIcons.doc_text_viewfinder,
-                color: AppTheme.primaryColor,
-                size: 28,
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  CupertinoIcons.doc_text_viewfinder,
+                  color: AppTheme.primaryColor,
+                  size: 24,
+                ),
               ),
               const SizedBox(width: 12),
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            'Version: $version',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: isDark ? Colors.white70 : AppTheme.textSecondaryLight,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Last Updated: $lastUpdated',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: isDark ? Colors.white60 : Colors.grey,
-            ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              _buildHeaderBadge('Version $version', isDark),
+              const SizedBox(width: 8),
+              Text(
+                'Updated $lastUpdated',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white38 : AppTheme.textSecondaryLight.withValues(alpha: 0.8),
+                ),
+              ),
+            ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderBadge(String label, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryColor.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: AppTheme.primaryColor,
+          fontWeight: FontWeight.w800,
+          fontSize: 10,
+        ),
       ),
     );
   }
@@ -241,18 +260,19 @@ class LegalScreen extends StatelessWidget {
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: isDark ? AppTheme.surfaceDark : Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.1),
+          color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.08),
+          width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.02),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -262,8 +282,8 @@ class LegalScreen extends StatelessWidget {
           Text(
             title,
             style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
               color: AppTheme.primaryColor,
             ),
           ),
@@ -271,9 +291,10 @@ class LegalScreen extends StatelessWidget {
           Text(
             content,
             style: TextStyle(
-              fontSize: 14,
-              height: 1.45,
-              color: isDark ? Colors.white.withValues(alpha: 0.9) : AppTheme.textSecondaryLight,
+              fontSize: 13.5,
+              height: 1.5,
+              fontWeight: FontWeight.w500,
+              color: isDark ? Colors.white70 : AppTheme.textSecondaryLight,
             ),
           ),
         ],

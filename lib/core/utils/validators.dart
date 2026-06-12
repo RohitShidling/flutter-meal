@@ -50,4 +50,16 @@ class Validators {
     }
     return null;
   }
+
+  /// Validates a phone number.
+  static String? phone(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Phone Number is required';
+    }
+    final trimmed = value.trim();
+    if (!RegExp(r'^[0-9]{10}$').hasMatch(trimmed)) {
+      return 'Enter a valid 10-digit phone number';
+    }
+    return null;
+  }
 }

@@ -49,6 +49,16 @@ class PaymentProvider with ChangeNotifier {
   List<dynamic> _paymentHistory = [];
   List<dynamic> get paymentHistory => _paymentHistory;
 
+  // Pagination state for payment history
+  int _historyPage = 1;
+  int _historyTotal = 0;
+  final int _historyLimit = 10;
+  bool _isLoadingMore = false;
+
+  int get historyTotal => _historyTotal;
+  bool get isLoadingMore => _isLoadingMore;
+  bool get hasMoreHistory => _paymentHistory.length < _historyTotal;
+
   List<dynamic> _activeSubscriptions = [];
   List<dynamic> get activeSubscriptions => _activeSubscriptions;
 
@@ -60,11 +70,13 @@ class PaymentProvider with ChangeNotifier {
 
   // ─── Payment History ───────────────────────────────────────────────────────
 
+  /// Resets and re-fetches from page 1.
   Future<void> fetchPaymentHistory({bool silent = false}) async {
     bool hasCachedData = false;
     final cached = await _cache.loadJson(_historyCacheKey);
     if (cached != null && _paymentHistory.isEmpty) {
       _paymentHistory = (cached['items'] as List? ?? const []).toList();
+      _historyTotal = (cached['total'] as int?) ?? _paymentHistory.length;
       hasCachedData = _paymentHistory.isNotEmpty;
       notifyListeners();
     } else if (_paymentHistory.isNotEmpty) {
@@ -78,8 +90,14 @@ class PaymentProvider with ChangeNotifier {
     }
 
     try {
-      _paymentHistory = await _repository.getPaymentHistory();
-      await _cache.saveJson(_historyCacheKey, {'items': _paymentHistory});
+      final result = await _repository.getPaymentHistory(page: 1, limit: _historyLimit);
+      _paymentHistory = (result['data'] as List?) ?? [];
+      _historyTotal = (result['total'] as int?) ?? _paymentHistory.length;
+      _historyPage = 1;
+      await _cache.saveJson(_historyCacheKey, {
+        'items': _paymentHistory,
+        'total': _historyTotal,
+      });
     } catch (e) {
       // Keep showing cached history in offline mode; only show hard error if nothing cached.
       _error = hasCachedData ? null : ErrorHandler.getErrorMessage(e);
@@ -87,7 +105,29 @@ class PaymentProvider with ChangeNotifier {
       if (!silent) {
         _isLoading = false;
         notifyListeners();
+      } else {
+        notifyListeners();
       }
+    }
+  }
+
+  /// Appends the next page of history to the existing list.
+  Future<void> loadMorePaymentHistory() async {
+    if (_isLoadingMore || !hasMoreHistory) return;
+    _isLoadingMore = true;
+    notifyListeners();
+    try {
+      final nextPage = _historyPage + 1;
+      final result = await _repository.getPaymentHistory(page: nextPage, limit: _historyLimit);
+      final newItems = (result['data'] as List?) ?? [];
+      _paymentHistory = [..._paymentHistory, ...newItems];
+      _historyTotal = (result['total'] as int?) ?? _historyTotal;
+      _historyPage = nextPage;
+    } catch (e) {
+      _error = ErrorHandler.getErrorMessage(e);
+    } finally {
+      _isLoadingMore = false;
+      notifyListeners();
     }
   }
 
@@ -337,7 +377,10 @@ class PaymentProvider with ChangeNotifier {
     if (status == 'SUCCESS') {
       _paymentStatus = PaymentStatus.success;
       // MEDIUM-08: Use unawaited() to satisfy the lint rule (fire-and-forget is intentional).
+      // Invalidate history cache so the next fetch shows the latest entity names.
+      unawaited(_cache.saveJson(_historyCacheKey, {'items': <dynamic>[]}));
       unawaited(fetchWallet(silent: true));
+      unawaited(fetchPaymentHistory(silent: true));
     } else if (status == 'INTERRUPTED') {
       _paymentStatus = PaymentStatus.interrupted;
       unawaited(fetchWallet(silent: true));

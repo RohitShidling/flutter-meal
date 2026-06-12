@@ -11,10 +11,8 @@ import 'package:meal_app/core/widgets/apple_card.dart';
 import 'package:meal_app/core/utils/time_utils.dart';
 import 'package:meal_app/core/utils/meal_date.dart';
 import 'package:meal_app/core/services/connectivity_service.dart';
-import 'package:meal_app/features/children/providers/children_provider.dart';
-import 'package:meal_app/features/profile/providers/profile_provider.dart';
 import 'package:meal_app/core/services/app_route_tracker.dart';
-import 'package:meal_app/core/utils/upgrade_payment_history.dart';
+import 'package:meal_app/features/profile/ui/screens/contact_us_screen.dart';
 
 class SubscriptionManagementScreen extends StatefulWidget {
   const SubscriptionManagementScreen({super.key});
@@ -43,7 +41,7 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
           context.read<PaymentProvider>().fetchActiveSubscriptions(),
           context.read<PaymentProvider>().fetchPaymentHistory(silent: true),
           context.read<MealProvider>().fetchSubscriptionStatus(silent: true),
-        ]).catchError((_) {}),
+        ]).catchError((_) => []),
       );
     });
   }
@@ -185,7 +183,9 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
       return aStartStr.compareTo(bStartStr);
     });
 
-    return ListView.builder(
+    return RefreshIndicator(
+      onRefresh: () => provider.fetchActiveSubscriptions(force: true),
+      child: ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
       itemCount: sortedSubs.length,
       itemBuilder: (context, index) {
@@ -204,9 +204,6 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
         final startDateStr = _safeString(sub['start_date'], '');
         final startDate = startDateStr.isNotEmpty ? MealDate.parseYmdLocal(startDateStr) : null;
 
-        final expiryStr = _safeString(sub['end_date'] ?? sub['expiry_date'], '');
-        final expiry = expiryStr.isNotEmpty ? MealDate.parseYmdLocal(expiryStr) : null;
-        
         return AppleCard(
           margin: const EdgeInsets.only(bottom: 12),
           child: Column(
@@ -242,7 +239,7 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
                   color: isDark ? Colors.white : AppTheme.textPrimaryLight,
                 ),
               ),
-              if (entityType.isNotEmpty)
+              if (entityType.isNotEmpty && entityType.toLowerCase().trim() != 'cart')
                 Text(
                   entityType.toUpperCase(),
                   style: TextStyle(
@@ -306,12 +303,43 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
                   ),
                 ],
               ),
+              const Divider(height: 20),
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    CupertinoPageRoute(builder: (_) => const ContactUsScreen()),
+                  );
+                },
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      CupertinoIcons.chat_bubble_2_fill,
+                      size: 14,
+                      color: isDark ? Colors.white54 : AppTheme.textSecondaryLight,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Want to cancel? Contact Support',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white70 : AppTheme.textSecondaryLight,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         );
       },
+    ),
     );
   }
+
 
   Widget _buildHistory(PaymentProvider provider, bool isDark) {
     if (provider.isLoading && provider.paymentHistory.isEmpty) {
@@ -351,10 +379,50 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
       );
     }
 
-    return ListView.builder(
+    return RefreshIndicator(
+      onRefresh: () => provider.fetchPaymentHistory(),
+      child: ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-      itemCount: provider.paymentHistory.length,
+      itemCount: provider.paymentHistory.length + 1,
       itemBuilder: (context, index) {
+        if (index == provider.paymentHistory.length) {
+          // End-of-list footer
+          if (provider.hasMoreHistory) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Center(
+                child: provider.isLoadingMore
+                    ? const CupertinoActivityIndicator()
+                    : OutlinedButton.icon(
+                        onPressed: provider.loadMorePaymentHistory,
+                        icon: const Icon(CupertinoIcons.arrow_down_circle, size: 16),
+                        label: const Text('Load More'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.primaryColor,
+                          side: const BorderSide(color: AppTheme.primaryColor),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                        ),
+                      ),
+              ),
+            );
+          }
+          // All items loaded — show a subtle end-of-list marker
+          return Padding(
+            padding: const EdgeInsets.only(top: 8, bottom: 24),
+            child: Center(
+              child: Text(
+                '— End of history —',
+                style: TextStyle(
+                  color: isDark ? Colors.white24 : Colors.black26,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          );
+        }
+
         final payment = provider.paymentHistory[index];
         
         // Safe type conversion — prevents "type X is not a subtype of type String"
@@ -384,6 +452,7 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
           planName = _safeString(payment['plan_name'] ?? payment['entity_name'], 'Subscription');
         }
         final entityName = _safeString(payment['entity_name'], '');
+        final entityType = _safeString(payment['entity_type'] ?? payment['entityType'], '');
         final amount = _safeNumString(payment['amount']);
         final walletApplied = _parseMoney(payment['wallet_amount_applied']);
         final gatewayAmount = _parseMoney(payment['gateway_amount']);
@@ -404,115 +473,243 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
 
         return AppleCard(
           margin: const EdgeInsets.only(bottom: 12),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: (isSuccess ? Colors.green : Colors.orange).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  isSuccess ? CupertinoIcons.checkmark_alt : CupertinoIcons.clock,
-                  color: isSuccess ? Colors.green : Colors.orange,
-                  size: 20
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
+              // Top row: Plan Name and Status badge
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
                       planName,
                       style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
                         color: isDark ? Colors.white : AppTheme.textPrimaryLight,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    if (entityName.isNotEmpty)
-                      Text(
-                        entityName,
-                        style: TextStyle(
-                          color: isDark ? Colors.white54 : AppTheme.textSecondaryLight,
-                          fontSize: 12,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    if (orderType != 'referral_reward' && orderType != 'referral_applied')
-                      Text(
-                        [
-                          includeSaturday ? 'With Saturday' : 'Without Saturday',
-                          if (mealSizeName.isNotEmpty) mealSizeName,
-                          if (mealTimingRaw.isNotEmpty) TimeUtils.formatToDisplay(mealTimingRaw),
-                        ].join(' • '),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        softWrap: true,
-                        style: TextStyle(
-                          color: isDark ? Colors.white38 : AppTheme.textSecondaryLight,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    Text(
-                      DateFormat('dd MMM yyyy, hh:mm a').format(date),
-                      style: TextStyle(
-                        color: isDark ? Colors.white38 : AppTheme.textSecondaryLight,
-                        fontSize: 11,
-                      ),
-                    ),
-                    if (walletApplied > 0)
-                      Text(
-                        gatewayAmount > 0
-                            ? 'Wallet ₹${walletApplied.toStringAsFixed(0)} • PhonePe ₹${gatewayAmount.toStringAsFixed(0)}'
-                            : 'Paid fully from wallet',
-                        style: TextStyle(
-                          color: Colors.green.shade700,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  if (orderType != 'referral_reward' && orderType != 'referral_applied')
-                    Text(
-                      '₹$amount',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 15,
-                        color: isDark ? Colors.white : AppTheme.textPrimaryLight,
-                      ),
-                    ),
+                  ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: (isSuccess ? Colors.green : Colors.orange).withValues(alpha: 0.1),
+                      color: (isSuccess ? const Color(0xFF22C55E) : Colors.orange).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
                       pStatus,
                       style: TextStyle(
-                        color: isSuccess ? Colors.green : Colors.orange,
-                        fontWeight: FontWeight.w700,
+                        color: isSuccess ? const Color(0xFF22C55E) : Colors.orange,
+                        fontWeight: FontWeight.w800,
                         fontSize: 10,
+                        letterSpacing: 0.5,
                       ),
                     ),
                   ),
                 ],
               ),
+              const SizedBox(height: 8),
+              
+              // Second row: Date and amount
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    DateFormat('dd MMM yyyy, hh:mm a').format(date),
+                    style: TextStyle(
+                      color: isDark ? Colors.white38 : AppTheme.textSecondaryLight,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (orderType != 'referral_reward' && orderType != 'referral_applied')
+                    Text(
+                      '₹$amount',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 17,
+                        color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                      ),
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        orderType == 'referral_reward' ? 'REWARD' : 'DISCOUNT',
+                        style: const TextStyle(
+                          color: Colors.green,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 9,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              
+              const Divider(height: 16),
+              
+              // Profile Section (For whom was this bought?)
+              Row(
+                children: [
+                  Icon(
+                    CupertinoIcons.person_crop_circle,
+                    size: 16,
+                    color: isDark ? Colors.white54 : AppTheme.textSecondaryLight,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      entityName.isNotEmpty ? entityName : 'System / Referral',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white70 : AppTheme.textPrimaryLight,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (entityType.isNotEmpty &&
+                      entityType.toLowerCase().trim() != 'cart' &&
+                      entityType.toLowerCase().trim() != 'one_day_lunch' &&
+                      entityType.toLowerCase().trim() != 'special_dish') ...[
+                    const SizedBox(width: 8),
+                    _buildRoleBadge(entityType, isDark),
+                  ],
+                ],
+              ),
+              
+              // Third block: Meta details if applicable (Saturday option, Size, Time etc.)
+              if (orderType != 'referral_reward' && orderType != 'referral_applied') ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(
+                      CupertinoIcons.info_circle,
+                      size: 14,
+                      color: isDark ? Colors.white38 : AppTheme.textSecondaryLight.withValues(alpha: 0.6),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        [
+                          includeSaturday ? 'With Saturday' : 'Without Saturday',
+                          if (mealSizeName.isNotEmpty) mealSizeName,
+                          if (mealTimingRaw.isNotEmpty) TimeUtils.formatToDisplay(mealTimingRaw),
+                        ].join(' • '),
+                        style: TextStyle(
+                          color: isDark ? Colors.white38 : AppTheme.textSecondaryLight,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              
+              // Payment breakdown / split if wallet was applied
+              if (walletApplied > 0) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        CupertinoIcons.creditcard,
+                        size: 12,
+                        color: Color(0xFF22C55E),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          gatewayAmount > 0
+                              ? 'Wallet ₹${walletApplied.toStringAsFixed(0)} • PhonePe ₹${gatewayAmount.toStringAsFixed(0)}'
+                              : 'Paid fully from wallet',
+                          style: TextStyle(
+                            color: isDark ? Colors.green.shade400 : Colors.green.shade700,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
         );
       },
+      ),
+    );
+  }
+
+  Widget _buildRoleBadge(String entityType, bool isDark) {
+    final cleanType = entityType.toLowerCase().trim();
+    String text = 'PROFILE';
+    Color bgColor = const Color(0xFFF1F5F9);
+    Color textColor = const Color(0xFF475569);
+
+    if (cleanType == 'child') {
+      text = 'STUDENT';
+      bgColor = isDark ? const Color(0xFF0C4A6E) : const Color(0xFFE0F2FE);
+      textColor = isDark ? const Color(0xFF38BDF8) : const Color(0xFF0369A1);
+    } else if (cleanType == 'teacher') {
+      text = 'TEACHER';
+      bgColor = isDark ? const Color(0xFF581C87) : const Color(0xFFF3E8FF);
+      textColor = isDark ? const Color(0xFFC084FC) : const Color(0xFF6B21A8);
+    } else if (cleanType == 'professional') {
+      text = 'PROFESSIONAL';
+      bgColor = isDark ? const Color(0xFF14532D) : const Color(0xFFF0FDF4);
+      textColor = isDark ? const Color(0xFF4ADE80) : const Color(0xFF15803D);
+    } else if (cleanType == 'bulk') {
+      text = 'BULK ORDER';
+      bgColor = isDark ? const Color(0xFF78350F) : const Color(0xFFFEF3C7);
+      textColor = isDark ? const Color(0xFFFBBF24) : const Color(0xFFB45309);
+    } else if (cleanType == 'cart') {
+      text = 'CART ORDER';
+      bgColor = isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9);
+      textColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569);
+    } else if (cleanType == 'referral') {
+      text = 'REFERRAL';
+      bgColor = isDark ? const Color(0xFF14532D) : const Color(0xFFECFDF5);
+      textColor = isDark ? const Color(0xFF34D399) : const Color(0xFF047857);
+    } else {
+      text = cleanType.toUpperCase();
+      if (isDark) {
+        bgColor = const Color(0xFF1E293B);
+        textColor = const Color(0xFF94A3B8);
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: textColor,
+          fontWeight: FontWeight.w800,
+          fontSize: 9,
+          letterSpacing: 0.5,
+        ),
+      ),
     );
   }
 

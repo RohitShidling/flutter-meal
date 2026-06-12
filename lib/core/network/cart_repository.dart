@@ -36,7 +36,7 @@ class CartRepository {
     required String entityType,
     required String entityId,
     required bool includeSaturday,
-    required String startDate,
+    String? startDate,
   }) async {
     final response = await _dioClient.dio.post(
       ApiEndpoints.addToCart,
@@ -45,7 +45,7 @@ class CartRepository {
         'entityType': entityType,
         'entityId': entityId,
         'includeSaturday': includeSaturday,
-        'startDate': startDate,
+        if (startDate != null && startDate.isNotEmpty) 'startDate': startDate,
       },
     );
     if (response.data['success'] == true) {

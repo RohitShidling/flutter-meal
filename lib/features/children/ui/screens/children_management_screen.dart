@@ -284,6 +284,10 @@ class _ChildrenManagementScreenState extends State<ChildrenManagementScreen> {
                 children: [
                   const Divider(height: 1),
                   const SizedBox(height: 16),
+                  if (child.phoneNumber != null && child.phoneNumber!.isNotEmpty) ...[
+                    _buildInfoRow(CupertinoIcons.phone_fill, child.phoneNumber!, isDark),
+                    const SizedBox(height: 10),
+                  ],
                   _buildInfoRow(CupertinoIcons.building_2_fill, child.schoolName ?? 'School/College ID: ${child.schoolId}', isDark),
                   const SizedBox(height: 10),
                   _buildInfoRow(
@@ -435,6 +439,7 @@ class _ChildFormState extends State<_ChildForm> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late TextEditingController _rollController;
+  late TextEditingController _phoneController;
   late TextEditingController _timeController;
   late TextEditingController _timeDisplayController;
   late String _initialSnapshot;
@@ -477,6 +482,7 @@ class _ChildFormState extends State<_ChildForm> {
     return [
       _nameController.text.trim(),
       _rollController.text.trim(),
+      _phoneController.text.trim(),
       _selectedSchool?.id ?? '',
       _selectedStandard?.id ?? '',
       _selectedDivision?.id ?? '',
@@ -503,6 +509,7 @@ class _ChildFormState extends State<_ChildForm> {
     
     _nameController = TextEditingController(text: widget.child?.name);
     _rollController = TextEditingController(text: widget.child?.rollNumber);
+    _phoneController = TextEditingController(text: widget.child?.phoneNumber);
     final backendTime = TimeUtils.tryParseToBackend(widget.child?.mealTime);
     _timeController = TextEditingController(text: backendTime ?? '');
     _timeDisplayController = TextEditingController(text: TimeUtils.formatToDisplay(backendTime));
@@ -565,6 +572,7 @@ class _ChildFormState extends State<_ChildForm> {
   void dispose() {
     _nameController.dispose();
     _rollController.dispose();
+    _phoneController.dispose();
     _timeController.dispose();
     _timeDisplayController.dispose();
     super.dispose();
@@ -664,6 +672,7 @@ class _ChildFormState extends State<_ChildForm> {
       final same =
           before.name.trim() == _nameController.text.trim() &&
           before.rollNumber.trim() == _rollController.text.trim() &&
+          before.phoneNumber?.trim() == _phoneController.text.trim() &&
           before.schoolId == _selectedSchool!.id &&
           before.standardId == _selectedStandard!.id &&
           before.divisionId == _selectedDivision?.id &&
@@ -709,6 +718,7 @@ class _ChildFormState extends State<_ChildForm> {
     final newChild = ChildModel(
       name: _nameController.text.trim(),
       rollNumber: _rollController.text.trim(),
+      phoneNumber: _phoneController.text.trim(),
       schoolId: _selectedSchool!.id,
       standardId: _selectedStandard!.id,
       mealSizeId: _selectedMealSize!.id,
@@ -816,6 +826,19 @@ class _ChildFormState extends State<_ChildForm> {
                 ),
                 textInputAction: TextInputAction.next,
                 validator: (v) => Validators.name(v, fieldName: 'Child Name'),
+              ),
+              const SizedBox(height: 16),
+              // Phone Number
+              TextFormField(
+                controller: _phoneController,
+                autofocus: false,
+                decoration: const InputDecoration(
+                  labelText: 'Phone Number',
+                  prefixIcon: Icon(CupertinoIcons.phone_fill),
+                ),
+                keyboardType: TextInputType.phone,
+                textInputAction: TextInputAction.next,
+                validator: (v) => Validators.phone(v),
               ),
               const SizedBox(height: 16),
               // 2. Roll Number
