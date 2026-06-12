@@ -32,6 +32,24 @@ class QuickServiceProvider with ChangeNotifier {
   String? _error;
   String? get error => _error;
 
+  // TTL guards
+  DateTime? _lastConfigFetchedAt;
+  DateTime? _lastCategoriesFetchedAt;
+  final Map<String, DateTime> _lastItemsFetchedAt = {};
+
+  bool _isConfigFresh() =>
+      _lastConfigFetchedAt != null &&
+      DateTime.now().difference(_lastConfigFetchedAt!).inHours < 6;
+
+  bool _isCategoriesFresh() =>
+      _lastCategoriesFetchedAt != null &&
+      DateTime.now().difference(_lastCategoriesFetchedAt!).inHours < 6;
+
+  bool _isItemsFresh(String categoryId) {
+    final t = _lastItemsFetchedAt[categoryId];
+    return t != null && DateTime.now().difference(t).inMinutes < 60;
+  }
+
   Map<String, dynamic>? _oneDayConfig;
   Map<String, dynamic>? get oneDayConfig => _oneDayConfig;
 
@@ -94,7 +112,10 @@ class QuickServiceProvider with ChangeNotifier {
     return null;
   }
 
-  Future<void> loadOneDayConfig() async {
+  Future<void> loadOneDayConfig({bool force = false}) async {
+    // Skip API if data is fresh in memory
+    if (!force && _oneDayConfig != null && _isConfigFresh()) return;
+
     if (_oneDayConfig == null) {
       _loading = true;
       _error = null;
@@ -110,6 +131,7 @@ class QuickServiceProvider with ChangeNotifier {
 
     try {
       _oneDayConfig = await _repository.getOneDayLunchConfig();
+      _lastConfigFetchedAt = DateTime.now();
       await CacheStore.setJson('one_day_lunch_config', _oneDayConfig, ttl: const Duration(hours: 6));
       _error = null;
     } catch (e) {
@@ -127,7 +149,10 @@ class QuickServiceProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> loadCategories() async {
+  Future<void> loadCategories({bool force = false}) async {
+    // Skip API if data is fresh in memory
+    if (!force && _categories.isNotEmpty && _isCategoriesFresh()) return;
+
     if (_categories.isEmpty) {
       _loading = true;
       _error = null;
@@ -143,6 +168,7 @@ class QuickServiceProvider with ChangeNotifier {
 
     try {
       _categories = await _repository.getSpecialCategories();
+      _lastCategoriesFetchedAt = DateTime.now();
       await CacheStore.setJson('special_categories', _categories, ttl: const Duration(hours: 6));
       _error = null;
     } catch (e) {
@@ -155,7 +181,10 @@ class QuickServiceProvider with ChangeNotifier {
     }
   }
 
-  Future<void> loadItems(String categoryId) async {
+  Future<void> loadItems(String categoryId, {bool force = false}) async {
+    // Skip API if this category's items are fresh in memory
+    if (!force && _items.isNotEmpty && _isItemsFresh(categoryId)) return;
+
     _loading = true;
     _error = null;
     _items = [];
@@ -184,6 +213,7 @@ class QuickServiceProvider with ChangeNotifier {
           _itemCache[id] = Map<String, dynamic>.from(item);
         }
       }
+      _lastItemsFetchedAt[categoryId] = DateTime.now();
       await CacheStore.setJson('special_items_$categoryId', _items, ttl: const Duration(hours: 6));
     } catch (e) {
       _error = e.toString();

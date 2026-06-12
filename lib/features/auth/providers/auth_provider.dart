@@ -39,6 +39,11 @@ class AuthProvider with ChangeNotifier {
   int _pendingRewardsCount = 0;
   List<dynamic> _pendingRewardsList = [];
   String _signupReferralCode = '';
+  DateTime? _lastProfileFetchedAt;
+
+  bool _isProfileFresh() =>
+      _lastProfileFetchedAt != null &&
+      DateTime.now().difference(_lastProfileFetchedAt!).inMinutes < 5;
 
   AuthProvider(this._authRepository) {
     _checkAuthStatus();
@@ -343,10 +348,13 @@ class AuthProvider with ChangeNotifier {
     _pendingRewardsCount = 0;
     _pendingRewardsList = [];
     _authMode = AuthMode.login;
+    _lastProfileFetchedAt = null;
     notifyListeners();
   }
 
   Future<void> refreshMeProfile({bool silent = false, bool forceNetwork = false}) async {
+    if (!forceNetwork && _isProfileFresh()) return;
+
     if (!silent) {
       _isProfileLoading = true;
       notifyListeners();
@@ -377,6 +385,7 @@ class AuthProvider with ChangeNotifier {
           _username = liveUsername.trim();
         }
       }
+      _lastProfileFetchedAt = DateTime.now();
     } catch (_) {
       final cached = await _authRepository.getUsername();
       if (cached != null && cached.trim().isNotEmpty) {

@@ -3,16 +3,13 @@ import 'package:meal_app/core/network/api_endpoints.dart';
 import 'package:meal_app/core/services/network_status_service.dart';
 import 'package:meal_app/core/services/offline_queue.dart';
 import 'package:meal_app/core/storage/cache_store.dart';
-import 'package:meal_app/core/storage/local_cache.dart';
 import 'package:meal_app/features/children/data/models/child_model.dart';
 import 'package:meal_app/features/children/data/repositories/children_repository.dart';
 
 class ChildrenProvider with ChangeNotifier {
   final ChildrenRepository _repository;
-  final LocalCache _cache;
-  static const _cacheKey = 'cache_children_v1';
 
-  ChildrenProvider(this._repository, this._cache) {
+  ChildrenProvider(this._repository) {
     _loadFromCache();
   }
 
@@ -42,13 +39,9 @@ class ChildrenProvider with ChangeNotifier {
 
   Future<void> fetchChildren({bool force = false, bool silent = false}) async {
     final isFresh = _lastFetchedAt != null &&
-        DateTime.now().difference(_lastFetchedAt!).inMinutes < 3;
-    final canUseFreshOnly =
-        !force &&
-        _children.isNotEmpty &&
-        isFresh &&
-        !NetworkStatusService.instance.isOnline;
-    if (canUseFreshOnly) return;
+        DateTime.now().difference(_lastFetchedAt!).inMinutes < 5;
+    // Skip if data is fresh in memory (online or offline), unless forced
+    if (!force && _children.isNotEmpty && isFresh) return;
     if (_inflightRequest != null) return _inflightRequest;
 
     final request = _doFetch(silent: silent);

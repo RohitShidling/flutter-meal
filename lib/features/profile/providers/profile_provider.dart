@@ -3,16 +3,13 @@ import 'package:meal_app/core/network/api_endpoints.dart';
 import 'package:meal_app/core/services/network_status_service.dart';
 import 'package:meal_app/core/services/offline_queue.dart';
 import 'package:meal_app/core/storage/cache_store.dart';
-import 'package:meal_app/core/storage/local_cache.dart';
 import 'package:meal_app/features/profile/data/models/profile_models.dart';
 import 'package:meal_app/features/profile/data/repositories/profile_repository.dart';
 
 class ProfileProvider with ChangeNotifier {
   final ProfileRepository _repository;
-  final LocalCache _cache;
-  static const _cacheKey = 'cache_profiles_v1';
 
-  ProfileProvider(this._repository, this._cache) {
+  ProfileProvider(this._repository) {
     _loadFromCache();
   }
 
@@ -54,13 +51,9 @@ class ProfileProvider with ChangeNotifier {
   Future<void> fetchProfiles({bool force = false, bool silent = false}) async {
     final hasAnyProfile = _teacherProfile != null || _professionalProfile != null;
     final isFresh = _lastFetchedAt != null &&
-        DateTime.now().difference(_lastFetchedAt!).inMinutes < 3;
-    final canUseFreshOnly =
-        !force &&
-        hasAnyProfile &&
-        isFresh &&
-        !NetworkStatusService.instance.isOnline;
-    if (canUseFreshOnly) return;
+        DateTime.now().difference(_lastFetchedAt!).inMinutes < 10;
+    // Skip if data is fresh in memory (online or offline), unless forced
+    if (!force && hasAnyProfile && isFresh) return;
     if (_inflightRequest != null) return _inflightRequest;
 
     final request = _doFetch(silent: silent);

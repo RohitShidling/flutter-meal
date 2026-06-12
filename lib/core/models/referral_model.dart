@@ -38,4 +38,18 @@ class ReferralRewardModel {
   }
 
   int get mealsRemaining => mealsRewarded - mealsClaimed;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'meals_rewarded': mealsRewarded,
+      'meals_claimed': mealsClaimed,
+      'status': status,
+      'allocated_entity_type': allocatedEntityType,
+      'allocated_entity_id': allocatedEntityId,
+      'allocated_at': allocatedAt?.toIso8601String(),
+      'created_at': createdAt.toIso8601String(),
+      'referred_username': referredUsername,
+    };
+  }
 }

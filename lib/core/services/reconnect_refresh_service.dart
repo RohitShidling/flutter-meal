@@ -26,10 +26,12 @@ class ReconnectRefreshCoordinator extends StatefulWidget {
 
 class _ReconnectRefreshCoordinatorState extends State<ReconnectRefreshCoordinator> {
   bool _refreshing = false;
+  late final DateTime _appStartTime;
 
   @override
   void initState() {
     super.initState();
+    _appStartTime = DateTime.now();
     NetworkStatusService.instance.addBecameOnlineListener(_onBecameOnline);
   }
 
@@ -41,6 +43,8 @@ class _ReconnectRefreshCoordinatorState extends State<ReconnectRefreshCoordinato
 
   void _onBecameOnline() {
     if (!mounted || _refreshing) return;
+    // Guard against redundant force-refreshing immediately after cold start bootstrap
+    if (DateTime.now().difference(_appStartTime).inSeconds < 10) return;
     WidgetsBinding.instance.addPostFrameCallback((_) => _refreshForCurrentScreen());
   }
 

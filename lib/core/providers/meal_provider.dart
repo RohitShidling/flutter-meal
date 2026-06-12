@@ -66,6 +66,11 @@ class MealProvider with ChangeNotifier {
   DateTime? _lastSkipsFetchedAt;
   DateTime? _lastSkipPolicyFetchedAt;
 
+  // TTL guards for background-fetched data
+  DateTime? _lastMealStatusFetchedAt;
+  DateTime? _lastSubStatusFetchedAt;
+  DateTime? _lastAlertsFetchedAt;
+
   bool _isSkipsFresh() =>
       _lastSkipsFetchedAt != null &&
       DateTime.now().difference(_lastSkipsFetchedAt!).inMinutes < 3;
@@ -73,6 +78,18 @@ class MealProvider with ChangeNotifier {
   bool _isSkipPolicyFresh() =>
       _lastSkipPolicyFetchedAt != null &&
       DateTime.now().difference(_lastSkipPolicyFetchedAt!).inMinutes < 3;
+
+  bool _isMealStatusFresh() =>
+      _lastMealStatusFetchedAt != null &&
+      DateTime.now().difference(_lastMealStatusFetchedAt!).inMinutes < 15;
+
+  bool _isSubStatusFresh() =>
+      _lastSubStatusFetchedAt != null &&
+      DateTime.now().difference(_lastSubStatusFetchedAt!).inMinutes < 30;
+
+  bool _isAlertsFresh() =>
+      _lastAlertsFetchedAt != null &&
+      DateTime.now().difference(_lastAlertsFetchedAt!).inMinutes < 30;
 
   Future<void> _loadCachedData() async {
     try {
@@ -191,7 +208,10 @@ class MealProvider with ChangeNotifier {
 
   // ─── Meal Remaining Status ────────────────────────────────────────────────
 
-  Future<void> fetchMealStatus({bool silent = false}) async {
+  Future<void> fetchMealStatus({bool silent = false, bool force = false}) async {
+    // Skip if fresh data is already loaded and caller is not forcing a refresh
+    if (!force && _isMealStatusFresh()) return;
+
     if (!silent) {
       if (_mealStatus.isEmpty) {
         _isLoading = true;
@@ -200,6 +220,7 @@ class MealProvider with ChangeNotifier {
     }
     try {
       _mealStatus = await _repository.fetchMealStatus();
+      _lastMealStatusFetchedAt = DateTime.now();
       await CacheStore.setJson('meal_status', _mealStatus, ttl: const Duration(hours: 6));
     } catch (e) {
       _error = ErrorHandler.getErrorMessage(e);
@@ -311,7 +332,10 @@ class MealProvider with ChangeNotifier {
 
   // ─── Subscription Status & Alerts ────────────────────────────────────────
 
-  Future<void> fetchSubscriptionStatus({bool silent = false}) async {
+  Future<void> fetchSubscriptionStatus({bool silent = false, bool force = false}) async {
+    // Skip if fresh data is already loaded
+    if (!force && _subscriptionStatusData != null && _isSubStatusFresh()) return;
+
     if (!silent && _subscriptionStatusData == null) {
       _isLoading = true;
       notifyListeners();
@@ -320,6 +344,7 @@ class MealProvider with ChangeNotifier {
       final raw = await _repository.fetchSubscriptionStatus();
       _subscriptionStatusData = SubscriptionStatusNormalizer.normalize(raw);
       _syncSubscribedFromStatusMap(_subscriptionStatusData!);
+      _lastSubStatusFetchedAt = DateTime.now();
       await CacheStore.setJson('subscription_status', _subscriptionStatusData, ttl: const Duration(hours: 6));
     } catch (e) {
       _error = ErrorHandler.getErrorMessage(e);
@@ -331,9 +356,13 @@ class MealProvider with ChangeNotifier {
     }
   }
 
-  Future<void> fetchAlerts({bool silent = false}) async {
+  Future<void> fetchAlerts({bool silent = false, bool force = false}) async {
+    // Skip if fresh data is already loaded
+    if (!force && _isAlertsFresh()) return;
+
     try {
       _alerts = await _repository.fetchSubscriptionAlerts();
+      _lastAlertsFetchedAt = DateTime.now();
       await CacheStore.setJson('meal_alerts', _alerts, ttl: const Duration(hours: 6));
       notifyListeners();
     } catch (e) {

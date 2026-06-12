@@ -15,10 +15,15 @@ class ReferralProvider with ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
   DateTime? _lastSeenTime;
+  DateTime? _lastRewardsFetchedAt;
 
   List<ReferralRewardModel> get rewards => _rewards;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+
+  bool _isRewardsFresh() =>
+      _lastRewardsFetchedAt != null &&
+      DateTime.now().difference(_lastRewardsFetchedAt!).inMinutes < 30;
 
   Future<void> _loadCachedRewards() async {
     try {
@@ -32,7 +37,10 @@ class ReferralProvider with ChangeNotifier {
     } catch (_) {}
   }
 
-  Future<void> fetchRewards() async {
+  Future<void> fetchRewards({bool force = false}) async {
+    // Skip API if data is fresh in memory
+    if (!force && _rewards.isNotEmpty && _isRewardsFresh()) return;
+
     if (_rewards.isEmpty) {
       _isLoading = true;
       _errorMessage = null;
@@ -41,6 +49,12 @@ class ReferralProvider with ChangeNotifier {
 
     try {
       _rewards = await _repository.getReferralRewards();
+      _lastRewardsFetchedAt = DateTime.now();
+      await CacheStore.setJson(
+        'referral_rewards',
+        _rewards.map((r) => r.toJson()).toList(),
+        ttl: const Duration(hours: 6),
+      );
       if (_lastSeenTime == null) {
         final prefs = await SharedPreferences.getInstance();
         final timeStr = prefs.getString('referral_rewards_last_seen');
