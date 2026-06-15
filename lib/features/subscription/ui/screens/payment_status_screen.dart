@@ -111,14 +111,24 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
 
     if (mounted && _currentStatus == 'PENDING' && !_pendingForceSyncAttempted && widget.txnId.isNotEmpty) {
       _pendingForceSyncAttempted = true;
+
       try {
         await context.read<PaymentProvider>().forceSyncPayment(widget.txnId);
         final synced = await context.read<PaymentProvider>().checkStatus(widget.txnId);
         if (mounted && synced != null) {
           setState(() => _statusData = synced);
         }
-      } catch (_) {
-        // Best-effort recovery for delayed webhook / redirect finalization.
+      } catch (e) {
+        // Check for session expiry first.
+        final session = mounted ? context.read<SessionProvider>() : null;
+        if (session != null && session.isExpired) {
+          _handle401Redirect(session.reason);
+          return;
+        }
+        // For other errors, show a user-facing message.
+        if (mounted) {
+          setState(() => _lastPollingError = 'Could not sync payment status. Please check your internet connection and try again.');
+        }
       }
     }
 
@@ -189,7 +199,14 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
         if (synced != null && mounted) {
           setState(() => _statusData = synced);
         }
-      } catch (_) {/* best-effort */}
+      } catch (e) {
+        // Check for session expiry.
+        if (session.isExpired) {
+          _handle401Redirect(session.reason);
+          return;
+        }
+        // Non-fatal: best-effort sync in the success handler.
+      }
     }
 
     if (session.isExpired) {
