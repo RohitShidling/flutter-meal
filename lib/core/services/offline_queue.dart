@@ -1,8 +1,6 @@
 import 'dart:convert';
 
-import 'package:shared_preferences/shared_preferences.dart';
-
-/// An item that permanently failed and cannot be replayed.
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 class DeadLetterItem {
   final String method;
   final String path;
@@ -63,13 +61,17 @@ class OfflineQueue {
 
   static const _queueKey = 'offline:queue:v1';
   static const _deadLetterKey = 'offline:dead_letter:v1';
+  static const _secureStorage = FlutterSecureStorage(
+    aOptions: AndroidOptions(
+      encryptedSharedPreferences: true,
+    ),
+  );
 
   /// Maximum retry count per item before it is moved to the dead-letter store.
   static const int maxRetries = 3;
 
   static Future<List<Map<String, dynamic>>> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_queueKey);
+    final raw = await _secureStorage.read(key: _queueKey);
     if (raw == null || raw.isEmpty) return <Map<String, dynamic>>[];
     try {
       final decoded = jsonDecode(raw);
@@ -81,15 +83,17 @@ class OfflineQueue {
   }
 
   static Future<void> _save(List<Map<String, dynamic>> items) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_queueKey, jsonEncode(items));
+    if (items.isEmpty) {
+      await _secureStorage.delete(key: _queueKey);
+    } else {
+      await _secureStorage.write(key: _queueKey, value: jsonEncode(items));
+    }
   }
 
   // ── Dead-letter store ──────────────────────────────────────────────────────
 
   static Future<List<DeadLetterItem>> loadDeadLetters() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_deadLetterKey);
+    final raw = await _secureStorage.read(key: _deadLetterKey);
     if (raw == null || raw.isEmpty) return [];
     try {
       final decoded = jsonDecode(raw);
@@ -104,8 +108,7 @@ class OfflineQueue {
   }
 
   static Future<void> _addToDeadLetter(Map<String, dynamic> item, int statusCode, String errorMessage) async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_deadLetterKey);
+    final raw = await _secureStorage.read(key: _deadLetterKey);
     List<dynamic> existing = [];
     if (raw != null && raw.isNotEmpty) {
       try {
@@ -122,13 +125,12 @@ class OfflineQueue {
       statusCode: statusCode,
       errorMessage: errorMessage,
     ).toJson());
-    await prefs.setString(_deadLetterKey, jsonEncode(existing));
+    await _secureStorage.write(key: _deadLetterKey, value: jsonEncode(existing));
   }
 
   /// Clear all dead-letter items (e.g. after user acknowledges them).
   static Future<void> clearDeadLetters() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_deadLetterKey);
+    await _secureStorage.delete(key: _deadLetterKey);
   }
 
   static Future<int> deadLetterCount() async {
@@ -136,14 +138,6 @@ class OfflineQueue {
     return items.length;
   }
 
-  // ── Queue operations ───────────────────────────────────────────────────────
-
-  /// Enqueue a request for later replay when online.
-  ///
-  /// Expected shape:
-  /// - method: GET|POST|PUT|PATCH|DELETE
-  /// - path: API path (e.g. /api/client/children)
-  /// - data: request body (optional)
   static Future<void> enqueue({
     required String method,
     required String path,
