@@ -493,9 +493,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 isDestructiveAction: true,
                 onPressed: () async {
                   Navigator.of(context).pop();
+                  OfflineCacheBootstrap.clearMemory(context);
                   await authProvider.logout();
                   if (!mounted) return;
-                  OfflineCacheBootstrap.clearMemory(context);
                   Navigator.of(context).popUntil((route) => route.isFirst);
                 },
                 child: const Text('Logout'),

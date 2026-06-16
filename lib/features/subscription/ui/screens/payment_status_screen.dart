@@ -20,6 +20,7 @@ import 'package:meal_app/core/utils/meal_date.dart';
 import 'package:meal_app/core/utils/time_utils.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:meal_app/core/utils/error_handler.dart';
+import 'package:meal_app/core/services/offline_cache_bootstrap.dart';
 
 class PaymentStatusScreen extends StatefulWidget {
   final String txnId;
@@ -167,6 +168,7 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
       ),
     );
     try {
+      OfflineCacheBootstrap.clearMemory(context);
       context.read<AuthProvider>().logout();
     } catch (_) {}
     context.read<SessionProvider>().acknowledge();

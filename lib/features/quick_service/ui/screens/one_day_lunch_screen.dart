@@ -9,6 +9,7 @@ import 'package:meal_app/features/quick_service/providers/quick_service_provider
 import 'package:meal_app/features/bulk_order/providers/bulk_order_provider.dart';
 import 'package:meal_app/features/bulk_order/ui/widgets/bulk_order_address_section.dart';
 import 'package:meal_app/features/quick_service/ui/widgets/quick_service_checkout.dart';
+import 'package:meal_app/core/utils/time_utils.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -230,7 +231,7 @@ class _OneDayLunchBody extends StatelessWidget {
     } else if (!todayCutoffOpen) {
       todaySubtitle = 'Order window closed';
     } else {
-      todaySubtitle = '₹${todayPrice.toStringAsFixed(0)} / meal · order before $cutoff';
+      todaySubtitle = '₹${todayPrice.toStringAsFixed(0)} / meal · order before ${TimeUtils.formatToDisplay(cutoff)}';
     }
 
     final nextDaySubtitle = tomorrowSunday
@@ -385,20 +386,23 @@ class _MenuCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (menu?['image_url'] != null)
-            CachedNetworkImage(
-              imageUrl: menu!['image_url'].toString(),
-              height: 150,
-              width: double.infinity,
-              fit: BoxFit.cover,
-              placeholder: (_, __) => const SizedBox(
+            ColoredBox(
+              color: isDark ? AppTheme.surfaceDark : const Color(0xFFF7F2EA),
+              child: CachedNetworkImage(
+                imageUrl: menu!['image_url'].toString(),
                 height: 150,
                 width: double.infinity,
-                child: Center(child: CupertinoActivityIndicator()),
-              ),
-              errorWidget: (_, __, ___) => const SizedBox(
-                height: 150,
-                width: double.infinity,
-                child: Center(child: Icon(CupertinoIcons.photo, color: Colors.grey)),
+                fit: BoxFit.contain,
+                placeholder: (_, __) => const SizedBox(
+                  height: 150,
+                  width: double.infinity,
+                  child: Center(child: CupertinoActivityIndicator()),
+                ),
+                errorWidget: (_, __, ___) => const SizedBox(
+                  height: 150,
+                  width: double.infinity,
+                  child: Center(child: Icon(CupertinoIcons.photo, color: Colors.grey)),
+                ),
               ),
             ),
           Padding(

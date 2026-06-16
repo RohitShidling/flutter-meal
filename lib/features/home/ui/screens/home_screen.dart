@@ -222,7 +222,7 @@ class _HomeScreenState extends State<HomeScreen> {
               if (!mounted) return;
               await Future.wait([
                 context.read<HomepageProvider>().fetchHomepageEntries(force: true, silent: true),
-                context.read<MenuProvider>().fetchTodayMenu(silent: true),
+                context.read<MenuProvider>().fetchTodayMenu(force: true, silent: true),
                 context.read<CartProvider>().fetchCart(force: true, silent: true),
                 context.read<AuthProvider>().refreshMeProfile(
                   silent: true,
