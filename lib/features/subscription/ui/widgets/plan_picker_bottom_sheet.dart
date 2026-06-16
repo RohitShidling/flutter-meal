@@ -10,6 +10,8 @@ import 'package:meal_app/core/utils/error_handler.dart';
 import 'package:meal_app/core/utils/money_format.dart';
 import 'package:meal_app/core/widgets/app_skeleton.dart';
 import 'package:meal_app/features/subscription/ui/widgets/plan_features_row.dart';
+import 'package:meal_app/features/profile/providers/profile_provider.dart';
+import 'package:meal_app/features/children/providers/children_provider.dart';
 
 /// Bottom-sheet plan picker: regular plans first, then trial; with/without Saturday per plan.
 class PlanPickerBottomSheet {
@@ -79,11 +81,41 @@ class _PlanPickerSheetState extends State<_PlanPickerSheet> {
     return plan.durationDaysWithoutSaturday ?? plan.durationDays;
   }
 
+  double _getExtraAmount() {
+    final lookup = context.read<LookupProvider>();
+    if (widget.entityType == 'child') {
+      final childrenProvider = context.read<ChildrenProvider>();
+      final child = childrenProvider.children.where((c) => c.id == widget.entityId).firstOrNull;
+      if (child != null) {
+        final school = lookup.schools.where((s) => s.id == child.schoolId).firstOrNull;
+        return school?.extraAmount ?? 0.0;
+      }
+    } else if (widget.entityType == 'teacher') {
+      final profileProvider = context.read<ProfileProvider>();
+      final teacher = profileProvider.teacherProfile;
+      if (teacher != null && teacher.id == widget.entityId) {
+        final school = lookup.schools.where((s) => s.name == teacher.schoolCollegeName).firstOrNull;
+        return school?.extraAmount ?? 0.0;
+      }
+    } else if (widget.entityType == 'professional') {
+      final profileProvider = context.read<ProfileProvider>();
+      final professional = profileProvider.professionalProfile;
+      if (professional != null && professional.id == widget.entityId) {
+        final loc = lookup.corporateLocations.where((c) => c.id == professional.corporateLocationId).firstOrNull;
+        return loc?.extraAmount ?? 0.0;
+      }
+    }
+    return 0.0;
+  }
+
   Future<void> _addPlan(SubscriptionModel plan, bool includeSaturday) async {
     if (_adding) return;
     setState(() => _adding = true);
     final cart = context.read<CartProvider>();
     final priceStr = includeSaturday ? plan.priceWithSaturday : plan.priceWithoutSaturday;
+    final double extra = _getExtraAmount();
+    final double baseVal = MoneyFormat.parseAmount(priceStr);
+    final double finalVal = baseVal + extra;
     final ok = await cart.addItem(
       subscriptionId: plan.id,
       entityType: widget.entityType,
@@ -92,7 +124,7 @@ class _PlanPickerSheetState extends State<_PlanPickerSheet> {
       startDate: null,
       entityName: widget.entityName,
       planName: plan.planName,
-      unitPrice: MoneyFormat.parseAmount(priceStr),
+      unitPrice: finalVal,
       mealSizeId: plan.mealSizeId,
       mealSizeName: _mealSizeLabel(),
     );
@@ -367,6 +399,9 @@ class _PlanPickerSheetState extends State<_PlanPickerSheet> {
     final includeSaturday = variant.includeSaturday;
     final price = includeSaturday ? plan.priceWithSaturday : plan.priceWithoutSaturday;
     final days = _durationDays(plan, includeSaturday);
+    final double extra = _getExtraAmount();
+    final double baseVal = MoneyFormat.parseAmount(price);
+    final double finalVal = baseVal + extra;
     final inCart = context.watch<CartProvider>().hasExactCartItem(
           entityType: widget.entityType,
           entityId: widget.entityId,
@@ -456,7 +491,7 @@ class _PlanPickerSheetState extends State<_PlanPickerSheet> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      '₹${MoneyFormat.display(price)}',
+                      '₹${MoneyFormat.display(baseVal.toStringAsFixed(2))}',
                       style: TextStyle(
                         fontWeight: FontWeight.w900,
                         fontSize: 18,
@@ -464,6 +499,19 @@ class _PlanPickerSheetState extends State<_PlanPickerSheet> {
                         letterSpacing: -0.5,
                       ),
                     ),
+                    if (extra != 0.0) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        extra > 0
+                            ? '+₹${MoneyFormat.display(extra.toStringAsFixed(2))} Surcharge'
+                            : '-₹${MoneyFormat.display(extra.abs().toStringAsFixed(2))} Discount',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          color: extra > 0 ? AppTheme.primaryColor : const Color(0xFF22C55E),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),

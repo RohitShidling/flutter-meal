@@ -18,6 +18,9 @@ import 'package:meal_app/core/providers/payment_provider.dart';
 import 'package:meal_app/core/widgets/wallet_checkout_section.dart';
 import 'package:meal_app/core/services/network_status_service.dart';
 import 'package:meal_app/core/services/app_route_tracker.dart';
+import 'package:meal_app/features/profile/providers/profile_provider.dart';
+import 'package:meal_app/features/children/providers/children_provider.dart';
+import 'package:meal_app/core/providers/lookup_provider.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -37,6 +40,33 @@ class _CartScreenState extends State<CartScreen> {
   static double _parseMoney(dynamic value) {
     if (value == null) return 0;
     return double.tryParse(value.toString().replaceAll(',', '')) ?? 0;
+  }
+
+  double _getExtraAmount(CartItem item) {
+    final lookup = context.read<LookupProvider>();
+    if (item.entityType == 'child') {
+      final childrenProvider = context.read<ChildrenProvider>();
+      final child = childrenProvider.children.where((c) => c.id == item.entityId).firstOrNull;
+      if (child != null) {
+        final school = lookup.schools.where((s) => s.id == child.schoolId).firstOrNull;
+        return school?.extraAmount ?? 0.0;
+      }
+    } else if (item.entityType == 'teacher') {
+      final profileProvider = context.read<ProfileProvider>();
+      final teacher = profileProvider.teacherProfile;
+      if (teacher != null && teacher.id == item.entityId) {
+        final school = lookup.schools.where((s) => s.name == teacher.schoolCollegeName).firstOrNull;
+        return school?.extraAmount ?? 0.0;
+      }
+    } else if (item.entityType == 'professional') {
+      final profileProvider = context.read<ProfileProvider>();
+      final professional = profileProvider.professionalProfile;
+      if (professional != null && professional.id == item.entityId) {
+        final loc = lookup.corporateLocations.where((c) => c.id == professional.corporateLocationId).firstOrNull;
+        return loc?.extraAmount ?? 0.0;
+      }
+    }
+    return 0.0;
   }
 
   @override
@@ -162,7 +192,7 @@ class _CartScreenState extends State<CartScreen> {
                   children: [
                     Expanded(
                       child: RefreshIndicator(
-                        onRefresh: () => cartProvider.fetchCart(),
+                        onRefresh: () => cartProvider.fetchCart(force: true),
                         child: ListView.builder(
                           physics: const AlwaysScrollableScrollPhysics(),
                           padding: const EdgeInsets.all(20),
@@ -273,7 +303,23 @@ class _CartScreenState extends State<CartScreen> {
                     ],
                   ),
                 ),
-                Text('₹${item.unitPrice.toStringAsFixed(0)}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: isDark ? Colors.white : AppTheme.primaryColor)),
+                Builder(
+                  builder: (ctx) {
+                    final extra = _getExtraAmount(item);
+                    final basePrice = item.unitPrice - extra;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text('₹${basePrice.toStringAsFixed(0)}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: isDark ? Colors.white : AppTheme.primaryColor)),
+                        if (extra > 0)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text('+₹${extra.toStringAsFixed(0)} Surcharge', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppTheme.primaryColor)),
+                          ),
+                      ],
+                    );
+                  },
+                ),
               ],
             ),
             const Divider(height: 24),

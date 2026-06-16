@@ -80,4 +80,11 @@ class SubscriptionProvider with ChangeNotifier {
       notifyListeners();
     }
   }
+
+  void clearState() {
+    _subscriptions = [];
+    _lastFetchedAt = null;
+    _error = null;
+    notifyListeners();
+  }
 }

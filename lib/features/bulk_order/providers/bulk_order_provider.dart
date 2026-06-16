@@ -838,4 +838,26 @@ class BulkOrderProvider with ChangeNotifier {
     _error = null;
     notifyListeners();
   }
+
+  void clearState() {
+    _loading = false;
+    _error = null;
+    _config = null;
+    _deliveryMenu = null;
+    _varietyMenus = [];
+    _varietyCategories = [];
+    _categoryMeals = [];
+    _varietyQty.clear();
+    _varietyMealCatalog.clear();
+    _mealCategoryNames.clear();
+    _deliveryAddress = null;
+    _savedAddresses = [];
+    _standardQty = null;
+    _standardDeliveryDate = null;
+    _lastQuote = null;
+    _lastConfigFetchTime = null;
+    _lastCategoriesFetchTime = null;
+    _lastMealsFetchTime.clear();
+    notifyListeners();
+  }
 }

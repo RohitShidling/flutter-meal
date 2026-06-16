@@ -80,4 +80,12 @@ class HomepageProvider with ChangeNotifier {
       }
     }
   }
+
+  void clearState() {
+    _entries = [];
+    _lastFetchedAt = null;
+    _hasInitiallyLoaded = false;
+    _errorMessage = '';
+    notifyListeners();
+  }
 }

@@ -228,4 +228,11 @@ class ChildrenProvider with ChangeNotifier {
       notifyListeners();
     }
   }
+
+  void clearState() {
+    _children = [];
+    _lastFetchedAt = null;
+    _error = null;
+    notifyListeners();
+  }
 }

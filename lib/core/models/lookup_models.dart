@@ -8,6 +8,7 @@ class SchoolModel {
   final String state;
   final bool hasLunchBoxPickup;
   final String? lunchBoxPickupTime;
+  final double extraAmount;
 
   SchoolModel({
     required this.id,
@@ -17,6 +18,7 @@ class SchoolModel {
     required this.state,
     this.hasLunchBoxPickup = false,
     this.lunchBoxPickupTime,
+    this.extraAmount = 0.0,
   });
 
   factory SchoolModel.fromJson(Map<String, dynamic> json) {
@@ -28,6 +30,7 @@ class SchoolModel {
       state: json['state'] ?? '',
       hasLunchBoxPickup: json['has_lunch_box_pickup'] ?? false,
       lunchBoxPickupTime: json['lunch_box_pickup_time'],
+      extraAmount: double.tryParse('${json['extra_amount'] ?? 0.0}') ?? 0.0,
     );
   }
 
@@ -40,6 +43,7 @@ class SchoolModel {
       'state': state,
       'has_lunch_box_pickup': hasLunchBoxPickup,
       'lunch_box_pickup_time': lunchBoxPickupTime,
+      'extra_amount': extraAmount,
     };
   }
 }
@@ -122,6 +126,7 @@ class CorporateLocationModel {
   final String address;
   final String city;
   final String state;
+  final double extraAmount;
 
   CorporateLocationModel({
     required this.id,
@@ -129,6 +134,7 @@ class CorporateLocationModel {
     required this.address,
     required this.city,
     required this.state,
+    this.extraAmount = 0.0,
   });
 
   factory CorporateLocationModel.fromJson(Map<String, dynamic> json) {
@@ -138,6 +144,7 @@ class CorporateLocationModel {
       address: json['address'] ?? '',
       city: json['city'] ?? '',
       state: json['state'] ?? '',
+      extraAmount: double.tryParse('${json['extra_amount'] ?? 0.0}') ?? 0.0,
     );
   }
 
@@ -148,6 +155,7 @@ class CorporateLocationModel {
       'address': address,
       'city': city,
       'state': state,
+      'extra_amount': extraAmount,
     };
   }
 }

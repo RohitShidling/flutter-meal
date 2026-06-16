@@ -313,4 +313,17 @@ class MenuProvider with ChangeNotifier {
       notifyListeners();
     }
   }
+
+  void clearState() {
+    _isSubscribed = false;
+    _todayMenu = null;
+    _weeklyMenu = [];
+    _subscriptionSummary = [];
+    _homeMealMessage = null;
+    _lastWeeklyFetchedAt = null;
+    _lastTodayFetchedAt = null;
+    _hasInitiallyLoaded = false;
+    _error = null;
+    notifyListeners();
+  }
 }

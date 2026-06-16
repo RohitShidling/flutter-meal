@@ -825,38 +825,6 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
     final mealProvider = context.read<MealProvider>();
     final messenger = ScaffoldMessenger.of(context);
 
-    // Build entity list
-    final List<Map<String, String>> entities = [];
-    for (final child in childrenProvider.children) {
-      entities.add({'type': 'child', 'id': child.id!, 'name': child.name});
-    }
-    if (profileProvider.teacherProfile != null) {
-      entities.add({
-        'type': 'teacher',
-        'id': profileProvider.teacherProfile!.id!,
-        'name': profileProvider.teacherProfile!.name,
-      });
-    }
-    if (profileProvider.professionalProfile != null) {
-      entities.add({
-        'type': 'professional',
-        'id': profileProvider.professionalProfile!.id!,
-        'name': profileProvider.professionalProfile!.name,
-      });
-    }
-
-    if (entities.isEmpty) {
-      ErrorHandler.showError(context, 'No active profiles found. Create a profile first.');
-      return;
-    }
-
-    String? selectedEntity;
-    DateTimeRange? selectedRange;
-    String? sheetError;
-    bool isSubmitting = false;
-    final minSkipDays = int.tryParse(mealProvider.skipPolicy['min_skip_days']?.toString() ?? '') ?? 3;
-    final minNoticeDays = int.tryParse(mealProvider.skipPolicy['min_notice_days']?.toString() ?? '') ?? 1;
-
     int resolveEntityRemainingMeals(String entityKey) {
       final parsed = parseMealSkipEntityKey(entityKey);
       if (parsed == null) return 0;
@@ -871,6 +839,45 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
       }
       return total;
     }
+
+    // Build entity list
+    final List<Map<String, String>> entities = [];
+    for (final child in childrenProvider.children) {
+      if (resolveEntityRemainingMeals('child_${child.id}') > 0) {
+        entities.add({'type': 'child', 'id': child.id!, 'name': child.name});
+      }
+    }
+    if (profileProvider.teacherProfile != null) {
+      if (resolveEntityRemainingMeals('teacher_${profileProvider.teacherProfile!.id}') > 0) {
+        entities.add({
+          'type': 'teacher',
+          'id': profileProvider.teacherProfile!.id!,
+          'name': profileProvider.teacherProfile!.name,
+        });
+      }
+    }
+    if (profileProvider.professionalProfile != null) {
+      if (resolveEntityRemainingMeals('professional_${profileProvider.professionalProfile!.id}') > 0) {
+        entities.add({
+          'type': 'professional',
+          'id': profileProvider.professionalProfile!.id!,
+          'name': profileProvider.professionalProfile!.name,
+        });
+      }
+    }
+
+    if (entities.isEmpty) {
+      ErrorHandler.showError(context, 'No active subscriptions found. Create or renew a subscription first.');
+      return;
+    }
+
+    String? selectedEntity;
+    DateTimeRange? selectedRange;
+    String? sheetError;
+    bool isSubmitting = false;
+    int skipType = 0; // 0 for single day, 1 for multiple days
+    final minSkipDays = int.tryParse(mealProvider.skipPolicy['min_skip_days']?.toString() ?? '') ?? 3;
+    final minNoticeDays = int.tryParse(mealProvider.skipPolicy['min_notice_days']?.toString() ?? '') ?? 1;
 
     bool resolveEntityIncludesSaturday(String entityKey) {
       final parsed = parseMealSkipEntityKey(entityKey);
@@ -977,9 +984,64 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
                     ),
                     const SizedBox(height: 20),
 
+                    // Skip Type Toggle
+                    Text(
+                      'Skip Duration',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: CupertinoSlidingSegmentedControl<int>(
+                        groupValue: skipType,
+                        children: {
+                          0: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            child: Text(
+                              'Single Day',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: skipType == 0 ? FontWeight.w700 : FontWeight.w500,
+                                color: skipType == 0 
+                                    ? (isDark ? Colors.white : AppTheme.textPrimaryLight)
+                                    : (isDark ? Colors.white54 : AppTheme.textSecondaryLight),
+                              ),
+                            ),
+                          ),
+                          1: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            child: Text(
+                              'Multiple Days',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: skipType == 1 ? FontWeight.w700 : FontWeight.w500,
+                                color: skipType == 1 
+                                    ? (isDark ? Colors.white : AppTheme.textPrimaryLight)
+                                    : (isDark ? Colors.white54 : AppTheme.textSecondaryLight),
+                              ),
+                            ),
+                          ),
+                        },
+                        onValueChanged: (val) {
+                          if (val != null) {
+                            setSheetState(() {
+                              skipType = val;
+                              selectedRange = null;
+                            });
+                          }
+                        },
+                        backgroundColor: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.shade100,
+                        thumbColor: isDark ? const Color(0xFF333333) : Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
                     // Date range picker
                     Text(
-                      'Skip Dates',
+                      skipType == 0 ? 'Skip Date' : 'Skip Dates',
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
                         color: isDark ? Colors.white : AppTheme.textPrimaryLight,
@@ -1004,29 +1066,54 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
                               // We'll allow up to 90 calendar days as a generous upper bound
                               final lastDate = tomorrow.add(const Duration(days: 90));
 
-                              final range = await showDateRangePicker(
-                                context: sheetCtx,
-                                firstDate: tomorrow,
-                                lastDate: lastDate,
-                                helpText: 'Select skip range (min $minSkipDays days)',
-                                builder: (context, child) {
-                                  return Theme(
-                                    data: Theme.of(context).copyWith(
-                                      colorScheme: Theme.of(context).colorScheme.copyWith(
-                                            primary: AppTheme.primaryColor,
-                                          ),
-                                    ),
-                                    child: child!,
-                                  );
-                                },
-                              );
+                              DateTimeRange? range;
+
+                              if (skipType == 0) {
+                                final date = await showDatePicker(
+                                  context: sheetCtx,
+                                  initialDate: tomorrow,
+                                  firstDate: tomorrow,
+                                  lastDate: lastDate,
+                                  helpText: 'Select skip date',
+                                  builder: (context, child) {
+                                    return Theme(
+                                      data: Theme.of(context).copyWith(
+                                        colorScheme: Theme.of(context).colorScheme.copyWith(
+                                              primary: AppTheme.primaryColor,
+                                            ),
+                                      ),
+                                      child: child!,
+                                    );
+                                  },
+                                );
+                                if (date != null) {
+                                  range = DateTimeRange(start: date, end: date);
+                                }
+                              } else {
+                                range = await showDateRangePicker(
+                                  context: sheetCtx,
+                                  firstDate: tomorrow,
+                                  lastDate: lastDate,
+                                  helpText: 'Select skip range (min $minSkipDays days)',
+                                  builder: (context, child) {
+                                    return Theme(
+                                      data: Theme.of(context).copyWith(
+                                        colorScheme: Theme.of(context).colorScheme.copyWith(
+                                              primary: AppTheme.primaryColor,
+                                            ),
+                                      ),
+                                      child: child!,
+                                    );
+                                  },
+                                );
+                              }
 
                               if (range == null) return;
 
                               final mealDays = _countSkippableMealDays(range.start, range.end, includeSat);
-                              if (mealDays < minSkipDays) {
+                              if (skipType == 1 && mealDays < minSkipDays) {
                                 setSheetState(() => sheetError =
-                                    'Minimum $minSkipDays meal days required. Selected range has only $mealDays meal day(s).');
+                                    'Minimum $minSkipDays meal days required for multiple days skip. Selected range has only $mealDays meal day(s).');
                                 return;
                               }
 
@@ -1086,7 +1173,9 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
                                   const SizedBox(height: 2),
                                   Text(
                                     selectedRange != null
-                                        ? '${DateFormat('dd MMM').format(selectedRange!.start)} – ${DateFormat('dd MMM yyyy').format(selectedRange!.end)}'
+                                        ? (skipType == 0
+                                            ? DateFormat('dd MMM yyyy').format(selectedRange!.start)
+                                            : '${DateFormat('dd MMM').format(selectedRange!.start)} – ${DateFormat('dd MMM yyyy').format(selectedRange!.end)}')
                                         : (selectedEntity == null ? 'Select a profile first' : 'Tap to choose dates'),
                                     style: TextStyle(
                                       color: selectedRange != null

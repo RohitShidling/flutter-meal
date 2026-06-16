@@ -7,6 +7,7 @@ import 'package:meal_app/core/theme/app_theme.dart';
 import 'package:meal_app/core/providers/theme_provider.dart';
 import 'package:meal_app/features/auth/providers/auth_provider.dart';
 import 'package:meal_app/features/subscription/ui/screens/subscription_management_screen.dart';
+import 'package:meal_app/core/services/offline_cache_bootstrap.dart';
 import 'package:meal_app/features/subscription/ui/screens/cart_screen.dart';
 import 'package:meal_app/features/subscription/ui/screens/meal_size_upgrade_screen.dart';
 import 'package:meal_app/features/subscription/ui/screens/wallet_screen.dart';
@@ -494,6 +495,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Navigator.of(context).pop();
                   await authProvider.logout();
                   if (!mounted) return;
+                  OfflineCacheBootstrap.clearMemory(context);
                   Navigator.of(context).popUntil((route) => route.isFirst);
                 },
                 child: const Text('Logout'),

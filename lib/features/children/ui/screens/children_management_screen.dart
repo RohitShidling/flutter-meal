@@ -129,7 +129,7 @@ class _ChildrenManagementScreenState extends State<ChildrenManagementScreen> {
                 child: RefreshIndicator(
                   onRefresh: () async {
                     await Future.wait([
-                      childrenProvider.fetchChildren(),
+                      childrenProvider.fetchChildren(force: true),
                       context.read<LookupProvider>().fetchInitialData(force: true),
                     ]);
                   },

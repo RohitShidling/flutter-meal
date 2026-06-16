@@ -390,4 +390,21 @@ class QuickServiceProvider with ChangeNotifier {
       'error': sdkResult['error']?.toString(),
     };
   }
+
+  void clearState() {
+    _loading = false;
+    _error = null;
+    _oneDayConfig = null;
+    _todayMenu = null;
+    _categories = [];
+    _items = [];
+    _cartQty.clear();
+    _itemCache.clear();
+    _categoryItemsMemoryCache.clear();
+    _address = null;
+    _lastConfigFetchedAt = null;
+    _lastCategoriesFetchedAt = null;
+    _lastItemsFetchedAt.clear();
+    notifyListeners();
+  }
 }

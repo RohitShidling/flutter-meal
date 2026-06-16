@@ -7,8 +7,12 @@ import 'package:meal_app/core/providers/meal_provider.dart';
 import 'package:meal_app/features/auth/providers/auth_provider.dart';
 import 'package:meal_app/features/home/providers/homepage_provider.dart';
 import 'package:meal_app/features/home/providers/menu_provider.dart';
+import 'package:meal_app/features/children/providers/children_provider.dart';
+import 'package:meal_app/features/profile/providers/profile_provider.dart';
+import 'package:meal_app/core/providers/subscription_provider.dart';
+import 'package:meal_app/features/bulk_order/providers/bulk_order_provider.dart';
+import 'package:meal_app/features/quick_service/providers/quick_service_provider.dart';
 import 'package:meal_app/core/services/network_status_service.dart';
-
 /// Warms home-critical providers after login / cold start (minimal API set).
 class OfflineCacheBootstrap {
   OfflineCacheBootstrap._();
@@ -25,10 +29,6 @@ class OfflineCacheBootstrap {
       final menu = context.read<MenuProvider>();
 
       await context.read<AuthProvider>().refreshMeProfile(silent: true);
-
-      // Lookup data (schools, cities, standards, corporate locations) is only
-      // needed when the user opens a profile/form screen — each of those screens
-      // fetches it on demand. Fetching it here on every cold-start is wasteful.
       await Future.wait([
         meal.fetchSubscriptionStatus(silent: true),
         context.read<CartProvider>().fetchCart(silent: true),
@@ -47,5 +47,22 @@ class OfflineCacheBootstrap {
 
   static void resetSession() {
     _ranThisSession = false;
+  }
+
+  /// Clears in-memory state of critical providers. Call this on logout or account switch.
+  static void clearMemory(BuildContext context) {
+    try {
+      context.read<ChildrenProvider>().clearState();
+      context.read<ProfileProvider>().clearState();
+      context.read<MealProvider>().clearState();
+      context.read<CartProvider>().resetLocal();
+      context.read<SubscriptionProvider>().clearState();
+      context.read<MenuProvider>().clearState();
+      context.read<HomepageProvider>().clearState();
+      context.read<BulkOrderProvider>().clearState();
+      context.read<QuickServiceProvider>().clearState();
+    } catch (_) {
+      // Best effort memory clearing
+    }
   }
 }

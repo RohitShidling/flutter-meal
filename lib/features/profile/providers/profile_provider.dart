@@ -308,4 +308,13 @@ class ProfileProvider with ChangeNotifier {
       notifyListeners();
     }
   }
+
+  void clearState() {
+    _teacherProfile = null;
+    _professionalProfile = null;
+    _profileStatus = null;
+    _lastFetchedAt = null;
+    _error = null;
+    notifyListeners();
+  }
 }

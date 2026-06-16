@@ -3,12 +3,14 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 
 import 'package:meal_app/core/network/dio_client.dart';
 import 'package:meal_app/features/home/providers/menu_provider.dart';
 import 'package:meal_app/core/services/connectivity_service.dart';
 import 'package:meal_app/core/storage/secure_storage.dart';
 import 'package:meal_app/core/storage/local_cache.dart';
+import 'package:meal_app/core/services/offline_cache_bootstrap.dart';
 import 'package:meal_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:meal_app/features/auth/providers/auth_provider.dart';
 import 'package:meal_app/features/auth/ui/screens/login_screen.dart';
@@ -51,7 +53,8 @@ import 'package:meal_app/core/network/referral_repository.dart';
 import 'package:meal_app/features/profile/providers/referral_provider.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
   await dotenv.load(fileName: ".env");
   SystemChrome.setSystemUIOverlayStyle(
     AppTheme.overlayFor(background: AppTheme.pageBackgroundLight, isDark: false),
@@ -243,6 +246,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
     final reason = session.reason ?? 'Session expired. Please log in again.';
     try {
       await context.read<AuthProvider>().logout();
+      if (mounted) {
+        OfflineCacheBootstrap.clearMemory(context);
+      }
     } catch (_) {/* ignore */}
     if (!mounted) {
       _logoutInFlight = false;
@@ -283,9 +289,15 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
     final effectiveState = _lastResolvedState ?? authState;
 
+    if (effectiveState != AuthState.initial) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        FlutterNativeSplash.remove();
+      });
+    }
+
     switch (effectiveState) {
       case AuthState.initial:
-        // Lightweight shell — never block on network; theme follows system.
+        // Keep screen blank while native splash is preserved
         return Scaffold(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           body: const SizedBox.shrink(),

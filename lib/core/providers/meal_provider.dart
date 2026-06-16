@@ -401,4 +401,22 @@ class MealProvider with ChangeNotifier {
     _error = null;
     notifyListeners();
   }
+
+  void clearState() {
+    _isSubscribed = false;
+    _todayMenu = null;
+    _weeklyMenu = [];
+    _subscriptionSummary = [];
+    _mealStatus = [];
+    _skips = [];
+    _alerts = [];
+    _subscriptionStatusData = null;
+    _lastSkipsFetchedAt = null;
+    _lastSkipPolicyFetchedAt = null;
+    _lastMealStatusFetchedAt = null;
+    _lastSubStatusFetchedAt = null;
+    _lastAlertsFetchedAt = null;
+    _hasInitiallyLoaded = false;
+    notifyListeners();
+  }
 }
