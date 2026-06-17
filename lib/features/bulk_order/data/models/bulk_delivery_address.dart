@@ -33,13 +33,16 @@ class BulkDeliveryAddress {
         'stateId': stateId,
         'cityId': cityId,
         'address': addressLine,
-        if (pincode != null && pincode!.trim().isNotEmpty) 'pincode': pincode!.trim(),
-        if (deliveryTime != null && deliveryTime!.trim().isNotEmpty)
-          'deliveryTime': deliveryTime!.trim(),
-        if (phoneNumber != null && phoneNumber!.trim().isNotEmpty)
-          'phoneNumber': phoneNumber!.trim(),
-        if (altPhoneNumber != null && altPhoneNumber!.trim().isNotEmpty)
-          'altPhoneNumber': altPhoneNumber!.trim(),
+        'pincode': (pincode != null && pincode!.trim().isNotEmpty) ? pincode!.trim() : null,
+        'deliveryTime': (deliveryTime != null && deliveryTime!.trim().isNotEmpty)
+            ? deliveryTime!.trim()
+            : null,
+        'phoneNumber': (phoneNumber != null && phoneNumber!.trim().isNotEmpty)
+            ? phoneNumber!.trim()
+            : null,
+        'altPhoneNumber': (altPhoneNumber != null && altPhoneNumber!.trim().isNotEmpty)
+            ? altPhoneNumber!.trim()
+            : null,
       };
 
   String get formatted {
