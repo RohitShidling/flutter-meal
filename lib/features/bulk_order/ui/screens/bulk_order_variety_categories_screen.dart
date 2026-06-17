@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:meal_app/core/theme/app_theme.dart';
 import 'package:meal_app/features/bulk_order/data/models/bulk_variety_category.dart';
@@ -39,55 +40,53 @@ class _BulkOrderVarietyCategoriesScreenState extends State<BulkOrderVarietyCateg
         : categories.where((c) => c.id == _filterCategoryId).toList();
     final titleText = cfg?.varietyTierTitle?.isNotEmpty == true ? cfg!.varietyTierTitle! : 'Large event bulk';
 
-    return Scaffold(
-      backgroundColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
-      floatingActionButton: p.bulkCartTotalMeals > 0
-          ? FloatingActionButton.extended(
-              heroTag: 'variety_cart_fab',
-              onPressed: () => Navigator.push(
-                context,
-                CupertinoPageRoute(builder: (_) => const BulkOrderCartScreen()),
-              ),
-              icon: const Icon(CupertinoIcons.cart_fill),
-              label: Text('Cart (${p.bulkCartTotalMeals})', style: const TextStyle(fontWeight: FontWeight.w800)),
-            )
-          : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Custom Header with rounded bottom corners
-            Container(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              decoration: BoxDecoration(
-                color: isDark ? Colors.black26 : const Color(0xFFF3EBE0),
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
-              ),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(CupertinoIcons.back, color: Color(0xFF8B7A66)),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  Expanded(
-                    child: Text(
-                      titleText,
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                        color: isDark ? Colors.white : const Color(0xFF5A4D42),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 48),
-                ],
-              ),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: AppTheme.overlayFor(
+        background: AppTheme.primaryColor,
+        isDark: true,
+        navigationBarColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
+      ),
+      child: Scaffold(
+        backgroundColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
+        appBar: AppBar(
+          backgroundColor: AppTheme.primaryColor,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          centerTitle: true,
+          title: Text(
+            titleText,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
             ),
-            Expanded(
-              child: p.isLoading && p.varietyCategories.isEmpty
+          ),
+          leading: IconButton(
+            icon: const Icon(CupertinoIcons.back, color: Colors.white),
+            onPressed: () => Navigator.pop(context),
+          ),
+          systemOverlayStyle: AppTheme.overlayFor(
+            background: AppTheme.primaryColor,
+            isDark: true,
+            navigationBarColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
+          ),
+        ),
+        floatingActionButton: p.bulkCartTotalMeals > 0
+            ? FloatingActionButton.extended(
+                heroTag: 'variety_cart_fab',
+                onPressed: () => Navigator.push(
+                  context,
+                  CupertinoPageRoute(builder: (_) => const BulkOrderCartScreen()),
+                ),
+                icon: const Icon(CupertinoIcons.cart_fill),
+                label: Text('Cart (${p.bulkCartTotalMeals})', style: const TextStyle(fontWeight: FontWeight.w800)),
+              )
+            : null,
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+        body: SafeArea(
+          top: false,
+          child: p.isLoading && p.varietyCategories.isEmpty
+
                   ? const Center(child: CircularProgressIndicator())
                   : SingleChildScrollView(
                       padding: const EdgeInsets.all(20),
@@ -165,8 +164,6 @@ class _BulkOrderVarietyCategoriesScreenState extends State<BulkOrderVarietyCateg
                         ],
                       ),
                     ),
-            ),
-          ],
         ),
       ),
     );

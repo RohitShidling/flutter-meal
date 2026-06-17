@@ -38,58 +38,56 @@ class _SpecialDishesCartScreenState extends State<SpecialDishesCartScreen> {
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: AppTheme.overlayFor(
-        background: isDark ? AppTheme.surfaceDark : const Color(0xFFF3EBE0),
-        isDark: isDark,
+        background: AppTheme.primaryColor,
+        isDark: true,
         navigationBarColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
       ),
       child: Scaffold(
         backgroundColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
-        body: SafeArea(
-          child: Column(
-            children: [
-              // Custom Header
-              Container(
-                padding: const EdgeInsets.fromLTRB(8, 6, 16, 6),
-                decoration: BoxDecoration(
-                  color: isDark ? AppTheme.surfaceDark : const Color(0xFFF3EBE0),
-                ),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(CupertinoIcons.back, color: Color(0xFF8B7A66)),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  Expanded(
-                    child: Text(
-                      'Specials Cart',
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                        color: isDark ? Colors.white : const Color(0xFF5A4D42),
-                      ),
-                    ),
-                  ),
-                  if (hasItems)
-                    TextButton.icon(
-                      onPressed: () {
-                        p.clearCart();
-                        Navigator.pop(context);
-                      },
-                      icon: const Icon(CupertinoIcons.trash, color: Color(0xFF8B7A66), size: 16),
-                      label: const Text('Clear', style: TextStyle(color: Color(0xFF8B7A66))),
-                    )
-                  else
-                    const SizedBox(width: 48),
-                ],
-              ),
+        appBar: AppBar(
+          backgroundColor: AppTheme.primaryColor,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          centerTitle: true,
+          title: const Text(
+            'Specials Cart',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
             ),
-            Expanded(
-              child: !hasItems
-                  ? _buildEmptyCart(isDark)
-                  : Column(
+          ),
+          leading: IconButton(
+            icon: const Icon(CupertinoIcons.back, color: Colors.white),
+            onPressed: () => Navigator.pop(context),
+          ),
+          actions: [
+            if (hasItems)
+              TextButton(
+                onPressed: () {
+                  p.clearCart();
+                  Navigator.pop(context);
+                },
+                child: const Text(
+                  'Clear',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+          ],
+          systemOverlayStyle: AppTheme.overlayFor(
+            background: AppTheme.primaryColor,
+            isDark: true,
+            navigationBarColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
+          ),
+        ),
+        body: SafeArea(
+          top: false,
+          child: !hasItems
+              ? _buildEmptyCart(isDark)
+              : Column(
                       children: [
                         Expanded(
                           child: ListView(
@@ -224,11 +222,8 @@ class _SpecialDishesCartScreenState extends State<SpecialDishesCartScreen> {
                         ),
                       ],
                     ),
-            ),
-          ],
         ),
       ),
-    ),
     );
   }
 

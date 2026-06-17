@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:meal_app/core/theme/app_theme.dart';
 import 'package:meal_app/core/utils/error_handler.dart';
@@ -38,9 +39,27 @@ class _BulkOrderCartScreenState extends State<BulkOrderCartScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (cfg == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Bulk cart')),
-        body: const Center(child: CircularProgressIndicator()),
+      return AnnotatedRegion<SystemUiOverlayStyle>(
+        value: AppTheme.overlayFor(
+          background: AppTheme.primaryColor,
+          isDark: true,
+          navigationBarColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
+        ),
+        child: Scaffold(
+          appBar: AppBar(
+            backgroundColor: AppTheme.primaryColor,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            centerTitle: true,
+            title: const Text('Bulk Cart', style: TextStyle(fontWeight: FontWeight.w800, color: Colors.white)),
+            systemOverlayStyle: AppTheme.overlayFor(
+              background: AppTheme.primaryColor,
+              isDark: true,
+              navigationBarColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
+            ),
+          ),
+          body: const Center(child: CircularProgressIndicator()),
+        ),
       );
     }
 
@@ -49,53 +68,57 @@ class _BulkOrderCartScreenState extends State<BulkOrderCartScreen> {
     final isVariety = varietyLines.isNotEmpty;
     final isStandard = standardQty > 0;
 
-    return Scaffold(
-      backgroundColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Custom Header with rounded bottom corners
-            Container(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              decoration: BoxDecoration(
-                color: isDark ? Colors.black26 : const Color(0xFFF3EBE0),
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
-              ),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(CupertinoIcons.back, color: Color(0xFF8B7A66)),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  Expanded(
-                    child: Text(
-                      'Bulk Cart',
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                        color: isDark ? Colors.white : const Color(0xFF5A4D42),
-                      ),
-                    ),
-                  ),
-                  if (p.hasBulkCartItems)
-                    TextButton.icon(
-                      onPressed: () {
-                        p.clearBulkCart();
-                        Navigator.pop(context);
-                      },
-                      icon: const Icon(CupertinoIcons.trash, color: Color(0xFF8B7A66), size: 16),
-                      label: const Text('Clear', style: TextStyle(color: Color(0xFF8B7A66))),
-                    )
-                  else
-                    const SizedBox(width: 48),
-                ],
-              ),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: AppTheme.overlayFor(
+        background: AppTheme.primaryColor,
+        isDark: true,
+        navigationBarColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
+      ),
+      child: Scaffold(
+        backgroundColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
+        appBar: AppBar(
+          backgroundColor: AppTheme.primaryColor,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          centerTitle: true,
+          title: const Text(
+            'Bulk Cart',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
             ),
-            Expanded(
-              child: !p.hasBulkCartItems
+          ),
+          leading: IconButton(
+            icon: const Icon(CupertinoIcons.back, color: Colors.white),
+            onPressed: () => Navigator.pop(context),
+          ),
+          actions: [
+            if (p.hasBulkCartItems)
+              TextButton(
+                onPressed: () {
+                  p.clearBulkCart();
+                  Navigator.pop(context);
+                },
+                child: const Text(
+                  'Clear',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+          ],
+          systemOverlayStyle: AppTheme.overlayFor(
+            background: AppTheme.primaryColor,
+            isDark: true,
+            navigationBarColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
+          ),
+        ),
+        body: SafeArea(
+          top: false,
+          child: !p.hasBulkCartItems
+
                   ? _buildEmptyCart(isDark)
                   : Column(
                       children: [
@@ -190,8 +213,6 @@ class _BulkOrderCartScreenState extends State<BulkOrderCartScreen> {
                         ),
                       ],
                     ),
-            ),
-          ],
         ),
       ),
     );

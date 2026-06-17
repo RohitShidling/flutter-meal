@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:meal_app/core/theme/app_theme.dart';
@@ -171,19 +172,50 @@ class _CartScreenState extends State<CartScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final items = cartProvider.items;
 
-    return Scaffold(
-      backgroundColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
-      appBar: AppBar(
-        title: Text('Cart', style: TextStyle(fontWeight: FontWeight.w800, color: isDark ? Colors.white : AppTheme.textPrimaryLight)),
-        leading: IconButton(icon: const Icon(CupertinoIcons.back), onPressed: () => Navigator.pop(context)),
-        actions: [
-          if (items.isNotEmpty)
-            TextButton(
-              onPressed: () => _confirmClearCart(context, cartProvider),
-              child: Text('Clear All', style: TextStyle(color: Colors.red.shade400, fontWeight: FontWeight.w600)),
-            ),
-        ],
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: AppTheme.overlayFor(
+        background: AppTheme.primaryColor,
+        isDark: true,
+        navigationBarColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
       ),
+      child: Scaffold(
+        backgroundColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
+        appBar: AppBar(
+          backgroundColor: AppTheme.primaryColor,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          centerTitle: true,
+          title: const Text(
+            'Cart',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+            ),
+          ),
+          leading: IconButton(
+            icon: const Icon(CupertinoIcons.back, color: Colors.white),
+            onPressed: () => Navigator.pop(context),
+          ),
+          actions: [
+            if (items.isNotEmpty)
+              TextButton(
+                onPressed: () => _confirmClearCart(context, cartProvider),
+                child: const Text(
+                  'Clear All',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+          ],
+          systemOverlayStyle: AppTheme.overlayFor(
+            background: AppTheme.primaryColor,
+            isDark: true,
+            navigationBarColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
+          ),
+        ),
       body: cartProvider.isLoading && items.isEmpty
           ? const Center(child: CircularProgressIndicator())
           : items.isEmpty
@@ -223,6 +255,7 @@ class _CartScreenState extends State<CartScreen> {
                     _buildCheckoutBar(context, cartProvider, isDark),
                   ],
                 ),
+      ),
     );
   }
 

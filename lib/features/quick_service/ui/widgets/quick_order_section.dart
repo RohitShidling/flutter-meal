@@ -79,41 +79,43 @@ class _QuickOrderSectionState extends State<QuickOrderSection> {
             ],
           ),
           const SizedBox(height: 12),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: _OneDayLunchCard(
-                  isDark: isDark,
-                  cardBg: cardBg,
-                  borderColor: borderColor,
-                  todayPrice: todayPrice,
-                  nextDayPrice: nextDayPrice,
-                  cutoff: cutoff,
-                  enabled: true,
-                  onOrder: () {
-                    Navigator.push(
-                      context,
-                      CupertinoPageRoute(builder: (_) => const OneDayLunchScreen()),
-                    );
-                  },
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: _OneDayLunchCard(
+                    isDark: isDark,
+                    cardBg: cardBg,
+                    borderColor: borderColor,
+                    todayPrice: todayPrice,
+                    nextDayPrice: nextDayPrice,
+                    cutoff: cutoff,
+                    enabled: true,
+                    onOrder: () {
+                      Navigator.push(
+                        context,
+                        CupertinoPageRoute(builder: (_) => const OneDayLunchScreen()),
+                      );
+                    },
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _SpecialsCard(
-                  isDark: isDark,
-                  cardBg: cardBg,
-                  borderColor: borderColor,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      CupertinoPageRoute(builder: (_) => const SpecialDishesScreen()),
-                    );
-                  },
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _SpecialsCard(
+                    isDark: isDark,
+                    cardBg: cardBg,
+                    borderColor: borderColor,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        CupertinoPageRoute(builder: (_) => const SpecialDishesScreen()),
+                      );
+                    },
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -203,6 +205,7 @@ class _OneDayLunchCard extends StatelessWidget {
                   'Choose today or tomorrow, size, time, and address.',
                   style: TextStyle(fontSize: 11, height: 1.35, color: subtitleColor),
                 ),
+                const Spacer(),
                 const SizedBox(height: 16),
                 Container(
                   width: double.infinity,
@@ -303,6 +306,7 @@ class _SpecialsCard extends StatelessWidget {
                 'Special dishes with categories, prices & quantities.',
                 style: TextStyle(fontSize: 11, height: 1.35, color: subtitleColor),
               ),
+              const Spacer(),
               const SizedBox(height: 16),
               Container(
                 width: double.infinity,
