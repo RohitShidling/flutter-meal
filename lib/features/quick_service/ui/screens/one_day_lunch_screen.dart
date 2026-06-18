@@ -9,6 +9,7 @@ import 'package:meal_app/features/quick_service/providers/quick_service_provider
 import 'package:meal_app/features/bulk_order/providers/bulk_order_provider.dart';
 import 'package:meal_app/features/bulk_order/ui/widgets/bulk_order_address_section.dart';
 import 'package:meal_app/features/quick_service/ui/widgets/quick_service_checkout.dart';
+import 'package:meal_app/features/bulk_order/data/models/bulk_delivery_address.dart';
 import 'package:meal_app/core/utils/time_utils.dart';
 
 // ---------------------------------------------------------------------------
@@ -84,7 +85,24 @@ class _OneDayLunchScreenState extends State<OneDayLunchScreen> {
 
       if (!mounted) return;
       final addr = bulk.deliveryAddress;
-      if (addr != null) p.setAddress(addr);
+      if (addr != null) {
+        final addressWithoutTime = BulkDeliveryAddress(
+          id: addr.id,
+          label: addr.label,
+          stateId: addr.stateId,
+          cityId: addr.cityId,
+          addressLine: addr.addressLine,
+          pincode: addr.pincode,
+          stateName: addr.stateName,
+          cityName: addr.cityName,
+          isDefault: addr.isDefault,
+          deliveryTime: null,
+          phoneNumber: addr.phoneNumber,
+          altPhoneNumber: addr.altPhoneNumber,
+        );
+        bulk.setDeliveryAddress(addressWithoutTime);
+        p.setAddress(addressWithoutTime);
+      }
 
       final todayMenu = menu.todayMenu;
       p.setTodayMenu(todayMenu == null ? null : Map<String, dynamic>.from(todayMenu));

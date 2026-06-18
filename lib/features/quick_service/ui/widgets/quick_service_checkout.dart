@@ -7,6 +7,7 @@ import 'package:meal_app/core/utils/error_handler.dart';
 import 'package:meal_app/features/bulk_order/providers/bulk_order_provider.dart';
 import 'package:meal_app/features/bulk_order/ui/widgets/bulk_order_address_section.dart';
 import 'package:meal_app/features/quick_service/providers/quick_service_provider.dart';
+import 'package:meal_app/features/bulk_order/data/models/bulk_delivery_address.dart';
 import 'package:meal_app/features/subscription/ui/screens/payment_status_screen.dart';
 
 class QuickServiceCheckout {
@@ -40,6 +41,7 @@ class QuickServiceCheckout {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      useSafeArea: true,
       builder: (ctx) => const _OneDayLunchSheet(),
     );
     if (confirmed == null || !context.mounted) return;
@@ -61,8 +63,10 @@ class QuickServiceCheckout {
     String? deliveryTime,
     bool skipAddressPrompt = false,
   }) async {
-    await _hydrateSavedAddress(context);
-    if (!context.mounted) return;
+    if (!skipAddressPrompt) {
+      await _hydrateSavedAddress(context);
+      if (!context.mounted) return;
+    }
     final bulk = context.read<BulkOrderProvider>();
 
     int resolvedMealSizeId = mealSizeId ?? 0;
@@ -74,13 +78,17 @@ class QuickServiceCheckout {
 
     String resolvedDeliveryTime = deliveryTime ?? '';
     if (resolvedDeliveryTime.isEmpty) {
-      resolvedDeliveryTime = bulk.deliveryAddress?.deliveryTime ?? '12:30';
+      resolvedDeliveryTime = bulk.deliveryAddress?.deliveryTime ?? '';
     }
 
     if (skipAddressPrompt) {
       final err = bulk.validateDeliveryAddress(requireTime: true);
       if (err != null) {
         ErrorHandler.showError(context, err);
+        return;
+      }
+      if (resolvedDeliveryTime.isEmpty) {
+        ErrorHandler.showError(context, 'Select a delivery time.');
         return;
       }
       await _completeOneDayLunch(
@@ -97,6 +105,7 @@ class QuickServiceCheckout {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      useSafeArea: true,
       builder: (ctx) => _AddressSheet(
         title: deliveryType == 'today' ? 'Order for today' : 'Order for tomorrow',
         showDeliveryTime: true,
@@ -105,12 +114,22 @@ class QuickServiceCheckout {
     );
     if (confirmed != true || !context.mounted) return;
 
+    String finalDeliveryTime = deliveryTime ?? '';
+    if (finalDeliveryTime.isEmpty) {
+      finalDeliveryTime = bulk.deliveryAddress?.deliveryTime ?? '';
+    }
+
+    if (finalDeliveryTime.isEmpty) {
+      ErrorHandler.showError(context, 'Select a delivery time.');
+      return;
+    }
+
     await _completeOneDayLunch(
       context,
       deliveryType: deliveryType,
       quantity: quantity,
       mealSizeId: resolvedMealSizeId,
-      deliveryTime: resolvedDeliveryTime,
+      deliveryTime: finalDeliveryTime,
     );
   }
 
@@ -155,8 +174,10 @@ class QuickServiceCheckout {
     BuildContext context, {
     bool skipAddressPrompt = false,
   }) async {
-    await _hydrateSavedAddress(context);
-    if (!context.mounted) return;
+    if (!skipAddressPrompt) {
+      await _hydrateSavedAddress(context);
+      if (!context.mounted) return;
+    }
     final bulk = context.read<BulkOrderProvider>();
 
     if (skipAddressPrompt) {
@@ -173,6 +194,7 @@ class QuickServiceCheckout {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      useSafeArea: true,
       builder: (ctx) => _AddressSheet(
         title: 'Confirm delivery address',
         showDeliveryTime: true,
@@ -221,8 +243,22 @@ class QuickServiceCheckout {
 
     final address = backendAddress ?? bulk.deliveryAddress;
     if (address != null) {
-      bulk.setDeliveryAddress(address);
-      quick.setAddress(address);
+      final addressWithoutTime = BulkDeliveryAddress(
+        id: address.id,
+        label: address.label,
+        stateId: address.stateId,
+        cityId: address.cityId,
+        addressLine: address.addressLine,
+        pincode: address.pincode,
+        stateName: address.stateName,
+        cityName: address.cityName,
+        isDefault: address.isDefault,
+        deliveryTime: null,
+        phoneNumber: address.phoneNumber,
+        altPhoneNumber: address.altPhoneNumber,
+      );
+      bulk.setDeliveryAddress(addressWithoutTime);
+      quick.setAddress(addressWithoutTime);
     }
   }
 }
@@ -260,10 +296,6 @@ class _OneDayLunchSheetState extends State<_OneDayLunchSheet> {
     final sizes = context.read<LookupProvider>().mealSizes;
     final recommended = sizes.where((m) => m.displayName.toLowerCase().contains('medium')).firstOrNull;
     _mealSizeId = recommended?.id ?? (sizes.isNotEmpty ? sizes.first.id : null);
-    final savedTime = context.read<BulkOrderProvider>().deliveryAddress?.deliveryTime;
-    if (savedTime != null && savedTime.trim().isNotEmpty) {
-      _timeController.text = savedTime;
-    }
   }
 
   @override
@@ -283,14 +315,16 @@ class _OneDayLunchSheetState extends State<_OneDayLunchSheet> {
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottom),
-      child: Container(
-        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.92),
-        decoration: BoxDecoration(
-          color: isDark ? AppTheme.surfaceDark : Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(20, 14, 20, 20 + MediaQuery.paddingOf(context).bottom),
+      child: SafeArea(
+        top: false,
+        child: Container(
+          constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.92),
+          decoration: BoxDecoration(
+            color: isDark ? AppTheme.surfaceDark : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
@@ -406,6 +440,10 @@ class _OneDayLunchSheetState extends State<_OneDayLunchSheet> {
                       ErrorHandler.showError(context, err);
                       return;
                     }
+                    if (_timeController.text.trim().isEmpty) {
+                      ErrorHandler.showError(context, 'Select a delivery time.');
+                      return;
+                    }
                     final mealSizeId = _mealSizeId;
                     if (mealSizeId == null) {
                       ErrorHandler.showError(context, 'Select a meal size.');
@@ -428,6 +466,7 @@ class _OneDayLunchSheetState extends State<_OneDayLunchSheet> {
           ),
         ),
       ),
+    )
     );
   }
 
@@ -496,10 +535,6 @@ class _AddressSheetState extends State<_AddressSheet> {
   @override
   void initState() {
     super.initState();
-    final savedTime = context.read<BulkOrderProvider>().deliveryAddress?.deliveryTime;
-    if (savedTime != null && savedTime.trim().isNotEmpty) {
-      _timeController.text = savedTime;
-    }
   }
 
   @override
@@ -515,59 +550,88 @@ class _AddressSheetState extends State<_AddressSheet> {
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottom),
-      child: Container(
-        decoration: BoxDecoration(
-          color: isDark ? AppTheme.surfaceDark : Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade400,
-                  borderRadius: BorderRadius.circular(2),
+      child: SafeArea(
+        top: false,
+        child: Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * 0.9,
+          ),
+          decoration: BoxDecoration(
+            color: isDark ? AppTheme.surfaceDark : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 16),
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade400,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              widget.title,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Enter where we should deliver your order.',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-            ),
-            const SizedBox(height: 16),
-            BulkOrderAddressSection(
-              showDeliveryTime: widget.showDeliveryTime,
-              deliveryTimeController: widget.showDeliveryTime ? _timeController : null,
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 48,
-              child: ElevatedButton(
-                onPressed: () {
-                  final err = context.read<BulkOrderProvider>().validateDeliveryAddress(
-                    requireTime: widget.showDeliveryTime,
-                  );
-                  if (err != null) {
-                    ErrorHandler.showError(context, err);
-                    return;
-                  }
-                  widget.onConfirm();
-                },
-                child: const Text('Continue to payment', style: TextStyle(fontWeight: FontWeight.w800)),
+              const SizedBox(height: 14),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  widget.title,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 6),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  'Enter where we should deliver your order.',
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      BulkOrderAddressSection(
+                        showDeliveryTime: widget.showDeliveryTime,
+                        deliveryTimeController: widget.showDeliveryTime ? _timeController : null,
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                child: SizedBox(
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      final err = context.read<BulkOrderProvider>().validateDeliveryAddress(
+                        requireTime: widget.showDeliveryTime,
+                      );
+                      if (err != null) {
+                        ErrorHandler.showError(context, err);
+                        return;
+                      }
+                      if (widget.showDeliveryTime && _timeController.text.trim().isEmpty) {
+                        ErrorHandler.showError(context, 'Select a delivery time.');
+                        return;
+                      }
+                      widget.onConfirm();
+                    },
+                    child: const Text('Continue to payment', style: TextStyle(fontWeight: FontWeight.w800)),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

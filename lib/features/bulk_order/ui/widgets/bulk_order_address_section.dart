@@ -63,6 +63,7 @@ class _BulkOrderAddressSectionState extends State<BulkOrderAddressSection> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      useSafeArea: true,
       builder: (ctx) => _AddressFormSheet(
         existingAddress: address,
         showDeliveryTime: widget.showDeliveryTime,
@@ -70,9 +71,25 @@ class _BulkOrderAddressSectionState extends State<BulkOrderAddressSection> {
         onSaved: (saved) {
           // After saving, mark the new address as selected in the provider
           final provider = context.read<BulkOrderProvider>();
-          provider.setDeliveryAddress(saved);
           if (widget.showDeliveryTime) {
-            _deliveryTimeController.text = saved.deliveryTime ?? '';
+            final addressWithoutTime = BulkDeliveryAddress(
+              id: saved.id,
+              label: saved.label,
+              stateId: saved.stateId,
+              cityId: saved.cityId,
+              addressLine: saved.addressLine,
+              pincode: saved.pincode,
+              stateName: saved.stateName,
+              cityName: saved.cityName,
+              isDefault: saved.isDefault,
+              deliveryTime: null, // Force deliveryTime to be null/empty
+              phoneNumber: saved.phoneNumber,
+              altPhoneNumber: saved.altPhoneNumber,
+            );
+            provider.setDeliveryAddress(addressWithoutTime);
+            _deliveryTimeController.clear();
+          } else {
+            provider.setDeliveryAddress(saved);
           }
         },
       ),
@@ -108,13 +125,34 @@ class _BulkOrderAddressSectionState extends State<BulkOrderAddressSection> {
 
   Future<void> _selectAddress(BulkDeliveryAddress address) async {
     final provider = context.read<BulkOrderProvider>();
-    if (address.id != null) {
-      await provider.selectSavedDeliveryAddress(address.id!);
+    if (widget.showDeliveryTime) {
+      final addressWithoutTime = BulkDeliveryAddress(
+        id: address.id,
+        label: address.label,
+        stateId: address.stateId,
+        cityId: address.cityId,
+        addressLine: address.addressLine,
+        pincode: address.pincode,
+        stateName: address.stateName,
+        cityName: address.cityName,
+        isDefault: address.isDefault,
+        deliveryTime: null, // Force deliveryTime to be null/empty
+        phoneNumber: address.phoneNumber,
+        altPhoneNumber: address.altPhoneNumber,
+      );
+      if (address.id != null) {
+        await provider.selectSavedDeliveryAddress(address.id!);
+        provider.setDeliveryAddress(addressWithoutTime);
+      } else {
+        provider.setDeliveryAddress(addressWithoutTime);
+      }
+      _deliveryTimeController.clear();
     } else {
-      provider.setDeliveryAddress(address);
-    }
-    if (widget.showDeliveryTime && address.deliveryTime != null) {
-      _deliveryTimeController.text = address.deliveryTime!;
+      if (address.id != null) {
+        await provider.selectSavedDeliveryAddress(address.id!);
+      } else {
+        provider.setDeliveryAddress(address);
+      }
     }
   }
 
@@ -716,18 +754,20 @@ class _AddressFormSheetState extends State<_AddressFormSheet> {
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottom),
-      child: Container(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.9,
-        ),
-        decoration: BoxDecoration(
-          color: isDark ? AppTheme.surfaceDark : Colors.white,
-          borderRadius:
-              const BorderRadius.vertical(top: Radius.circular(28)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+      child: SafeArea(
+        top: false,
+        child: Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * 0.9,
+          ),
+          decoration: BoxDecoration(
+            color: isDark ? AppTheme.surfaceDark : Colors.white,
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
             // drag handle
             const SizedBox(height: 12),
             Center(
@@ -765,7 +805,7 @@ class _AddressFormSheetState extends State<_AddressFormSheet> {
             // form
             Flexible(
               child: SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(24, 0, 24, 24 + MediaQuery.paddingOf(context).bottom),
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -997,6 +1037,7 @@ class _AddressFormSheetState extends State<_AddressFormSheet> {
           ],
         ),
       ),
+    )
     );
   }
 }

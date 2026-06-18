@@ -164,6 +164,7 @@ class _SearchableDropdownState<T> extends State<SearchableDropdown<T>> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      useSafeArea: true,
       builder: (sheetContext) {
         return _ReactiveSearchSheet<T>(
           staticItems: widget.items,

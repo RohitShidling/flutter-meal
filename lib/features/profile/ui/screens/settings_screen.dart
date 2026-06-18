@@ -64,8 +64,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final showReferralBadge = referralProvider.hasUnclaimedRewards;
 
-    final pageBg = isDark ? AppTheme.backgroundDark : const Color(0xFFFAF8F5);
-    final navBarColor = isDark ? AppTheme.surfaceDark : Colors.white;
+    final pageBg = Theme.of(context).scaffoldBackgroundColor;
+    final navBarColor = isDark ? AppTheme.surfaceDark : pageBg;
 
     return PopScope(
       canPop: false,
@@ -78,11 +78,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Scaffold(
           backgroundColor: pageBg,
         appBar: AppBar(
-          backgroundColor: isDark ? AppTheme.surfaceDark : const Color(0xFFF3EBE0),
+          backgroundColor: Colors.transparent,
           systemOverlayStyle: AppTheme.overlayFor(
-            background: isDark ? AppTheme.surfaceDark : const Color(0xFFF3EBE0),
+            background: pageBg,
             isDark: isDark,
-            navigationBarColor: isDark ? AppTheme.surfaceDark : Colors.white,
+            navigationBarColor: navBarColor,
           ),
           elevation: 0,
           scrolledUnderElevation: 0,

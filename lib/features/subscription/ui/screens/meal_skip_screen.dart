@@ -101,8 +101,8 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
         mealProvider.mealStatus.isEmpty &&
         mealProvider.skips.isEmpty;
 
-    final pageBg = isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5);
-    final navBarColor = isDark ? AppTheme.surfaceDark : Colors.white;
+    final pageBg = Theme.of(context).scaffoldBackgroundColor;
+    final navBarColor = isDark ? AppTheme.surfaceDark : pageBg;
 
     return PopScope(
       canPop: false,
@@ -112,7 +112,7 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
       },
       child: AnnotatedRegion<SystemUiOverlayStyle>(
         value: AppTheme.overlayFor(
-          background: isDark ? AppTheme.surfaceDark : const Color(0xFFF3EBE0),
+          background: pageBg,
           isDark: isDark,
           navigationBarColor: navBarColor,
         ),
@@ -125,7 +125,7 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
             label: const Text('New Skip', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
           ),
           appBar: AppBar(
-            backgroundColor: isDark ? AppTheme.surfaceDark : const Color(0xFFF3EBE0),
+            backgroundColor: Colors.transparent,
             elevation: 0,
             scrolledUnderElevation: 0,
             centerTitle: true,
@@ -142,7 +142,7 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
               onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
             ),
             systemOverlayStyle: AppTheme.overlayFor(
-              background: isDark ? AppTheme.surfaceDark : const Color(0xFFF3EBE0),
+              background: pageBg,
               isDark: isDark,
               navigationBarColor: navBarColor,
             ),

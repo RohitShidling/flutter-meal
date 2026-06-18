@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   // Brand palette — matches meal-admin (`--accent-primary: #ff4d00`)
@@ -25,8 +26,8 @@ class AppTheme {
   static const Color segmentedBorderDark = Color(0xFF334155);
 
   /// Status bar + Android navigation bar colors matching the screen background.
-  /// Pure white for light-mode screens that must match Android system bars.
-  static const Color pageBackgroundLight = Color(0xFFFFFFFF);
+  /// Warm off-white/beige for light-mode screens.
+  static const Color pageBackgroundLight = Color(0xFFFAF8F5);
 
   static SystemUiOverlayStyle overlayFor({
     required Color background,
@@ -73,6 +74,9 @@ class AppTheme {
     required Color border,
   }) {
     final isDark = brightness == Brightness.dark;
+    final baseTextTheme = GoogleFonts.plusJakartaSansTextTheme(
+      isDark ? ThemeData.dark().textTheme : ThemeData.light().textTheme,
+    );
     
     return ThemeData(
       useMaterial3: true,
@@ -91,7 +95,7 @@ class AppTheme {
         backgroundColor: background,
         elevation: 0,
         centerTitle: false,
-        titleTextStyle: TextStyle(
+        titleTextStyle: GoogleFonts.plusJakartaSans(
           color: textPrimary,
           fontSize: 20,
           fontWeight: FontWeight.w800,
@@ -102,12 +106,12 @@ class AppTheme {
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
       ),
-      textTheme: TextTheme(
-        displayLarge: TextStyle(color: textPrimary, fontWeight: FontWeight.w900),
-        displayMedium: TextStyle(color: textPrimary, fontWeight: FontWeight.w800),
-        titleLarge: TextStyle(color: textPrimary, fontWeight: FontWeight.w700),
-        bodyLarge: TextStyle(color: textPrimary),
-        bodyMedium: TextStyle(color: textSecondary),
+      textTheme: baseTextTheme.copyWith(
+        displayLarge: baseTextTheme.displayLarge?.copyWith(color: textPrimary, fontWeight: FontWeight.w900),
+        displayMedium: baseTextTheme.displayMedium?.copyWith(color: textPrimary, fontWeight: FontWeight.w800),
+        titleLarge: baseTextTheme.titleLarge?.copyWith(color: textPrimary, fontWeight: FontWeight.w700),
+        bodyLarge: baseTextTheme.bodyLarge?.copyWith(color: textPrimary),
+        bodyMedium: baseTextTheme.bodyMedium?.copyWith(color: textSecondary),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -116,7 +120,7 @@ class AppTheme {
           elevation: 0,
           padding: const EdgeInsets.symmetric(vertical: 12),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          textStyle: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w700),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(

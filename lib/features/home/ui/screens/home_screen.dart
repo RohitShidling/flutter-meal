@@ -39,6 +39,7 @@ import 'package:meal_app/core/providers/announcement_provider.dart';
 import 'package:meal_app/features/quick_service/ui/widgets/quick_order_section.dart';
 import 'package:meal_app/features/quick_service/providers/quick_service_provider.dart';
 import 'package:meal_app/features/quick_service/ui/screens/special_dishes_cart_screen.dart';
+import 'package:meal_app/core/services/app_update_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -56,6 +57,8 @@ class _HomeScreenState extends State<HomeScreen> {
       _bootstrapHome();
       context.read<LookupProvider>().fetchContactUsInfo();
       context.read<AnnouncementProvider>().fetchAnnouncements(location: 'home', force: true);
+      // Check for app updates from Google Play (fire-and-forget).
+      AppUpdateService.checkForUpdate(context);
     });
   }
 
@@ -208,8 +211,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final lookupProvider = context.watch<LookupProvider>();
     final showAbout = lookupProvider.contactUsInfo?.aboutActive != false;
     
-    final pageBg = isDark ? AppTheme.backgroundDark : Colors.white;
-    final navBarColor = isDark ? AppTheme.surfaceDark : Colors.white;
+    final pageBg = Theme.of(context).scaffoldBackgroundColor;
+    final navBarColor = isDark ? AppTheme.surfaceDark : pageBg;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: AppTheme.overlayFor(background: pageBg, isDark: isDark, navigationBarColor: navBarColor),
       child: Scaffold(
@@ -868,12 +871,11 @@ class TodayMealCard extends StatelessWidget {
     final hasActive = statusData['has_active_subscription'] == true;
     final hasUpcoming = statusData['has_upcoming_subscription'] == true;
 
+    if (hasActive) return null;
+
     final Color bg;
     final String label;
-    if (hasActive) {
-      bg = const Color(0xFF10B981);
-      label = 'Your plan includes this';
-    } else if (hasUpcoming) {
+    if (hasUpcoming) {
       bg = const Color(0xFFD97706);
       label = 'Upcoming plan';
     } else {
@@ -1276,7 +1278,7 @@ class FeatureQuickLinks extends StatelessWidget {
       final name = (entry.entityName ?? '').trim().toLowerCase();
       final order = entry.displayOrder;
 
-      if (name == 'child' && !addedTypes.contains('child')) {
+      if ((name == 'child' || name == 'children') && !addedTypes.contains('child')) {
         addedTypes.add('child');
         orderedCards.add(MapEntry(
           order,
