@@ -298,7 +298,7 @@ class _OneDayLunchBody extends StatelessWidget {
               const SizedBox(height: 20),
 
               // ── Delivery address — single const widget, stays alive ───
-              const BulkOrderAddressSection(),
+              const BulkOrderAddressSection(showDeliveryTime: true),
               const SizedBox(height: 20),
 
               // ── Total ─────────────────────────────────────────────────

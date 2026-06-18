@@ -218,6 +218,8 @@ class _BulkOrderAddressSectionState extends State<BulkOrderAddressSection> {
                   deliveryTime: _deliveryTimeController.text.trim().isEmpty
                       ? null
                       : _deliveryTimeController.text.trim(),
+                  phoneNumber: selected.phoneNumber,
+                  altPhoneNumber: selected.altPhoneNumber,
                 );
                 context.read<BulkOrderProvider>().setDeliveryAddress(updated);
               },

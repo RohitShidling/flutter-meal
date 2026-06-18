@@ -10,6 +10,7 @@ import 'package:meal_app/features/bulk_order/providers/bulk_order_provider.dart'
 import 'package:meal_app/features/bulk_order/ui/screens/bulk_order_variety_categories_screen.dart';
 import 'package:meal_app/features/bulk_order/ui/widgets/bulk_order_checkout.dart';
 import 'package:meal_app/features/bulk_order/ui/widgets/bulk_order_payment_sheet.dart';
+import 'package:meal_app/features/bulk_order/ui/widgets/bulk_order_widgets.dart';
 
 /// Review bulk cart (standard + large variety) and pay with delivery details at checkout.
 class BulkOrderCartScreen extends StatefulWidget {
@@ -89,7 +90,7 @@ class _BulkOrderCartScreenState extends State<BulkOrderCartScreen> {
       value: AppTheme.overlayFor(
         background: isDark ? AppTheme.surfaceDark : const Color(0xFFF3EBE0),
         isDark: isDark,
-        navigationBarColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
+        navigationBarColor: isDark ? AppTheme.surfaceDark : Colors.white,
       ),
       child: Scaffold(
         backgroundColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
@@ -129,108 +130,104 @@ class _BulkOrderCartScreenState extends State<BulkOrderCartScreen> {
           systemOverlayStyle: AppTheme.overlayFor(
             background: isDark ? AppTheme.surfaceDark : const Color(0xFFF3EBE0),
             isDark: isDark,
-            navigationBarColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
+            navigationBarColor: isDark ? AppTheme.surfaceDark : Colors.white,
           ),
         ),
-        body: SafeArea(
-          top: false,
-          child: !p.hasBulkCartItems
-
-                  ? _buildEmptyCart(isDark)
-                  : Column(
+        body: !p.hasBulkCartItems
+            ? SafeArea(child: _buildEmptyCart(isDark))
+            : Column(
+                children: [
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.all(16),
                       children: [
-                        Expanded(
-                          child: ListView(
-                            padding: const EdgeInsets.all(16),
+                        if (isStandard) ...[
+                          _sectionHeader(
+                            context,
+                            'Standard Bulk',
+                            CupertinoIcons.person_3_fill,
+                            AppTheme.primaryColor,
+                          ),
+                          const SizedBox(height: 10),
+                          _StandardCartCard(
+                            menuName: p.deliveryMenu?.items ?? 'Daily menu',
+                            imageUrl: p.deliveryMenu?.imageUrl,
+                            quantity: standardQty,
+                            pricePerMeal: (p.deliveryMenu?.pricePerMeal != null &&
+                                    p.deliveryMenu!.pricePerMeal! > 0)
+                                ? p.deliveryMenu!.pricePerMeal!
+                                : cfg.pricePerMealUnderThreshold,
+                            isDark: isDark,
+                            deliveryDate: p.standardDeliveryDate,
+                            onIncrement: () => p.setStandardDraft(standardQty + 1),
+                            onDecrement: () {
+                              if (standardQty > 1) p.setStandardDraft(standardQty - 1);
+                            },
+                            onRemove: () => p.setStandardDraft(0),
+                          ),
+                          const SizedBox(height: 20),
+                        ],
+                        if (isVariety) ...[
+                          Row(
                             children: [
-                              if (isStandard) ...[
-                                _sectionHeader(
+                              Expanded(
+                                child: _sectionHeader(
                                   context,
-                                  'Standard Bulk',
-                                  CupertinoIcons.person_3_fill,
-                                  AppTheme.primaryColor,
+                                  'Large Event Bulk',
+                                  CupertinoIcons.square_stack_3d_up_fill,
+                                  Colors.deepOrange,
                                 ),
-                                const SizedBox(height: 10),
-                                _StandardCartCard(
-                                  menuName: p.deliveryMenu?.items ?? 'Daily menu',
-                                  imageUrl: p.deliveryMenu?.imageUrl,
-                                  quantity: standardQty,
-                                  pricePerMeal: (p.deliveryMenu?.pricePerMeal != null &&
-                                          p.deliveryMenu!.pricePerMeal! > 0)
-                                      ? p.deliveryMenu!.pricePerMeal!
-                                      : cfg.pricePerMealUnderThreshold,
-                                  isDark: isDark,
-                                  deliveryDate: p.standardDeliveryDate,
-                                  onIncrement: () => p.setStandardDraft(standardQty + 1),
-                                  onDecrement: () {
-                                    if (standardQty > 1) p.setStandardDraft(standardQty - 1);
-                                  },
-                                  onRemove: () => p.setStandardDraft(0),
+                              ),
+                              TextButton.icon(
+                                onPressed: () => Navigator.push(
+                                  context,
+                                  CupertinoPageRoute(
+                                    builder: (_) => const BulkOrderVarietyCategoriesScreen(),
+                                  ),
                                 ),
-                                const SizedBox(height: 20),
-                              ],
-                              if (isVariety) ...[
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: _sectionHeader(
-                                        context,
-                                        'Large Event Bulk',
-                                        CupertinoIcons.square_stack_3d_up_fill,
-                                        Colors.deepOrange,
-                                      ),
-                                    ),
-                                    TextButton.icon(
-                                      onPressed: () => Navigator.push(
-                                        context,
-                                        CupertinoPageRoute(
-                                          builder: (_) => const BulkOrderVarietyCategoriesScreen(),
-                                        ),
-                                      ),
-                                      icon: const Icon(CupertinoIcons.plus_circle, size: 16),
-                                      label: const Text('Add more'),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                ...varietyLines.map((e) {
-                                  final meal = p.mealById(e.key);
-                                  return Padding(
-                                    padding: const EdgeInsets.only(bottom: 10),
-                                    child: _VarietyCartCard(
-                                      mealName: meal?.items ?? e.key,
-                                      imageUrl: meal?.imageUrl,
-                                      categoryName: p.categoryNameForMeal(e.key),
-                                      quantity: e.value,
-                                      pricePerMeal: meal?.pricePerMeal,
-                                      isDark: isDark,
-                                      onIncrement: () => p.setVarietyQty(e.key, e.value + 1),
-                                      onDecrement: () {
-                                        if (e.value > 1) {
-                                          p.setVarietyQty(e.key, e.value - 1);
-                                        }
-                                      },
-                                      onRemove: () => p.setVarietyQty(e.key, 0),
-                                    ),
-                                  );
-                                }),
-                                const SizedBox(height: 8),
-                                _totalPortionsInfo(p.varietyLineSum, cfg.tierThreshold, isDark),
-                              ],
-                              const SizedBox(height: 16),
-                              _PriceSummary(provider: p, config: cfg, isDark: isDark),
+                                icon: const Icon(CupertinoIcons.plus_circle, size: 16),
+                                label: const Text('Add more'),
+                              ),
                             ],
                           ),
-                        ),
-                        _BottomPayBar(
-                          totalMeals: p.bulkCartTotalMeals,
-                          isLoading: p.isLoading,
-                          onPay: () => _startPay(p, cfg),
-                          isDark: isDark,
-                        ),
+                          const SizedBox(height: 10),
+                          ...varietyLines.map((e) {
+                            final meal = p.mealById(e.key);
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: _VarietyCartCard(
+                                mealName: meal?.items ?? e.key,
+                                imageUrl: meal?.imageUrl,
+                                categoryName: p.categoryNameForMeal(e.key),
+                                quantity: e.value,
+                                pricePerMeal: meal?.pricePerMeal,
+                                isDark: isDark,
+                                onIncrement: () => p.setVarietyQty(e.key, e.value + 1),
+                                onDecrement: () {
+                                  if (e.value > 1) {
+                                    p.setVarietyQty(e.key, e.value - 1);
+                                  }
+                                },
+                                onRemove: () => p.setVarietyQty(e.key, 0),
+                              ),
+                            );
+                          }),
+                          const SizedBox(height: 8),
+                          _totalPortionsInfo(p.varietyLineSum, cfg.tierThreshold, isDark),
+                        ],
+                        const SizedBox(height: 16),
+                        _PriceSummary(provider: p, config: cfg, isDark: isDark),
                       ],
                     ),
-        ),
+                  ),
+                  _BottomPayBar(
+                    totalMeals: p.bulkCartTotalMeals,
+                    isLoading: p.isLoading,
+                    onPay: () => _startPay(p, cfg),
+                    isDark: isDark,
+                  ),
+                ],
+              ),
       ),
     );
   }
@@ -469,7 +466,7 @@ class _StandardCartCard extends StatelessWidget {
               height: 90,
               child: imageUrl != null && imageUrl!.isNotEmpty
                   ? CachedNetworkImage(
-                      imageUrl: imageUrl!,
+                      imageUrl: getFullImageUrl(imageUrl!),
                       fit: BoxFit.contain,
                       placeholder: (_, __) => Container(
                         color: AppTheme.primaryColor.withValues(alpha: 0.08),
@@ -628,7 +625,7 @@ class _VarietyCartCard extends StatelessWidget {
               height: 80,
               child: imageUrl != null && imageUrl!.isNotEmpty
                   ? CachedNetworkImage(
-                      imageUrl: imageUrl!,
+                      imageUrl: getFullImageUrl(imageUrl!),
                       fit: BoxFit.contain,
                       placeholder: (_, __) => Container(
                         color: Colors.deepOrange.withValues(alpha: 0.06),

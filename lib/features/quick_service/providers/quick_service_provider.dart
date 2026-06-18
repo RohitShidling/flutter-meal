@@ -18,6 +18,10 @@ class QuickServiceProvider with ChangeNotifier {
       if (cachedConfig is Map<String, dynamic>) {
         _oneDayConfig = cachedConfig;
       }
+      final cachedSpecial = await CacheStore.getJson('special_dish_config');
+      if (cachedSpecial is Map<String, dynamic>) {
+        _specialConfig = cachedSpecial;
+      }
       final cachedCategories = await CacheStore.getJson('special_categories');
       if (cachedCategories is List) {
         _categories = cachedCategories;
@@ -33,13 +37,11 @@ class QuickServiceProvider with ChangeNotifier {
   String? get error => _error;
 
   // TTL guards
-  DateTime? _lastConfigFetchedAt;
+
   DateTime? _lastCategoriesFetchedAt;
   final Map<String, DateTime> _lastItemsFetchedAt = {};
 
-  bool _isConfigFresh() =>
-      _lastConfigFetchedAt != null &&
-      DateTime.now().difference(_lastConfigFetchedAt!).inHours < 6;
+
 
   bool _isCategoriesFresh() =>
       _lastCategoriesFetchedAt != null &&
@@ -52,6 +54,9 @@ class QuickServiceProvider with ChangeNotifier {
 
   Map<String, dynamic>? _oneDayConfig;
   Map<String, dynamic>? get oneDayConfig => _oneDayConfig;
+
+  Map<String, dynamic>? _specialConfig;
+  Map<String, dynamic>? get specialConfig => _specialConfig;
 
   Map<String, dynamic>? _todayMenu;
   Map<String, dynamic>? get todayMenu => _todayMenu;
@@ -103,6 +108,8 @@ class QuickServiceProvider with ChangeNotifier {
         stateName: data['state_name']?.toString() ?? data['stateName']?.toString(),
         cityName: data['city_name']?.toString() ?? data['cityName']?.toString(),
         deliveryTime: data['delivery_time']?.toString() ?? data['deliveryTime']?.toString(),
+        phoneNumber: data['phone_number']?.toString() ?? data['phoneNumber']?.toString(),
+        altPhoneNumber: data['alt_phone_number']?.toString() ?? data['altPhoneNumber']?.toString(),
       );
       if (address.isComplete) {
         _address = address;
@@ -114,9 +121,6 @@ class QuickServiceProvider with ChangeNotifier {
   }
 
   Future<void> loadOneDayConfig({bool force = false}) async {
-    // Skip API if data is fresh in memory
-    if (!force && _oneDayConfig != null && _isConfigFresh()) return;
-
     if (_oneDayConfig == null) {
       _loading = true;
       _error = null;
@@ -132,11 +136,38 @@ class QuickServiceProvider with ChangeNotifier {
 
     try {
       _oneDayConfig = await _repository.getOneDayLunchConfig();
-      _lastConfigFetchedAt = DateTime.now();
       await CacheStore.setJson('one_day_lunch_config', _oneDayConfig, ttl: const Duration(hours: 6));
       _error = null;
     } catch (e) {
       if (_oneDayConfig == null) {
+        _error = e.toString();
+      }
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadSpecialConfig({bool force = false}) async {
+    if (_specialConfig == null) {
+      _loading = true;
+      _error = null;
+      notifyListeners();
+      try {
+        final cached = await CacheStore.getJson('special_dish_config');
+        if (cached is Map<String, dynamic>) {
+          _specialConfig = cached;
+          notifyListeners();
+        }
+      } catch (_) {}
+    }
+
+    try {
+      _specialConfig = await _repository.getSpecialDishConfig();
+      await CacheStore.setJson('special_dish_config', _specialConfig, ttl: const Duration(hours: 6));
+      _error = null;
+    } catch (e) {
+      if (_specialConfig == null) {
         _error = e.toString();
       }
     } finally {
@@ -309,6 +340,8 @@ class QuickServiceProvider with ChangeNotifier {
       'address_line': a.addressLine,
       if (a.pincode != null) 'pincode': a.pincode,
       if (a.deliveryTime != null && a.deliveryTime!.trim().isNotEmpty) 'delivery_time': a.deliveryTime!.trim(),
+      if (a.phoneNumber != null) 'phone_number': a.phoneNumber,
+      if (a.altPhoneNumber != null) 'alt_phone_number': a.altPhoneNumber,
     };
   }
 
@@ -416,6 +449,7 @@ class QuickServiceProvider with ChangeNotifier {
     _loading = false;
     _error = null;
     _oneDayConfig = null;
+    _specialConfig = null;
     _todayMenu = null;
     _categories = [];
     _items = [];
@@ -423,7 +457,6 @@ class QuickServiceProvider with ChangeNotifier {
     _itemCache.clear();
     _categoryItemsMemoryCache.clear();
     _address = null;
-    _lastConfigFetchedAt = null;
     _lastCategoriesFetchedAt = null;
     _lastItemsFetchedAt.clear();
     notifyListeners();

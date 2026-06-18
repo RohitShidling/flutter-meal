@@ -133,6 +133,8 @@ class _BulkOrderPaymentSheetState extends State<BulkOrderPaymentSheet> {
         stateName: addr.stateName,
         cityName: addr.cityName,
         deliveryTime: TimeUtils.toBackendFormat(_deliveryTime!),
+        phoneNumber: addr.phoneNumber,
+        altPhoneNumber: addr.altPhoneNumber,
       ),
     );
   }

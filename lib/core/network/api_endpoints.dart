@@ -145,6 +145,7 @@ class ApiEndpoints {
   static String specialDishItems(String categoryId) =>
       '/api/client/quick-service/special-dishes/categories/$categoryId/items';
   static const String specialDishCart = '/api/client/quick-service/special-dishes/cart';
+  static const String specialDishConfig = '/api/client/quick-service/special-dishes/config';
   static const String specialDishInitiatePayment = '/api/client/quick-service/special-dishes/initiate-payment';
 
   // Referral system

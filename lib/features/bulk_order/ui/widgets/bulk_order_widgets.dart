@@ -4,6 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:meal_app/core/theme/app_theme.dart';
 import 'package:meal_app/core/utils/meal_date.dart';
 import 'package:meal_app/features/bulk_order/data/models/bulk_order_config.dart';
+import 'package:meal_app/core/network/api_endpoints.dart';
+
+String getFullImageUrl(String? url) {
+  if (url == null || url.isEmpty) return '';
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  if (url.startsWith('/')) return '${ApiEndpoints.baseUrl}$url';
+  return '${ApiEndpoints.baseUrl}/$url';
+}
 
 Widget bulkMenuImage(String? imageUrl) {
   if (imageUrl == null || imageUrl.isEmpty) return const SizedBox.shrink();
@@ -12,7 +20,7 @@ Widget bulkMenuImage(String? imageUrl) {
     child: ColoredBox(
       color: AppTheme.primaryColor.withValues(alpha: 0.05),
       child: CachedNetworkImage(
-        imageUrl: imageUrl,
+        imageUrl: getFullImageUrl(imageUrl),
         width: double.infinity,
         height: 180,
         fit: BoxFit.contain,

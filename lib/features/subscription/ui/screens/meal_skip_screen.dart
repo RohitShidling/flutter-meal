@@ -1213,7 +1213,6 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
                       Builder(
                         builder: (builderCtx) {
                           final includeSat = resolveEntityIncludesSaturday(selectedEntity!);
-                          final calendarDays = selectedRange!.end.difference(selectedRange!.start).inDays + 1;
                           final mealDays = _countSkippableMealDays(selectedRange!.start, selectedRange!.end, includeSat);
                           return Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
@@ -1221,16 +1220,7 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Total skip duration: $calendarDays calendar day(s)',
-                                  style: const TextStyle(
-                                    color: AppTheme.primaryColor,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'Total meals skipped: $mealDays meal(s)',
+                                  'Total meals skipped: $mealDays day(s)',
                                   style: TextStyle(
                                     color: isDark ? const Color(0xFF34D399) : const Color(0xFF059669),
                                     fontWeight: FontWeight.w800,

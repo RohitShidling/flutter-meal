@@ -10,6 +10,11 @@ class QuickServiceRepository {
     return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
+  Future<Map<String, dynamic>> getSpecialDishConfig() async {
+    final res = await _dioClient.dio.get(ApiEndpoints.specialDishConfig);
+    return Map<String, dynamic>.from(res.data['data'] as Map);
+  }
+
   Future<Map<String, dynamic>?> getSavedDeliveryAddress() async {
     final res = await _dioClient.dio.get(ApiEndpoints.quickServiceDeliveryAddress);
     final data = res.data['data'];

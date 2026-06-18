@@ -78,7 +78,7 @@ class QuickServiceCheckout {
     }
 
     if (skipAddressPrompt) {
-      final err = bulk.validateDeliveryAddress();
+      final err = bulk.validateDeliveryAddress(requireTime: true);
       if (err != null) {
         ErrorHandler.showError(context, err);
         return;
@@ -99,6 +99,7 @@ class QuickServiceCheckout {
       backgroundColor: Colors.transparent,
       builder: (ctx) => _AddressSheet(
         title: deliveryType == 'today' ? 'Order for today' : 'Order for tomorrow',
+        showDeliveryTime: true,
         onConfirm: () => Navigator.pop(ctx, true),
       ),
     );
@@ -159,7 +160,7 @@ class QuickServiceCheckout {
     final bulk = context.read<BulkOrderProvider>();
 
     if (skipAddressPrompt) {
-      final err = bulk.validateDeliveryAddress();
+      final err = bulk.validateDeliveryAddress(requireTime: true);
       if (err != null) {
         ErrorHandler.showError(context, err);
         return;
@@ -174,6 +175,7 @@ class QuickServiceCheckout {
       backgroundColor: Colors.transparent,
       builder: (ctx) => _AddressSheet(
         title: 'Confirm delivery address',
+        showDeliveryTime: true,
         onConfirm: () => Navigator.pop(ctx, true),
       ),
     );
@@ -473,14 +475,38 @@ class _ChoicePill extends StatelessWidget {
   }
 }
 
-class _AddressSheet extends StatelessWidget {
+class _AddressSheet extends StatefulWidget {
   const _AddressSheet({
     required this.title,
     required this.onConfirm,
+    this.showDeliveryTime = false,
   });
 
   final String title;
   final VoidCallback onConfirm;
+  final bool showDeliveryTime;
+
+  @override
+  State<_AddressSheet> createState() => _AddressSheetState();
+}
+
+class _AddressSheetState extends State<_AddressSheet> {
+  final _timeController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    final savedTime = context.read<BulkOrderProvider>().deliveryAddress?.deliveryTime;
+    if (savedTime != null && savedTime.trim().isNotEmpty) {
+      _timeController.text = savedTime;
+    }
+  }
+
+  @override
+  void dispose() {
+    _timeController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -511,7 +537,7 @@ class _AddressSheet extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             Text(
-              title,
+              widget.title,
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 6),
@@ -520,18 +546,23 @@ class _AddressSheet extends StatelessWidget {
               style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
             ),
             const SizedBox(height: 16),
-            const BulkOrderAddressSection(),
+            BulkOrderAddressSection(
+              showDeliveryTime: widget.showDeliveryTime,
+              deliveryTimeController: widget.showDeliveryTime ? _timeController : null,
+            ),
             const SizedBox(height: 16),
             SizedBox(
               height: 48,
               child: ElevatedButton(
                 onPressed: () {
-                  final err = context.read<BulkOrderProvider>().validateDeliveryAddress();
+                  final err = context.read<BulkOrderProvider>().validateDeliveryAddress(
+                    requireTime: widget.showDeliveryTime,
+                  );
                   if (err != null) {
                     ErrorHandler.showError(context, err);
                     return;
                   }
-                  onConfirm();
+                  widget.onConfirm();
                 },
                 child: const Text('Continue to payment', style: TextStyle(fontWeight: FontWeight.w800)),
               ),

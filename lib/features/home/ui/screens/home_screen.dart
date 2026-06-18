@@ -82,6 +82,8 @@ class _HomeScreenState extends State<HomeScreen> {
         context.read<ReferralProvider>().fetchRewards(),
         context.read<QuickServiceProvider>().loadCartFromServer(),
         context.read<BulkOrderProvider>().loadCartFromServer(),
+        context.read<QuickServiceProvider>().loadOneDayConfig(force: true),
+        context.read<QuickServiceProvider>().loadSpecialConfig(force: true),
       ]);
     } else {
       await _loadAllData(); // already calls fetchTodayMenu internally
@@ -105,6 +107,8 @@ class _HomeScreenState extends State<HomeScreen> {
       context.read<ReferralProvider>().fetchRewards(),
       context.read<QuickServiceProvider>().loadCartFromServer(),
       context.read<BulkOrderProvider>().loadCartFromServer(),
+      context.read<QuickServiceProvider>().loadOneDayConfig(),
+      context.read<QuickServiceProvider>().loadSpecialConfig(),
     ]);
   }
 
@@ -239,6 +243,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 context.read<AnnouncementProvider>().fetchAnnouncements(location: 'home', force: true),
                 context.read<QuickServiceProvider>().loadCartFromServer(),
                 context.read<BulkOrderProvider>().loadCartFromServer(),
+                context.read<QuickServiceProvider>().loadOneDayConfig(force: true),
+                context.read<QuickServiceProvider>().loadSpecialConfig(force: true),
               ]);
               if (!mounted) return;
               await _refreshMealDataBundle(force: true);
@@ -1261,6 +1267,102 @@ class FeatureQuickLinks extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final entries = context.watch<HomepageProvider>().entries;
+
+    final List<MapEntry<int, Widget>> orderedCards = [];
+    final Set<String> addedTypes = {};
+
+    for (final entry in entries) {
+      final name = (entry.entityName ?? '').trim().toLowerCase();
+      final order = entry.displayOrder;
+
+      if (name == 'child' && !addedTypes.contains('child')) {
+        addedTypes.add('child');
+        orderedCards.add(MapEntry(
+          order,
+          _buildQuickLinkCard(
+            context: context,
+            title: 'Manage Child',
+            icon: CupertinoIcons.person_3_fill,
+            bgColor: isDark ? const Color(0xFF1E3A8A) : const Color(0xFFDBEAFE),
+            iconColor: const Color(0xFF3B82F6),
+            isDark: isDark,
+            onTap: () {
+              Navigator.push(context, CupertinoPageRoute(builder: (_) => const ChildrenManagementScreen()));
+              if (NetworkStatusService.instance.isOnline) context.read<ChildrenProvider>().fetchChildren(silent: true);
+            },
+          ),
+        ));
+      } else if (name == 'teacher' && !addedTypes.contains('teacher')) {
+        addedTypes.add('teacher');
+        orderedCards.add(MapEntry(
+          order,
+          _buildQuickLinkCard(
+            context: context,
+            title: 'Teacher Plan',
+            icon: CupertinoIcons.book_fill,
+            bgColor: isDark ? const Color(0xFF78350F) : const Color(0xFFFDE68A),
+            iconColor: const Color(0xFFD97706),
+            isDark: isDark,
+            onTap: () {
+              Navigator.push(context, CupertinoPageRoute(builder: (_) => const TeacherProfileScreen()));
+              if (NetworkStatusService.instance.isOnline) context.read<ProfileProvider>().fetchProfiles(silent: true);
+            },
+          ),
+        ));
+      } else if ((name == 'professional' || name == 'profile') && !addedTypes.contains('professional')) {
+        addedTypes.add('professional');
+        orderedCards.add(MapEntry(
+          order,
+          _buildQuickLinkCard(
+            context: context,
+            title: 'Professional Plan',
+            icon: CupertinoIcons.briefcase_fill,
+            bgColor: isDark ? const Color(0xFF4C1D95) : const Color(0xFFE9D5FF),
+            iconColor: const Color(0xFF8B5CF6),
+            isDark: isDark,
+            onTap: () {
+              Navigator.push(context, CupertinoPageRoute(builder: (_) => const ProfessionalProfileScreen()));
+              if (NetworkStatusService.instance.isOnline) context.read<ProfileProvider>().fetchProfiles(silent: true);
+            },
+          ),
+        ));
+      } else if ((name == 'bulk' || name == 'bulk order' || name == 'bulk_order' || name == 'corporate') && !addedTypes.contains('bulk')) {
+        addedTypes.add('bulk');
+        orderedCards.add(MapEntry(
+          order,
+          _buildQuickLinkCard(
+            context: context,
+            title: 'Bulk Order',
+            icon: CupertinoIcons.square_stack_3d_up_fill,
+            bgColor: isDark ? const Color(0xFF064E3B) : const Color(0xFFD1FAE5),
+            iconColor: const Color(0xFF10B981),
+            isDark: isDark,
+            onTap: () {
+              Navigator.push(context, CupertinoPageRoute(builder: (_) => const BulkOrderHubScreen()));
+            },
+          ),
+        ));
+      }
+    }
+
+    // Sort the cards by display order
+    orderedCards.sort((a, b) => a.key.compareTo(b.key));
+    final List<Widget> visibleCards = orderedCards.map((e) => e.value).toList();
+
+    if (visibleCards.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    // Partition into rows of 2
+    final List<List<Widget>> chunks = [];
+    for (var i = 0; i < visibleCards.length; i += 2) {
+      if (i + 1 < visibleCards.length) {
+        chunks.add([visibleCards[i], visibleCards[i + 1]]);
+      } else {
+        chunks.add([visibleCards[i]]);
+      }
+    }
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 24),
@@ -1277,80 +1379,24 @@ class FeatureQuickLinks extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Column(
-            children: [
-              IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      child: _buildQuickLinkCard(
-                        context: context,
-                        title: 'Manage Child',
-                        icon: CupertinoIcons.person_3_fill,
-                        bgColor: isDark ? const Color(0xFF1E3A8A) : const Color(0xFFDBEAFE),
-                        iconColor: const Color(0xFF3B82F6),
-                        isDark: isDark,
-                        onTap: () {
-                          Navigator.push(context, CupertinoPageRoute(builder: (_) => const ChildrenManagementScreen()));
-                          if (NetworkStatusService.instance.isOnline) context.read<ChildrenProvider>().fetchChildren(silent: true);
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildQuickLinkCard(
-                        context: context,
-                        title: 'Teacher Plan',
-                        icon: CupertinoIcons.book_fill,
-                        bgColor: isDark ? const Color(0xFF78350F) : const Color(0xFFFDE68A),
-                        iconColor: const Color(0xFFD97706),
-                        isDark: isDark,
-                        onTap: () {
-                          Navigator.push(context, CupertinoPageRoute(builder: (_) => const TeacherProfileScreen()));
-                          if (NetworkStatusService.instance.isOnline) context.read<ProfileProvider>().fetchProfiles(silent: true);
-                        },
-                      ),
-                    ),
-                  ],
+            children: chunks.map((chunk) {
+              final isLast = chunk == chunks.last;
+              return Padding(
+                padding: EdgeInsets.only(bottom: isLast ? 0 : 12),
+                child: IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(child: chunk[0]),
+                      if (chunk.length > 1) ...[
+                        const SizedBox(width: 12),
+                        Expanded(child: chunk[1]),
+                      ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      child: _buildQuickLinkCard(
-                        context: context,
-                        title: 'Professional Plan',
-                        icon: CupertinoIcons.briefcase_fill,
-                        bgColor: isDark ? const Color(0xFF4C1D95) : const Color(0xFFE9D5FF),
-                        iconColor: const Color(0xFF8B5CF6),
-                        isDark: isDark,
-                        onTap: () {
-                          Navigator.push(context, CupertinoPageRoute(builder: (_) => const ProfessionalProfileScreen()));
-                          if (NetworkStatusService.instance.isOnline) context.read<ProfileProvider>().fetchProfiles(silent: true);
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildQuickLinkCard(
-                        context: context,
-                        title: 'Bulk Order',
-                        icon: CupertinoIcons.square_stack_3d_up_fill,
-                        bgColor: isDark ? const Color(0xFF064E3B) : const Color(0xFFD1FAE5),
-                        iconColor: const Color(0xFF10B981),
-                        isDark: isDark,
-                        onTap: () {
-                          Navigator.push(context, CupertinoPageRoute(builder: (_) => const BulkOrderHubScreen()));
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+              );
+            }).toList(),
           ),
         ],
       ),

@@ -20,6 +20,7 @@ class _QuickOrderSectionState extends State<QuickOrderSection> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<QuickServiceProvider>().loadOneDayConfig();
+      context.read<QuickServiceProvider>().loadSpecialConfig();
     });
   }
 
@@ -31,6 +32,15 @@ class _QuickOrderSectionState extends State<QuickOrderSection> {
       debugPrint('QuickOrderSection load error: ${provider.error}');
     }
     final cfg = provider.oneDayConfig;
+    final specialCfg = provider.specialConfig;
+
+    final oneDayActive = cfg?['is_active'] == true;
+    final specialActive = specialCfg?['is_active'] == true;
+
+    if (!oneDayActive && !specialActive) {
+      return const SizedBox.shrink();
+    }
+
     final status = context.watch<MealProvider>().subscriptionStatusData;
     final hasActive = status?['has_active_subscription'] == true;
     final showSubscriberBadge = !hasActive;
@@ -42,6 +52,41 @@ class _QuickOrderSectionState extends State<QuickOrderSection> {
     final titleColor = isDark ? Colors.white : AppTheme.textPrimaryLight;
     final cardBg = isDark ? AppTheme.surfaceDark : Colors.white;
     final borderColor = isDark ? AppTheme.borderDark : AppTheme.borderLight;
+
+    final List<Widget> activeCards = [];
+    if (oneDayActive) {
+      activeCards.add(
+        _OneDayLunchCard(
+          isDark: isDark,
+          cardBg: cardBg,
+          borderColor: borderColor,
+          todayPrice: todayPrice,
+          nextDayPrice: nextDayPrice,
+          cutoff: cutoff,
+          enabled: true,
+          onOrder: () {
+            Navigator.push(
+              context,
+              CupertinoPageRoute(builder: (_) => const OneDayLunchScreen()),
+            );
+          },
+        ),
+      );
+    }
+
+    if (specialActive) {
+      activeCards.add(
+        _SpecialsCard(
+          isDark: isDark,
+          onTap: () {
+            Navigator.push(
+              context,
+              CupertinoPageRoute(builder: (_) => const SpecialDishesScreen()),
+            );
+          },
+        ),
+      );
+    }
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
@@ -79,44 +124,20 @@ class _QuickOrderSectionState extends State<QuickOrderSection> {
             ],
           ),
           const SizedBox(height: 12),
-          SizedBox(
-            height: 190.0,
+          IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(
-                  child: _OneDayLunchCard(
-                    isDark: isDark,
-                    cardBg: cardBg,
-                    borderColor: borderColor,
-                    todayPrice: todayPrice,
-                    nextDayPrice: nextDayPrice,
-                    cutoff: cutoff,
-                    enabled: true,
-                    onOrder: () {
-                      Navigator.push(
-                        context,
-                        CupertinoPageRoute(builder: (_) => const OneDayLunchScreen()),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _SpecialsCard(
-                    isDark: isDark,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        CupertinoPageRoute(builder: (_) => const SpecialDishesScreen()),
-                      );
-                    },
-                  ),
-                ),
+                if (activeCards.length == 1)
+                  Expanded(child: activeCards[0])
+                else ...[
+                  Expanded(child: activeCards[0]),
+                  const SizedBox(width: 12),
+                  Expanded(child: activeCards[1]),
+                ],
               ],
             ),
           ),
-
         ],
       ),
     );

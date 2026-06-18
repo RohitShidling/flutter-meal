@@ -513,6 +513,8 @@ class BulkOrderProvider with ChangeNotifier {
           stateName: addr['stateName']?.toString(),
           cityName: addr['cityName']?.toString(),
           deliveryTime: addr['deliveryTime']?.toString(),
+          phoneNumber: addr['phoneNumber']?.toString() ?? addr['phone_number']?.toString(),
+          altPhoneNumber: addr['altPhoneNumber']?.toString() ?? addr['alt_phone_number']?.toString(),
         );
       } catch (_) {}
     }
@@ -535,6 +537,37 @@ class BulkOrderProvider with ChangeNotifier {
       final payload = await _repository.getCartDraft();
       if (payload == null || payload.isEmpty) return;
       _applyCartPayload(payload);
+
+      // Load variety meal details if there are variety lines in the cart
+      if (_varietyQty.isNotEmpty) {
+        await loadVarietyCategories();
+        final uniqueCategoryNames = _mealCategoryNames.values
+            .where((name) => name.isNotEmpty)
+            .toSet();
+
+        bool loadedAny = false;
+        if (uniqueCategoryNames.isNotEmpty) {
+          for (final catName in uniqueCategoryNames) {
+            final matches = _varietyCategories.where(
+              (c) => c.name.trim().toLowerCase() == catName.trim().toLowerCase(),
+            );
+            if (matches.isNotEmpty) {
+              final matchedCat = matches.first;
+              await loadMealsForCategory(matchedCat.id, categoryName: matchedCat.name);
+              loadedAny = true;
+            }
+          }
+        }
+
+        // If we couldn't load meals via categoryName matching,
+        // fallback to loading meals for all active categories to ensure catalog is populated.
+        if (!loadedAny) {
+          for (final cat in _varietyCategories) {
+            await loadMealsForCategory(cat.id, categoryName: cat.name);
+          }
+        }
+      }
+
       await _sanitizeStandardDraftIfNeeded();
       notifyListeners();
     } catch (_) {}

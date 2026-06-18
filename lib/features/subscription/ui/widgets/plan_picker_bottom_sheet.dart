@@ -502,8 +502,8 @@ class _PlanPickerSheetState extends State<_PlanPickerSheet> {
                       const SizedBox(height: 2),
                       Text(
                         extra > 0
-                            ? '+₹${MoneyFormat.display(extra.toStringAsFixed(2))} Surcharge'
-                            : '-₹${MoneyFormat.display(extra.abs().toStringAsFixed(2))} Discount',
+                            ? '+₹${MoneyFormat.display(extra.toStringAsFixed(2))} Adjustment'
+                            : '-₹${MoneyFormat.display(extra.abs().toStringAsFixed(2))} Adjustment',
                         style: TextStyle(
                           fontSize: 9,
                           fontWeight: FontWeight.w800,

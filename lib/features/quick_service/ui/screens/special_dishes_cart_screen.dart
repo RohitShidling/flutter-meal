@@ -44,7 +44,7 @@ class _SpecialDishesCartScreenState extends State<SpecialDishesCartScreen> {
       value: AppTheme.overlayFor(
         background: appBarBg,
         isDark: isDark,
-        navigationBarColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
+        navigationBarColor: isDark ? AppTheme.surfaceDark : Colors.white,
       ),
       child: Scaffold(
         backgroundColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
@@ -84,130 +84,128 @@ class _SpecialDishesCartScreenState extends State<SpecialDishesCartScreen> {
           systemOverlayStyle: AppTheme.overlayFor(
             background: appBarBg,
             isDark: isDark,
-            navigationBarColor: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
+            navigationBarColor: isDark ? AppTheme.surfaceDark : Colors.white,
           ),
         ),
-        body: SafeArea(
-          top: false,
-          child: showLoading
-              ? const Center(child: CircularProgressIndicator())
-              : !hasItems
-                  ? _buildEmptyCart(isDark)
-              : Column(
-                      children: [
-                        Expanded(
-                          child: ListView(
-                            padding: const EdgeInsets.all(16),
-                            children: [
-                              ...cartItems.map((e) {
-                                final id = e.key;
-                                final qty = e.value;
-                                final item = p.itemCache[id] ?? {};
-                                final name = item['name']?.toString() ?? 'Special Dish';
-                                final imageUrl = item['image_url']?.toString() ?? '';
-                                final price = double.tryParse(item['price']?.toString() ?? '') ?? 0.0;
-                                final subtotal = price * qty;
+        body: showLoading
+            ? const Center(child: CircularProgressIndicator())
+            : !hasItems
+                ? SafeArea(child: _buildEmptyCart(isDark))
+                : Column(
+                    children: [
+                      Expanded(
+                        child: ListView(
+                          padding: const EdgeInsets.all(16),
+                          children: [
+                            ...cartItems.map((e) {
+                              final id = e.key;
+                              final qty = e.value;
+                              final item = p.itemCache[id] ?? {};
+                              final name = item['name']?.toString() ?? 'Special Dish';
+                              final imageUrl = item['image_url']?.toString() ?? '';
+                              final price = double.tryParse(item['price']?.toString() ?? '') ?? 0.0;
+                              final subtotal = price * qty;
 
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 12),
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: isDark ? AppTheme.surfaceDark : Colors.white,
-                                      borderRadius: BorderRadius.circular(14),
-                                      border: Border.all(
-                                        color: isDark ? AppTheme.borderDark : AppTheme.borderLight,
-                                        width: 1.5,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.04),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: isDark ? AppTheme.surfaceDark : Colors.white,
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(
+                                      color: isDark ? AppTheme.borderDark : AppTheme.borderLight,
+                                      width: 1.5,
                                     ),
-                                    child: Row(
-                                      children: [
-                                        ClipRRect(
-                                          borderRadius: const BorderRadius.horizontal(left: Radius.circular(14)),
-                                          child: SizedBox(
-                                            width: 90,
-                                            height: 90,
-                                            child: imageUrl.isNotEmpty
-                                                ? CachedNetworkImage(
-                                                    imageUrl: imageUrl,
-                                                    fit: BoxFit.cover,
-                                                    placeholder: (_, __) => Container(
-                                                      color: AppTheme.primaryColor.withValues(alpha: 0.08),
-                                                      child: const Center(child: CupertinoActivityIndicator()),
-                                                    ),
-                                                    errorWidget: (_, __, ___) => _placeholderIcon(),
-                                                  )
-                                                : _placeholderIcon(),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          child: Padding(
-                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  name,
-                                                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
-                                                  maxLines: 2,
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
-                                                const SizedBox(height: 4),
-                                                Text(
-                                                  'Rs ${price.toStringAsFixed(0)} each',
-                                                  style: const TextStyle(
-                                                    fontSize: 12,
-                                                    color: AppTheme.primaryColor,
-                                                    fontWeight: FontWeight.w600,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.04),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      ClipRRect(
+                                        borderRadius: const BorderRadius.horizontal(left: Radius.circular(14)),
+                                        child: SizedBox(
+                                          width: 90,
+                                          height: 90,
+                                          child: imageUrl.isNotEmpty
+                                              ? CachedNetworkImage(
+                                                  imageUrl: imageUrl,
+                                                  fit: BoxFit.cover,
+                                                  placeholder: (_, __) => Container(
+                                                    color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                                                    child: const Center(child: CupertinoActivityIndicator()),
                                                   ),
+                                                  errorWidget: (_, __, ___) => _placeholderIcon(),
+                                                )
+                                              : _placeholderIcon(),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                name,
+                                                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                'Rs ${price.toStringAsFixed(0)} each',
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  color: AppTheme.primaryColor,
+                                                  fontWeight: FontWeight.w600,
                                                 ),
-                                                const SizedBox(height: 8),
-                                                Row(
-                                                  children: [
-                                                    _qtyButton(
-                                                      CupertinoIcons.minus,
-                                                      () => p.setCartQty(id, qty - 1),
-                                                      qty <= 1,
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Row(
+                                                children: [
+                                                  _qtyButton(
+                                                    CupertinoIcons.minus,
+                                                    () => p.setCartQty(id, qty - 1),
+                                                    qty <= 1,
+                                                  ),
+                                                  Padding(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                                                    child: Text(
+                                                      '$qty',
+                                                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
                                                     ),
-                                                    Padding(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                                                      child: Text(
-                                                        '$qty',
-                                                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
-                                                      ),
+                                                  ),
+                                                  _qtyButton(
+                                                    CupertinoIcons.plus,
+                                                    () => p.setCartQty(id, qty + 1),
+                                                    false,
+                                                  ),
+                                                  const Spacer(),
+                                                  Text(
+                                                    'Rs ${subtotal.toStringAsFixed(0)}',
+                                                    style: const TextStyle(
+                                                      fontSize: 16,
+                                                      fontWeight: FontWeight.w900,
+                                                      color: AppTheme.primaryColor,
                                                     ),
-                                                    _qtyButton(
-                                                      CupertinoIcons.plus,
-                                                      () => p.setCartQty(id, qty + 1),
-                                                      false,
-                                                    ),
-                                                    const Spacer(),
-                                                    Text(
-                                                      'Rs ${subtotal.toStringAsFixed(0)}',
-                                                      style: const TextStyle(
-                                                        fontSize: 16,
-                                                        fontWeight: FontWeight.w900,
-                                                        color: AppTheme.primaryColor,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ],
-                                            ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
                                           ),
                                         ),
-                                        IconButton(
-                                          onPressed: () => p.setCartQty(id, 0),
-                                          icon: Icon(
-                                            CupertinoIcons.xmark_circle_fill,
-                                            color: Colors.red.withValues(alpha: 0.6),
-                                            size: 20,
+                                      ),
+                                      IconButton(
+                                        onPressed: () => p.setCartQty(id, 0),
+                                        icon: Icon(
+                                          CupertinoIcons.xmark_circle_fill,
+                                          color: Colors.red.withValues(alpha: 0.6),
+                                          size: 20,
                                           ),
                                         ),
                                       ],
@@ -228,7 +226,6 @@ class _SpecialDishesCartScreenState extends State<SpecialDishesCartScreen> {
                         ),
                       ],
                     ),
-        ),
       ),
     );
   }

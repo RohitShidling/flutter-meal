@@ -344,10 +344,17 @@ class _CartScreenState extends State<CartScreen> {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text('₹${basePrice.toStringAsFixed(0)}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: isDark ? Colors.white : AppTheme.primaryColor)),
-                        if (extra > 0)
+                        if (extra != 0)
                           Padding(
                             padding: const EdgeInsets.only(top: 2),
-                            child: Text('+₹${extra.toStringAsFixed(0)} Surcharge', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppTheme.primaryColor)),
+                            child: Text(
+                              '${extra > 0 ? "+" : "-"}₹${extra.abs().toStringAsFixed(0)} Adjustment',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: extra > 0 ? AppTheme.primaryColor : (isDark ? const Color(0xFF34D399) : const Color(0xFF059669)),
+                              ),
+                            ),
                           ),
                       ],
                     );
@@ -500,6 +507,9 @@ class _CartScreenState extends State<CartScreen> {
   Widget _buildCheckoutBar(BuildContext context, CartProvider cartProvider, bool isDark) {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final pay = context.watch<PaymentProvider>();
+
+
+
     return Container(
       padding: EdgeInsets.fromLTRB(24, 20, 24, bottomPadding > 0 ? bottomPadding + 10 : 20),
       decoration: BoxDecoration(
@@ -515,6 +525,46 @@ class _CartScreenState extends State<CartScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Payment Summary',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                ),
+              ),
+              InkWell(
+                onTap: () => _showBillDetailsBottomSheet(context, cartProvider, isDark),
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'View Details',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      Icon(
+                        CupertinoIcons.chevron_right,
+                        size: 14,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
           WalletCheckoutSection(
             useWallet: _useWallet,
             onUseWalletChanged: _onUseWalletChanged,
@@ -524,6 +574,7 @@ class _CartScreenState extends State<CartScreen> {
             totalAmount: cartProvider.totalAmount,
             loadingPreview: _loadingWalletPreview,
           ),
+          const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -794,6 +845,180 @@ class _CartScreenState extends State<CartScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showBillDetailsBottomSheet(BuildContext context, CartProvider cartProvider, bool isDark) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? AppTheme.surfaceDark : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white24 : Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Detailed Bill Breakdown',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: cartProvider.items.length,
+                    itemBuilder: (context, index) {
+                      final item = cartProvider.items[index];
+                      final extra = _getExtraAmount(item);
+                      final basePrice = item.unitPrice - extra;
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF262629) : const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade200,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  item.entityName,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 14,
+                                    color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    item.entityType.toUpperCase(),
+                                    style: const TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w900,
+                                      color: AppTheme.primaryColor,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            _buildBottomSheetRow('Base Plan Price', '₹${basePrice.toStringAsFixed(0)}', isDark),
+                            if (extra != 0) ...[
+                              const SizedBox(height: 4),
+                              _buildBottomSheetRow(
+                                'Adjustment',
+                                '${extra > 0 ? "+" : "-"}₹${extra.abs().toStringAsFixed(0)}',
+                                isDark,
+                                valueColor: extra > 0
+                                    ? AppTheme.primaryColor
+                                    : (isDark ? const Color(0xFF34D399) : const Color(0xFF059669)),
+                              ),
+                            ],
+                            const Divider(height: 16),
+                            _buildBottomSheetRow('Item Total', '₹${item.unitPrice.toStringAsFixed(0)}', isDark, bold: true),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Divider(thickness: 1),
+                const SizedBox(height: 8),
+                Builder(
+                  builder: (context) {
+                    double totalBasePrice = 0;
+                    double totalAdjustment = 0;
+                    for (final item in cartProvider.items) {
+                      final extra = _getExtraAmount(item);
+                      totalBasePrice += (item.unitPrice - extra);
+                      totalAdjustment += extra;
+                    }
+                    return Column(
+                      children: [
+                        _buildBottomSheetRow('Total Base Plan', '₹${totalBasePrice.toStringAsFixed(0)}', isDark),
+                        const SizedBox(height: 4),
+                        _buildBottomSheetRow(
+                          'Total Adjustment',
+                          '${totalAdjustment >= 0 ? "+" : "-"}₹${totalAdjustment.abs().toStringAsFixed(0)}',
+                          isDark,
+                          valueColor: totalAdjustment >= 0
+                              ? AppTheme.primaryColor
+                              : (isDark ? const Color(0xFF34D399) : const Color(0xFF059669)),
+                        ),
+                        const SizedBox(height: 6),
+                        _buildBottomSheetRow(
+                          'Total Order Price',
+                          '₹${cartProvider.totalAmount.toStringAsFixed(0)}',
+                          isDark,
+                          bold: true,
+                          fontSize: 15,
+                        ),
+                      ],
+                    );
+                  }
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildBottomSheetRow(String label, String value, bool isDark, {bool bold = false, double fontSize = 13, Color? valueColor}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: fontSize,
+            fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+            color: isDark ? Colors.white70 : AppTheme.textSecondaryLight,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: fontSize,
+            fontWeight: bold ? FontWeight.bold : FontWeight.w600,
+            color: valueColor ?? (isDark ? Colors.white : AppTheme.textPrimaryLight),
+          ),
+        ),
+      ],
     );
   }
 }
