@@ -48,10 +48,11 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     AppRouteTracker.instance.setCurrent(AppScreen.home);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _bootstrapHome();
@@ -63,8 +64,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     AppRouteTracker.instance.clearIfCurrent(AppScreen.home);
+    AppUpdateService.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      AppUpdateService.checkPendingDownloadedUpdate(context);
+    }
   }
 
   /// Cold start / return-to-home: cache-first essentials, then meal bundle only when online.
