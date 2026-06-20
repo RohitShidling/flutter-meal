@@ -91,7 +91,7 @@ class _ReferEarnScreenState extends State<ReferEarnScreen> {
   void _shareReferral(String code, int mealsReward) {
     final text = 'Hey! Subscribe to Buuttii using my referral code: $code '
         'and get delicious, healthy meals delivered to you. I will earn $mealsReward extra meals once you purchase your first plan! '
-        'Sign up now: https://buuttii.com/download';
+        'Sign up now: https://play.google.com/store/apps/details?id=com.buuttii.app';
     // ignore: deprecated_member_use
     Share.share(text);
   }

@@ -313,7 +313,7 @@ class _PlanPickerSheetState extends State<_PlanPickerSheet> {
       variants.add(_VariantSpec(
         includeSaturday: true,
         label: plan.planName,
-        hint: plan.billingCycle,
+        hint: '',
       ));
     }
 
@@ -370,15 +370,7 @@ class _PlanPickerSheetState extends State<_PlanPickerSheet> {
                 ),
             ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            plan.billingCycle,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: isDark ? Colors.white54 : AppTheme.textSecondaryLight,
-            ),
-          ),
+
           const SizedBox(height: 16),
           ...variants.map((v) => _variantRow(context, plan, v, isDark)),
           if (plan.features.isNotEmpty) ...[

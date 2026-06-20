@@ -45,10 +45,15 @@ class MealDate {
   }
 
   /// Tomorrow in session calendar (Asia/Kolkata) — matches backend eligibility.
+  /// Adjusted to skip Sunday.
   static DateTime firstSelectableStartDate() {
     final today = parseYmdLocal(sessionTodayYmd()) ?? DateTime.now();
     final tomorrow = today.add(const Duration(days: 1));
-    return DateTime(tomorrow.year, tomorrow.month, tomorrow.day);
+    var firstDate = DateTime(tomorrow.year, tomorrow.month, tomorrow.day);
+    if (firstDate.weekday == DateTime.sunday) {
+      firstDate = firstDate.add(const Duration(days: 1));
+    }
+    return firstDate;
   }
 
   /// Parse `yyyy-MM-dd` as a timezone-neutral calendar date (no UTC shift).
@@ -80,21 +85,25 @@ class MealDate {
   static String tomorrowYmd() => formatYmd(firstSelectableStartDate());
 
   /// Returns true if [iso] is a valid `yyyy-MM-dd` and is on/after tomorrow.
-  /// Returns false for null / unparseable / today / past dates.
+  /// Returns false for null / unparseable / today / past dates / Sundays.
   static bool isValidFutureStartDate(String? iso) {
     if (iso == null || iso.trim().isEmpty) return false;
     final parsed = parseYmdLocal(iso);
     if (parsed == null) return false;
+    if (parsed.weekday == DateTime.sunday) return false;
     return !parsed.isBefore(firstSelectableStartDate());
   }
 
   /// Parses [iso] (yyyy-MM-dd) into a normalized DateTime,
-  /// clamping to tomorrow if missing/past.
+  /// clamping to tomorrow if missing/past/Sunday.
   static DateTime parseOrTomorrow(String? iso) {
     if (iso == null || iso.trim().isEmpty) return firstSelectableStartDate();
-    final parsed = parseYmdLocal(iso);
+    var parsed = parseYmdLocal(iso);
     if (parsed == null) return firstSelectableStartDate();
     if (parsed.isBefore(firstSelectableStartDate())) return firstSelectableStartDate();
+    if (parsed.weekday == DateTime.sunday) {
+      parsed = parsed.add(const Duration(days: 1));
+    }
     return parsed;
   }
 

@@ -44,6 +44,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       context.read<AuthProvider>().clearTransientState();
       context.read<LookupProvider>().fetchLoginCarousel();
+      context.read<LookupProvider>().fetchReferralSettings();
     });
     _phoneFocusNode.addListener(_onFocusChanged);
     _usernameFocusNode.addListener(_onFocusChanged);
@@ -468,7 +469,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             const SizedBox(height: 16),
 
                             // Referral Section (Register Mode)
-                            if (isRegisterMode) ...[
+                            if (isRegisterMode && lookupProvider.isReferralActive) ...[
                               if (!_showReferralField)
                                 Align(
                                   alignment: Alignment.centerLeft,

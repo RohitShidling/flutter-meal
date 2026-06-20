@@ -85,6 +85,7 @@ class LookupProvider with ChangeNotifier {
   ContactUsModel? _contactUsInfo;
   DeliveryTimeSettingsModel? _deliveryTimeSettings;
   List<LoginCarouselImageModel> _loginCarouselImages = [];
+  bool _isReferralActive = true;
 
   bool _isLoading = false;
   DateTime? _lastFetchedAt;
@@ -103,6 +104,7 @@ class LookupProvider with ChangeNotifier {
   ContactUsModel? get contactUsInfo => _contactUsInfo;
   DeliveryTimeSettingsModel? get deliveryTimeSettings => _deliveryTimeSettings;
   List<LoginCarouselImageModel> get loginCarouselImages => _loginCarouselImages;
+  bool get isReferralActive => _isReferralActive;
   bool get isLoading => _isLoading;
 
 
@@ -244,6 +246,16 @@ class LookupProvider with ChangeNotifier {
       notifyListeners();
     } catch (_) {
       // ignore errors during login screen initialization
+    }
+  }
+
+  Future<void> fetchReferralSettings() async {
+    try {
+      final res = await _repository.getPublicReferralSettings();
+      _isReferralActive = res['isReferEarnActive'] == true;
+      notifyListeners();
+    } catch (_) {
+      // ignore errors, keep default true
     }
   }
 }

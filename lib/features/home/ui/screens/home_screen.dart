@@ -277,7 +277,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   ),
                   sliver: SliverList(
                     delegate: SliverChildListDelegate([
-                      const HomeWelcomeHeader(),
+                      HomeWelcomeHeader(
+                        onCartNavigated: () => _refreshMealDataBundle(force: true),
+                      ),
                       const SizedBox(height: 6),
                       const UpcomingPlanCard(),
                       const TodayMealCard(),
@@ -312,7 +314,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 // ─── EXTRACTED DECOUPLED UI WIDGETS FOR HIERARCHY PERFORMANCE ────────────────
 
 class HomeWelcomeHeader extends StatelessWidget {
-  const HomeWelcomeHeader({super.key});
+  const HomeWelcomeHeader({
+    super.key,
+    this.onCartNavigated,
+  });
+
+  final VoidCallback? onCartNavigated;
 
   @override
   Widget build(BuildContext context) {
@@ -417,11 +424,12 @@ class HomeWelcomeHeader extends StatelessWidget {
     final badgeColor = Theme.of(context).colorScheme.error;
 
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
+      onTap: () async {
+        await Navigator.push(
           context,
           CupertinoPageRoute(builder: (_) => const CartScreen()),
         );
+        onCartNavigated?.call();
       },
       behavior: HitTestBehavior.opaque,
       child: Padding(
@@ -470,11 +478,12 @@ class HomeWelcomeHeader extends StatelessWidget {
     final badgeColor = Theme.of(context).colorScheme.secondary;
 
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
+      onTap: () async {
+        await Navigator.push(
           context,
           CupertinoPageRoute(builder: (_) => const BulkOrderCartScreen()),
         );
+        onCartNavigated?.call();
       },
       behavior: HitTestBehavior.opaque,
       child: Padding(
@@ -570,11 +579,12 @@ class HomeWelcomeHeader extends StatelessWidget {
 
   Widget _buildSpecialsCartActionButton(BuildContext context, bool isDark, int count) {
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
+      onTap: () async {
+        await Navigator.push(
           context,
           CupertinoPageRoute(builder: (_) => const SpecialDishesCartScreen()),
         );
+        onCartNavigated?.call();
       },
       behavior: HitTestBehavior.opaque,
       child: Padding(
@@ -1439,39 +1449,39 @@ class AboutBuuttiiCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight, width: 1.5),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            padding: const EdgeInsets.all(8),
-            child: const Center(
-              child: AppLogo(
-                height: 48,
-                showFallbackText: false,
-              ),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: isDark ? Colors.white : AppTheme.textPrimaryLight,
             ),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                padding: const EdgeInsets.all(8),
+                child: const Center(
+                  child: AppLogo(
+                    height: 48,
+                    showFallbackText: false,
                   ),
                 ),
-                const SizedBox(height: 6),
-                Text(
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
                   description,
                   style: TextStyle(
                     fontSize: 14,
@@ -1479,8 +1489,8 @@ class AboutBuuttiiCard extends StatelessWidget {
                     color: isDark ? Colors.white70 : const Color(0xFF8B7A66),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),

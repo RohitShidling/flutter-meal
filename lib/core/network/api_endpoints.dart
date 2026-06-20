@@ -37,6 +37,7 @@ class ApiEndpoints {
   static const String loginSendOtp = '/api/client/auth/login/send-otp';
   static const String loginVerifyOtp = '/api/client/auth/login/verify-otp';
   static const String loginCarousel = '/api/client/auth/login-carousel';
+  static const String publicReferralSettings = '/api/client/auth/referral-settings';
 
   // Auth - Register (new user)
   static const String registerSendOtp = '/api/client/auth/register/send-otp';

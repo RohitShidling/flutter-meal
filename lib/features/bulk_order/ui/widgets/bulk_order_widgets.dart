@@ -145,17 +145,24 @@ Future<String?> pickBulkDeliveryDate(
   BulkOrderConfig cfg,
   String? currentYmd,
 ) async {
-  final earliest = MealDate.parseYmdLocal(cfg.earliestDeliveryDate) ??
+  var earliest = MealDate.parseYmdLocal(cfg.earliestDeliveryDate) ??
       MealDate.firstSelectableStartDate();
+  if (earliest.weekday == DateTime.sunday) {
+    earliest = earliest.add(const Duration(days: 1));
+  }
   final last = earliest.add(const Duration(days: 365));
-  final initial = currentYmd != null
+  var initial = currentYmd != null
       ? (MealDate.parseYmdLocal(currentYmd) ?? earliest)
       : earliest;
+  if (initial.weekday == DateTime.sunday) {
+    initial = initial.add(const Duration(days: 1));
+  }
   final picked = await showDatePicker(
     context: context,
     initialDate: initial.isBefore(earliest) ? earliest : initial,
     firstDate: earliest,
     lastDate: last,
+    selectableDayPredicate: (date) => date.weekday != DateTime.sunday,
     helpText: 'Delivery date',
   );
   if (picked == null) return null;

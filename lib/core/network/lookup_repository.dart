@@ -194,4 +194,16 @@ class LookupRepository {
       return [];
     }
   }
+
+  Future<Map<String, dynamic>> getPublicReferralSettings() async {
+    try {
+      final response = await _dioClient.dio.get(ApiEndpoints.publicReferralSettings);
+      if (response.data['success'] == true) {
+        return Map<String, dynamic>.from(response.data['data'] ?? {});
+      }
+      return {};
+    } catch (e) {
+      return {};
+    }
+  }
 }

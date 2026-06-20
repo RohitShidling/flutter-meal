@@ -260,7 +260,7 @@ class _PlanCatalogTile extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                '${plan.billingCycle} • ${plan.durationDays} meals window',
+                '${plan.durationDays} meals window',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,

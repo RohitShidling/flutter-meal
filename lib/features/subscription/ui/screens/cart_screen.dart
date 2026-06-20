@@ -456,6 +456,7 @@ class _CartScreenState extends State<CartScreen> {
       initialDate: initial.isBefore(first) ? first : initial,
       firstDate: first,
       lastDate: last,
+      selectableDayPredicate: (date) => date.weekday != DateTime.sunday,
       helpText: 'Select Meal Start Date',
       confirmText: 'SAVE',
     );

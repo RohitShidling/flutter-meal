@@ -62,13 +62,20 @@ class OneDayLunchScreen extends StatefulWidget {
 }
 
 class _OneDayLunchScreenState extends State<OneDayLunchScreen> {
-  String _deliveryType = 'next_day';
+  late String _deliveryType;
   int _quantity = 1;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
+    // Set a smart initial delivery type before config loads:
+    // - If today is Saturday, tomorrow is Sunday (no delivery) → start with 'today'
+    // - Otherwise default to 'next_day'
+    _deliveryType = _isTomorrowSunday() ? 'today' : 'next_day';
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadData());
+  }
+
+  Future<void> _loadData() async {
       if (!mounted) return;
       final p = context.read<QuickServiceProvider>();
       final bulk = context.read<BulkOrderProvider>();
@@ -108,16 +115,32 @@ class _OneDayLunchScreenState extends State<OneDayLunchScreen> {
       p.setTodayMenu(todayMenu == null ? null : Map<String, dynamic>.from(todayMenu));
 
       // Re-evaluate cutoff now that fresh config is loaded.
-      // If today is now open, keep current selection; if closed, switch to next_day.
       if (mounted) {
         final cfg = p.oneDayConfig;
         final cutoff = cfg?['today_cutoff_time']?.toString() ?? '09:00';
-        if (!_isTodayOrderOpen(cutoff) && _deliveryType == 'today') {
-          setState(() => _deliveryType = 'next_day');
-        }
+        final todayOpen = _isTodayOrderOpen(cutoff);
+        final todaySunday = _isTodaySunday();
+        final tomorrowSunday = _isTomorrowSunday();
+
+        setState(() {
+          if (tomorrowSunday) {
+            // Next-day is Sunday (no delivery) → must use today
+            // Only switch to today if the order window is still open AND today isn't Sunday
+            if (todayOpen && !todaySunday) {
+              _deliveryType = 'today';
+            } else {
+              // Both options unavailable; keep next_day so the UI correctly shows "closed"
+              _deliveryType = 'next_day';
+            }
+          } else if (_deliveryType == 'today' && (!todayOpen || todaySunday)) {
+            // Today's window closed or today is Sunday → switch to next_day
+            _deliveryType = 'next_day';
+          }
+        // If next_day is fine and currently selected, keep it.
+        });
       }
-    });
   }
+
 
   Future<void> _pay() async {
     await QuickServiceCheckout.payOneDayLunch(
