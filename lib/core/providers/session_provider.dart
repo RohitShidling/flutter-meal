@@ -13,9 +13,11 @@ import 'package:flutter/foundation.dart';
 class SessionProvider with ChangeNotifier {
   bool _isExpired = false;
   String? _reason;
+  bool _isUpdateRequired = false;
 
   bool get isExpired => _isExpired;
   String? get reason => _reason;
+  bool get isUpdateRequired => _isUpdateRequired;
 
   /// Marks the session as expired. Safe to call multiple times — it only
   /// notifies once until [acknowledge] resets the flag.
@@ -23,6 +25,13 @@ class SessionProvider with ChangeNotifier {
     if (_isExpired) return;
     _isExpired = true;
     _reason = reason ?? 'Session expired. Please log in again.';
+    notifyListeners();
+  }
+
+  /// Marks that a force update is required for this app version.
+  void triggerForceUpdate() {
+    if (_isUpdateRequired) return;
+    _isUpdateRequired = true;
     notifyListeners();
   }
 

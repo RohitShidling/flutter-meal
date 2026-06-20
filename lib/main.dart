@@ -39,6 +39,7 @@ import 'package:meal_app/core/providers/session_provider.dart';
 import 'package:meal_app/core/services/network_status_service.dart';
 import 'package:meal_app/core/services/reconnect_refresh_service.dart';
 import 'package:meal_app/core/widgets/offline_banner.dart';
+import 'package:meal_app/core/widgets/update_required_screen.dart';
 import 'package:meal_app/features/bulk_order/data/repositories/bulk_order_repository.dart';
 import 'package:meal_app/features/bulk_order/providers/bulk_order_provider.dart';
 import 'package:meal_app/features/subscription/ui/screens/meal_skip_screen.dart';
@@ -279,6 +280,14 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   @override
   Widget build(BuildContext context) {
+    final isUpdateRequired = context.watch<SessionProvider>().isUpdateRequired;
+    if (isUpdateRequired) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        FlutterNativeSplash.remove();
+      });
+      return const UpdateRequiredScreen();
+    }
+
     final authState = context.watch<AuthProvider>().state;
 
     // Only update the resolved state for definitive transitions.

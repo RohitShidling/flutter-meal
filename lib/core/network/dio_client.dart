@@ -11,12 +11,25 @@ import 'package:meal_app/core/network/api_endpoints.dart';
 import 'package:meal_app/core/providers/session_provider.dart';
 import 'package:meal_app/core/services/network_status_service.dart';
 import 'package:meal_app/core/storage/secure_storage.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class DioClient {
   late Dio _dio;
   final SecureStorage _secureStorage;
   final SessionProvider? _sessionProvider;
   static bool _sessionRecoveryFailed = false;
+  static String? _appVersionCode;
+
+  static Future<String> _getAppVersionCode() async {
+    if (_appVersionCode != null) return _appVersionCode!;
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      _appVersionCode = packageInfo.buildNumber;
+    } catch (_) {
+      _appVersionCode = '1';
+    }
+    return _appVersionCode!;
+  }
 
   /// SHA-256 fingerprints of the production API server certificate(s).
   /// Add backup fingerprints here to ensure service continuity during
@@ -77,6 +90,8 @@ class DioClient {
 
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
+        final versionCode = await _getAppVersionCode();
+        options.headers['X-App-Version'] = versionCode;
         final accessToken = await _secureStorage.getAccessToken();
         if (accessToken != null) {
           options.headers['Authorization'] = 'Bearer $accessToken';
@@ -84,6 +99,11 @@ class DioClient {
         return handler.next(options);
       },
       onError: (DioException e, handler) async {
+        if (e.response?.statusCode == 426) {
+          _sessionProvider?.triggerForceUpdate();
+          return handler.next(e);
+        }
+
         if (_isTransientNetworkError(e)) {
           unawaited(NetworkStatusService.instance.refreshNow());
           final retried = await _retryRequest(e.requestOptions);
