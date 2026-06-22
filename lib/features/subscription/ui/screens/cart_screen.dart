@@ -54,15 +54,15 @@ class _CartScreenState extends State<CartScreen> {
       }
     } else if (item.entityType == 'teacher') {
       final profileProvider = context.read<ProfileProvider>();
-      final teacher = profileProvider.teacherProfile;
-      if (teacher != null && teacher.id == item.entityId) {
+      final teacher = profileProvider.teacherProfiles.where((t) => t.id == item.entityId).firstOrNull;
+      if (teacher != null) {
         final school = lookup.schools.where((s) => s.name == teacher.schoolCollegeName).firstOrNull;
         return school?.extraAmount ?? 0.0;
       }
     } else if (item.entityType == 'professional') {
       final profileProvider = context.read<ProfileProvider>();
-      final professional = profileProvider.professionalProfile;
-      if (professional != null && professional.id == item.entityId) {
+      final professional = profileProvider.professionalProfiles.where((p) => p.id == item.entityId).firstOrNull;
+      if (professional != null) {
         final loc = lookup.corporateLocations.where((c) => c.id == professional.corporateLocationId).firstOrNull;
         return loc?.extraAmount ?? 0.0;
       }

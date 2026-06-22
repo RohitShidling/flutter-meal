@@ -8,8 +8,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:meal_app/features/profile/providers/profile_provider.dart';
 import 'package:meal_app/features/children/providers/children_provider.dart';
 import 'package:meal_app/features/children/ui/screens/children_management_screen.dart';
-import 'package:meal_app/features/profile/ui/screens/teacher_profile_screen.dart';
-import 'package:meal_app/features/profile/ui/screens/professional_profile_screen.dart';
+import 'package:meal_app/features/profile/ui/screens/teacher_management_screen.dart';
+import 'package:meal_app/features/profile/ui/screens/professional_management_screen.dart';
 import 'package:meal_app/features/home/providers/homepage_provider.dart';
 import 'package:meal_app/features/home/providers/menu_provider.dart';
 import 'package:meal_app/core/providers/meal_provider.dart';
@@ -184,14 +184,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 Navigator.push(
                   context,
                   CupertinoPageRoute(
-                    builder: (_) => const TeacherProfileScreen(renew: true),
+                    builder: (_) => TeacherManagementScreen(renewProfileId: entityId),
                   ),
                 );
               } else if (entityType == 'professional') {
                 Navigator.push(
                   context,
                   CupertinoPageRoute(
-                    builder: (_) => const ProfessionalProfileScreen(renew: true),
+                    builder: (_) => ProfessionalManagementScreen(renewProfileId: entityId),
                   ),
                 );
               } else {
@@ -1203,14 +1203,14 @@ class AlertsBanner extends StatelessWidget {
                     Navigator.push(
                       context,
                       CupertinoPageRoute(
-                        builder: (_) => const TeacherProfileScreen(renew: true),
+                        builder: (_) => TeacherManagementScreen(renewProfileId: entityId),
                       ),
                     );
                   } else if (entityType == 'professional') {
                     Navigator.push(
                       context,
                       CupertinoPageRoute(
-                        builder: (_) => const ProfessionalProfileScreen(renew: true),
+                        builder: (_) => ProfessionalManagementScreen(renewProfileId: entityId),
                       ),
                     );
                   } else {
@@ -1328,7 +1328,7 @@ class FeatureQuickLinks extends StatelessWidget {
             iconColor: const Color(0xFFD97706),
             isDark: isDark,
             onTap: () {
-              Navigator.push(context, CupertinoPageRoute(builder: (_) => const TeacherProfileScreen()));
+              Navigator.push(context, CupertinoPageRoute(builder: (_) => const TeacherManagementScreen()));
               if (NetworkStatusService.instance.isOnline) context.read<ProfileProvider>().fetchProfiles(silent: true);
             },
           ),
@@ -1345,7 +1345,7 @@ class FeatureQuickLinks extends StatelessWidget {
             iconColor: const Color(0xFF8B5CF6),
             isDark: isDark,
             onTap: () {
-              Navigator.push(context, CupertinoPageRoute(builder: (_) => const ProfessionalProfileScreen()));
+              Navigator.push(context, CupertinoPageRoute(builder: (_) => const ProfessionalManagementScreen()));
               if (NetworkStatusService.instance.isOnline) context.read<ProfileProvider>().fetchProfiles(silent: true);
             },
           ),

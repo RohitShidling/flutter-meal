@@ -200,12 +200,19 @@ class DioClient {
       final refreshToken = await _secureStorage.getRefreshToken();
       if (refreshToken == null) return null;
 
+      final versionCode = await _getAppVersionCode();
+
       // Note: We use a separate Dio instance to avoid infinite loops in interceptors
       final tokenDio = Dio(BaseOptions(
         baseUrl: ApiEndpoints.baseUrl,
         connectTimeout: const Duration(seconds: 8),
         sendTimeout: const Duration(seconds: 12),
         receiveTimeout: const Duration(seconds: 12),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-App-Version': versionCode,
+        },
       ));
       final response = await tokenDio.post(
         ApiEndpoints.refresh,

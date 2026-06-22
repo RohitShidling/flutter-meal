@@ -582,11 +582,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   try {
                     await authProvider.deleteAccount();
                     
+                    if (!context.mounted) return;
                     OfflineCacheBootstrap.clearMemory(context);
                     await CacheStore.clearAll();
-                    OfflineCacheBootstrap.resetSession();
-                    
                     if (!context.mounted) return;
+                    OfflineCacheBootstrap.resetSession();
                     Navigator.of(context).pop(); // Dismiss loading spinner
 
                     ScaffoldMessenger.of(context).showSnackBar(

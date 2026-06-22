@@ -849,23 +849,23 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
         entities.add({'type': 'child', 'id': child.id!, 'name': child.name});
       }
     }
-    if (profileProvider.teacherProfile != null) {
-      final state = SubscriptionStatusNormalizer.entityPlanState(statusData, 'teacher', profileProvider.teacherProfile!.id ?? '');
+    for (final teacher in profileProvider.teacherProfiles) {
+      final state = SubscriptionStatusNormalizer.entityPlanState(statusData, 'teacher', teacher.id ?? '');
       if (state == 'active' || state == 'upcoming') {
         entities.add({
           'type': 'teacher',
-          'id': profileProvider.teacherProfile!.id!,
-          'name': profileProvider.teacherProfile!.name,
+          'id': teacher.id!,
+          'name': teacher.name,
         });
       }
     }
-    if (profileProvider.professionalProfile != null) {
-      final state = SubscriptionStatusNormalizer.entityPlanState(statusData, 'professional', profileProvider.professionalProfile!.id ?? '');
+    for (final professional in profileProvider.professionalProfiles) {
+      final state = SubscriptionStatusNormalizer.entityPlanState(statusData, 'professional', professional.id ?? '');
       if (state == 'active' || state == 'upcoming') {
         entities.add({
           'type': 'professional',
-          'id': profileProvider.professionalProfile!.id!,
-          'name': profileProvider.professionalProfile!.name,
+          'id': professional.id!,
+          'name': professional.name,
         });
       }
     }

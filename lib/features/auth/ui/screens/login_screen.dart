@@ -424,16 +424,18 @@ class _LoginScreenState extends State<LoginScreen> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             // Heading/Subtitle section inside the card
-                            Text(
-                              isRegisterMode ? 'Create account' : 'Welcome back',
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.4,
-                                color: isDark ? AppTheme.textPrimaryDark : const Color(0xFF1B1C1C),
+                            if (isRegisterMode) ...[
+                              Text(
+                                'Create account',
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -0.4,
+                                  color: isDark ? AppTheme.textPrimaryDark : const Color(0xFF1B1C1C),
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 6),
+                              const SizedBox(height: 6),
+                            ],
                             Text(
                               isRegisterMode
                                   ? 'Enter your WhatsApp number and username to continue with your healthy meal journey.'

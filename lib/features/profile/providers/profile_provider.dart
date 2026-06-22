@@ -22,13 +22,15 @@ class ProfileProvider with ChangeNotifier {
 
   void _onQueueReplayed() {
     _lastFetchedAt = null;
+    CacheStore.remove('teacher_profiles');
     CacheStore.remove('teacher_profile');
+    CacheStore.remove('professional_profiles');
     CacheStore.remove('professional_profile');
     fetchProfiles(force: true, silent: true);
   }
 
-  TeacherProfileModel? _teacherProfile;
-  ProfessionalProfileModel? _professionalProfile;
+  List<TeacherProfileModel> _teacherProfiles = [];
+  List<ProfessionalProfileModel> _professionalProfiles = [];
   Map<String, dynamic>? _profileStatus;
   
   bool _isLoading = false;
@@ -38,23 +40,41 @@ class ProfileProvider with ChangeNotifier {
   DateTime? _lastFetchedAt;
   Future<void>? _inflightRequest;
 
-  TeacherProfileModel? get teacherProfile => _teacherProfile;
-  ProfessionalProfileModel? get professionalProfile => _professionalProfile;
+  List<TeacherProfileModel> get teacherProfiles => _teacherProfiles;
+  List<ProfessionalProfileModel> get professionalProfiles => _professionalProfiles;
+
+  TeacherProfileModel? get teacherProfile => _teacherProfiles.isNotEmpty ? _teacherProfiles.first : null;
+  ProfessionalProfileModel? get professionalProfile => _professionalProfiles.isNotEmpty ? _professionalProfiles.first : null;
   Map<String, dynamic>? get profileStatus => _profileStatus;
   bool get isLoading => _isLoading;
   dynamic get error => _error;
 
   Future<void> _loadFromCache() async {
     try {
-      final teacher = await CacheStore.getJson('teacher_profile');
-      if (teacher is Map) {
-        _teacherProfile = TeacherProfileModel.fromJson(Map<String, dynamic>.from(teacher));
+      final teacherList = await CacheStore.getJson('teacher_profiles');
+      if (teacherList is List) {
+        _teacherProfiles = teacherList
+            .map((item) => TeacherProfileModel.fromJson(Map<String, dynamic>.from(item)))
+            .toList();
+      } else {
+        final teacher = await CacheStore.getJson('teacher_profile');
+        if (teacher is Map) {
+          _teacherProfiles = [TeacherProfileModel.fromJson(Map<String, dynamic>.from(teacher))];
+        }
       }
-      final professional = await CacheStore.getJson('professional_profile');
-      if (professional is Map) {
-        _professionalProfile = ProfessionalProfileModel.fromJson(
-          Map<String, dynamic>.from(professional),
-        );
+
+      final professionalList = await CacheStore.getJson('professional_profiles');
+      if (professionalList is List) {
+        _professionalProfiles = professionalList
+            .map((item) => ProfessionalProfileModel.fromJson(Map<String, dynamic>.from(item)))
+            .toList();
+      } else {
+        final professional = await CacheStore.getJson('professional_profile');
+        if (professional is Map) {
+          _professionalProfiles = [
+            ProfessionalProfileModel.fromJson(Map<String, dynamic>.from(professional))
+          ];
+        }
       }
       notifyListeners();
     } catch (_) {
@@ -63,7 +83,7 @@ class ProfileProvider with ChangeNotifier {
   }
 
   Future<void> fetchProfiles({bool force = false, bool silent = false}) async {
-    final hasAnyProfile = _teacherProfile != null || _professionalProfile != null;
+    final hasAnyProfile = _teacherProfiles.isNotEmpty || _professionalProfiles.isNotEmpty;
     final isFresh = _lastFetchedAt != null &&
         DateTime.now().difference(_lastFetchedAt!).inMinutes < 10;
     // Skip if data is fresh in memory (online or offline), unless forced
@@ -80,9 +100,9 @@ class ProfileProvider with ChangeNotifier {
   }
 
   Future<void> _doFetch({bool silent = false}) async {
-    final hasCachedProfile = _teacherProfile != null || _professionalProfile != null;
+    final hasCachedProfile = _teacherProfiles.isNotEmpty || _professionalProfiles.isNotEmpty;
     if (!silent) {
-      if (_teacherProfile == null && _professionalProfile == null) {
+      if (_teacherProfiles.isEmpty && _professionalProfiles.isEmpty) {
         _isLoading = true;
       }
       _error = null;
@@ -91,39 +111,27 @@ class ProfileProvider with ChangeNotifier {
 
     try {
       final results = await Future.wait([
-        _repository.getTeacherProfile(),
-        _repository.getProfessionalProfile(),
+        _repository.getTeacherProfiles(),
+        _repository.getProfessionalProfiles(),
         _repository.getProfileStatus(),
       ]);
 
-      final fetchedTeacher = results[0] as TeacherProfileModel?;
-      final fetchedProfessional = results[1] as ProfessionalProfileModel?;
-      if (fetchedTeacher != null) {
-        _teacherProfile = fetchedTeacher;
-        await CacheStore.setJson(
-          'teacher_profile',
-          _teacherProfile!.toJson(),
-          ttl: const Duration(hours: 12),
-        );
-      } else {
-        _teacherProfile = null;
-        await CacheStore.remove('teacher_profile');
-      }
-      if (fetchedProfessional != null) {
-        _professionalProfile = fetchedProfessional;
-        await CacheStore.setJson(
-          'professional_profile',
-          _professionalProfile!.toJson(),
-          ttl: const Duration(hours: 12),
-        );
-      } else {
-        _professionalProfile = null;
-        await CacheStore.remove('professional_profile');
-      }
+      _teacherProfiles = results[0] as List<TeacherProfileModel>;
+      _professionalProfiles = results[1] as List<ProfessionalProfileModel>;
       _profileStatus = results[2] as Map<String, dynamic>?;
-      _lastFetchedAt = DateTime.now();
 
-      // Cache already persisted above
+      await CacheStore.setJson(
+        'teacher_profiles',
+        _teacherProfiles.map((e) => e.toJson()).toList(),
+        ttl: const Duration(hours: 12),
+      );
+      await CacheStore.setJson(
+        'professional_profiles',
+        _professionalProfiles.map((e) => e.toJson()).toList(),
+        ttl: const Duration(hours: 12),
+      );
+
+      _lastFetchedAt = DateTime.now();
     } catch (e) {
       // Keep using cached profile silently in offline mode.
       _error = hasCachedProfile ? null : e;
@@ -134,14 +142,11 @@ class ProfileProvider with ChangeNotifier {
   }
 
   Future<bool> saveTeacherProfile(TeacherProfileModel profile) async {
+    final isUpdate = profile.id != null && profile.id!.isNotEmpty && !profile.id!.startsWith('local-');
     if (!NetworkStatusService.instance.isOnline) {
-      await OfflineQueue.enqueue(
-        method: _teacherProfile != null ? 'PUT' : 'POST',
-        path: ApiEndpoints.teacherProfile,
-        data: profile.toJson(),
-      );
-      _teacherProfile = TeacherProfileModel(
-        id: _teacherProfile?.id ?? 'local-${DateTime.now().microsecondsSinceEpoch}',
+      final id = profile.id ?? 'local-${DateTime.now().microsecondsSinceEpoch}';
+      final newProfile = TeacherProfileModel(
+        id: id,
         name: profile.name,
         schoolCollegeName: profile.schoolCollegeName,
         city: profile.city,
@@ -156,10 +161,28 @@ class ProfileProvider with ChangeNotifier {
         divisionName: profile.divisionName,
         phoneNumber: profile.phoneNumber,
       );
+
+      await OfflineQueue.enqueue(
+        method: isUpdate ? 'PUT' : 'POST',
+        path: isUpdate ? ApiEndpoints.teacherProfileWithId(id) : ApiEndpoints.teacherProfiles,
+        data: profile.toJson(),
+      );
+
+      if (isUpdate) {
+        final idx = _teacherProfiles.indexWhere((e) => e.id == id);
+        if (idx != -1) {
+          _teacherProfiles[idx] = newProfile;
+        } else {
+          _teacherProfiles.add(newProfile);
+        }
+      } else {
+        _teacherProfiles.add(newProfile);
+      }
+
       notifyListeners();
       await CacheStore.setJson(
-        'teacher_profile',
-        _teacherProfile!.toJson(),
+        'teacher_profiles',
+        _teacherProfiles.map((e) => e.toJson()).toList(),
         ttl: const Duration(hours: 12),
       );
       return true;
@@ -170,12 +193,21 @@ class ProfileProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final saved = await _repository.saveTeacherProfile(
+      final saved = await _repository.saveTeacherProfileWithId(
         profile,
-        isUpdate: _teacherProfile != null,
+        isUpdate: isUpdate,
       );
       if (saved != null) {
-        _teacherProfile = saved;
+        if (isUpdate) {
+          final idx = _teacherProfiles.indexWhere((e) => e.id == saved.id);
+          if (idx != -1) {
+            _teacherProfiles[idx] = saved;
+          } else {
+            _teacherProfiles.add(saved);
+          }
+        } else {
+          _teacherProfiles.add(saved);
+        }
         _lastFetchedAt = DateTime.now();
         notifyListeners();
         await fetchProfiles(force: true, silent: true);
@@ -191,12 +223,22 @@ class ProfileProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> deleteTeacherProfile() async {
+  Future<bool> deleteTeacherProfile({String? profileId}) async {
+    final id = profileId ?? teacherProfile?.id;
+    if (id == null) return false;
+
     if (!NetworkStatusService.instance.isOnline) {
-      await OfflineQueue.enqueue(method: 'DELETE', path: ApiEndpoints.teacherProfile);
-      _teacherProfile = null;
+      await OfflineQueue.enqueue(
+        method: 'DELETE',
+        path: ApiEndpoints.teacherProfileWithId(id),
+      );
+      _teacherProfiles.removeWhere((e) => e.id == id);
       notifyListeners();
-      await CacheStore.remove('teacher_profile');
+      await CacheStore.setJson(
+        'teacher_profiles',
+        _teacherProfiles.map((e) => e.toJson()).toList(),
+        ttl: const Duration(hours: 12),
+      );
       return true;
     }
 
@@ -205,10 +247,14 @@ class ProfileProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final success = await _repository.deleteTeacherProfile();
+      final success = await _repository.deleteTeacherProfileWithId(id);
       if (success) {
-        _teacherProfile = null;
-        await CacheStore.remove('teacher_profile');
+        _teacherProfiles.removeWhere((e) => e.id == id);
+        await CacheStore.setJson(
+          'teacher_profiles',
+          _teacherProfiles.map((e) => e.toJson()).toList(),
+          ttl: const Duration(hours: 12),
+        );
         _lastFetchedAt = null; // force fresh fetch next time
         notifyListeners();
         return true;
@@ -224,14 +270,11 @@ class ProfileProvider with ChangeNotifier {
   }
 
   Future<bool> saveProfessionalProfile(ProfessionalProfileModel profile) async {
+    final isUpdate = profile.id != null && profile.id!.isNotEmpty && !profile.id!.startsWith('local-');
     if (!NetworkStatusService.instance.isOnline) {
-      await OfflineQueue.enqueue(
-        method: _professionalProfile != null ? 'PUT' : 'POST',
-        path: ApiEndpoints.professionalProfile,
-        data: profile.toJson(),
-      );
-      _professionalProfile = ProfessionalProfileModel(
-        id: _professionalProfile?.id ?? 'local-${DateTime.now().microsecondsSinceEpoch}',
+      final id = profile.id ?? 'local-${DateTime.now().microsecondsSinceEpoch}';
+      final newProfile = ProfessionalProfileModel(
+        id: id,
         name: profile.name,
         companyName: profile.companyName,
         corporateLocationId: profile.corporateLocationId,
@@ -242,10 +285,28 @@ class ProfileProvider with ChangeNotifier {
         mealSizeId: profile.mealSizeId,
         phoneNumber: profile.phoneNumber,
       );
+
+      await OfflineQueue.enqueue(
+        method: isUpdate ? 'PUT' : 'POST',
+        path: isUpdate ? ApiEndpoints.professionalProfileWithId(id) : ApiEndpoints.professionalProfiles,
+        data: profile.toJson(),
+      );
+
+      if (isUpdate) {
+        final idx = _professionalProfiles.indexWhere((e) => e.id == id);
+        if (idx != -1) {
+          _professionalProfiles[idx] = newProfile;
+        } else {
+          _professionalProfiles.add(newProfile);
+        }
+      } else {
+        _professionalProfiles.add(newProfile);
+      }
+
       notifyListeners();
       await CacheStore.setJson(
-        'professional_profile',
-        _professionalProfile!.toJson(),
+        'professional_profiles',
+        _professionalProfiles.map((e) => e.toJson()).toList(),
         ttl: const Duration(hours: 12),
       );
       return true;
@@ -256,12 +317,21 @@ class ProfileProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final saved = await _repository.saveProfessionalProfile(
+      final saved = await _repository.saveProfessionalProfileWithId(
         profile,
-        isUpdate: _professionalProfile != null,
+        isUpdate: isUpdate,
       );
       if (saved != null) {
-        _professionalProfile = saved;
+        if (isUpdate) {
+          final idx = _professionalProfiles.indexWhere((e) => e.id == saved.id);
+          if (idx != -1) {
+            _professionalProfiles[idx] = saved;
+          } else {
+            _professionalProfiles.add(saved);
+          }
+        } else {
+          _professionalProfiles.add(saved);
+        }
         _lastFetchedAt = DateTime.now();
         notifyListeners();
         await fetchProfiles(force: true, silent: true);
@@ -277,12 +347,22 @@ class ProfileProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> deleteProfessionalProfile() async {
+  Future<bool> deleteProfessionalProfile({String? profileId}) async {
+    final id = profileId ?? professionalProfile?.id;
+    if (id == null) return false;
+
     if (!NetworkStatusService.instance.isOnline) {
-      await OfflineQueue.enqueue(method: 'DELETE', path: ApiEndpoints.professionalProfile);
-      _professionalProfile = null;
+      await OfflineQueue.enqueue(
+        method: 'DELETE',
+        path: ApiEndpoints.professionalProfileWithId(id),
+      );
+      _professionalProfiles.removeWhere((e) => e.id == id);
       notifyListeners();
-      await CacheStore.remove('professional_profile');
+      await CacheStore.setJson(
+        'professional_profiles',
+        _professionalProfiles.map((e) => e.toJson()).toList(),
+        ttl: const Duration(hours: 12),
+      );
       return true;
     }
 
@@ -291,10 +371,14 @@ class ProfileProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final success = await _repository.deleteProfessionalProfile();
+      final success = await _repository.deleteProfessionalProfileWithId(id);
       if (success) {
-        _professionalProfile = null;
-        await CacheStore.remove('professional_profile');
+        _professionalProfiles.removeWhere((e) => e.id == id);
+        await CacheStore.setJson(
+          'professional_profiles',
+          _professionalProfiles.map((e) => e.toJson()).toList(),
+          ttl: const Duration(hours: 12),
+        );
         _lastFetchedAt = null; // force fresh fetch next time
         notifyListeners();
         return true;
@@ -310,8 +394,8 @@ class ProfileProvider with ChangeNotifier {
   }
 
   void clearState() {
-    _teacherProfile = null;
-    _professionalProfile = null;
+    _teacherProfiles = [];
+    _professionalProfiles = [];
     _profileStatus = null;
     _lastFetchedAt = null;
     _error = null;

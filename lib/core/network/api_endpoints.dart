@@ -61,6 +61,10 @@ class ApiEndpoints {
   static const String parentProfile = '/api/client/parent/profile';
   static const String professionalProfile = '/api/client/professional/profile';
   static const String teacherProfile = '/api/client/teacher/profile';
+  static const String teacherProfiles = '/api/client/teacher/profiles';
+  static String teacherProfileWithId(String id) => '/api/client/teacher/profiles/$id';
+  static const String professionalProfiles = '/api/client/professional/profiles';
+  static String professionalProfileWithId(String id) => '/api/client/professional/profiles/$id';
 
   // Lookup
   static const String schools = '/api/client/schools';

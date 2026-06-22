@@ -145,19 +145,19 @@ class _ChildrenManagementScreenState extends State<ChildrenManagementScreen> {
                             else
                               ...children.map((child) => _buildChildCard(context, child)),
                             
-                            if (children.length < 3)
+                            if (children.length < 6)
                               const SizedBox(height: 20),
-                            if (children.length < 3)
+                            if (children.length < 6)
                               DashedAddButton(
                                 label: 'Add Child',
                                 onTap: () => _showChildForm(context),
                               ),
                             const SizedBox(height: 20),
-                            if (children.length >= 3)
+                            if (children.length >= 6)
                               Padding(
                                 padding: const EdgeInsets.only(top: 20),
                                 child: Text(
-                                  'Maximum 3 children allowed.',
+                                  'Maximum 6 children allowed.',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     color: Theme.of(context).textTheme.bodyMedium?.color,
