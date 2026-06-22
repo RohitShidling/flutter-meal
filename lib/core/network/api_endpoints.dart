@@ -47,6 +47,7 @@ class ApiEndpoints {
   static const String logout = '/api/client/auth/logout';
   static const String refresh = '/api/client/auth/refresh';
   static const String me = '/api/client/auth/me';
+  static const String deleteAccount = '/api/client/auth/delete-account';
 
   // Legacy (kept for backward compat — remove later)
   static const String sendOtp = '/api/client/auth/send-otp';

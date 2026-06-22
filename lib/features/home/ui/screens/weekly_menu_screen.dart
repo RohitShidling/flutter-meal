@@ -185,12 +185,12 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
                   Icon(CupertinoIcons.lock_fill, size: 48, color: isDark ? Colors.white38 : Colors.black.withValues(alpha: 0.35)),
                   const SizedBox(height: 16),
                   Text(
-                    'Subscription Required',
+                    'Meal Plan Required',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: isDark ? Colors.white : AppTheme.textPrimaryLight),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Subscribe to view the weekly meal plan.',
+                    'Buy a meal plan to view the weekly menu.',
                     style: TextStyle(color: isDark ? Colors.white60 : Colors.black.withValues(alpha: 0.55)),
                     textAlign: TextAlign.center,
                   ),

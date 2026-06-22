@@ -112,7 +112,7 @@ class _QuickOrderSectionState extends State<QuickOrderSection> {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Text(
-                    'Not a subscriber?',
+                    'No active plan?',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,

@@ -64,22 +64,22 @@ class LegalScreen extends StatelessWidget {
         const SizedBox(height: 24),
         _buildSectionCard(
           title: '1. Welcome & Agreement',
-          content: 'Welcome to Buuttii! These Terms & Conditions ("Terms") govern your use of the Buuttii mobile application, website, and related meal subscription services. By registering an account, purchasing a subscription, or using the app, you explicitly agree to be bound by these Terms. If you do not agree, please do not use the app.',
+          content: 'Welcome to Buuttii! These Terms & Conditions ("Terms") govern your use of the Buuttii mobile application, website, and related meal plan services. By registering an account, purchasing a meal plan, or using the app, you explicitly agree to be bound by these Terms. If you do not agree, please do not use the app.',
           isDark: isDark,
         ),
         _buildSectionCard(
           title: '2. User Accounts & Registration',
-          content: 'To access our meal subscription services, you must register using a valid WhatsApp phone number. You agree to provide accurate and complete information (e.g., username, profile information). You are entirely responsible for all activities that occur under your account and for maintaining the confidentiality of your registration details.',
+          content: 'To access our meal plan services, you must register using a valid WhatsApp phone number. You agree to provide accurate and complete information (e.g., username, profile information). You are entirely responsible for all activities that occur under your account and for maintaining the confidentiality of your registration details.',
           isDark: isDark,
         ),
         _buildSectionCard(
-          title: '3. Subscriptions & Payments',
-          content: 'Buuttii offers various recurring meal subscription plans (e.g., parent plan, professional plan, teacher plan). Fees are charged in advance for the selected billing cycle. Payments are processed securely via third-party integrated payment gateways. Subscriptions entitle you to receive meals as described in your chosen plan.',
+          title: '3. Meal Plans & Payments',
+          content: 'Buuttii offers various recurring meal plans (e.g., parent plan, professional plan, teacher plan). Fees are charged in advance for the selected billing cycle. Payments are processed securely via third-party integrated payment gateways. Meal plans entitle you to receive meals as described in your chosen plan.',
           isDark: isDark,
         ),
         _buildSectionCard(
           title: '4. Meal Skips & Customization',
-          content: 'Our app supports temporary subscription pauses ("Meal Skips") for planned absences. Skip requests must comply with the minimum consecutive day rules and advance-notice cutoff times configured in the application settings. Standard meal sizes and delivery preferences can be resized within the app, subject to adjusted pricing tiers.',
+          content: 'Our app supports temporary meal plan pauses ("Meal Skips") for planned absences. Skip requests must comply with the minimum consecutive day rules and advance-notice cutoff times configured in the application settings. Standard meal sizes and delivery preferences can be resized within the app, subject to adjusted pricing tiers.',
           isDark: isDark,
         ),
         _buildSectionCard(
@@ -131,7 +131,7 @@ class LegalScreen extends StatelessWidget {
               '• Verify your identity and secure logins via OTP.\n'
               '• Coordinate precise daily meal preparation and route deliveries to classrooms, schools, and offices.\n'
               '• Compute analytics, transaction logs, and total revenue metrics for the administrator panel.\n'
-              '• Deliver push alerts and WhatsApp reminders regarding low meal balances or subscription status.',
+              '• Deliver push alerts and WhatsApp reminders regarding low meal balances or meal plan status.',
           isDark: isDark,
         ),
         _buildSectionCard(

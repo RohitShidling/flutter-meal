@@ -352,6 +352,40 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> deleteAccount() async {
+    _state = AuthState.loading;
+    notifyListeners();
+
+    try {
+      await _authRepository.deleteAccount().timeout(const Duration(seconds: 10));
+    } catch (e) {
+      _errorMessage = ErrorHandler.getErrorMessage(e);
+      _state = AuthState.error;
+      notifyListeners();
+      rethrow;
+    }
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('read_announcement_ids');
+    } catch (_) {}
+
+    OfflineCacheBootstrap.resetSession();
+    await CacheStore.clearAll();
+    _state = AuthState.unauthenticated;
+    _phoneNumber = '';
+    _username = '';
+    _referralCode = '';
+    _referredById = null;
+    _isReferEarnActive = false;
+    _mealsReward = 2;
+    _pendingRewardsCount = 0;
+    _pendingRewardsList = [];
+    _authMode = AuthMode.login;
+    _lastProfileFetchedAt = null;
+    notifyListeners();
+  }
+
   Future<void> refreshMeProfile({bool silent = false, bool forceNetwork = false}) async {
     if (!forceNetwork && _isProfileFresh()) return;
 

@@ -448,8 +448,8 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
           else
             Text(
               entityName.isNotEmpty
-                ? 'Subscription for $entityName ($planName) is now active.'
-                : 'Your subscription is now active.',
+                ? 'Meal Plan for $entityName ($planName) is now active.'
+                : 'Your meal plan is now active.',
               textAlign: TextAlign.center,
               style: TextStyle(color: isDark ? Colors.white54 : Colors.grey, fontSize: 16),
             ),

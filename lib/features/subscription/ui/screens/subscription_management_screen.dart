@@ -89,7 +89,7 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Subscriptions & Payments',
+          'Meal Plans & Payments',
           style: TextStyle(
             fontWeight: FontWeight.w800,
             color: isDark ? Colors.white : AppTheme.textPrimaryLight,
@@ -138,7 +138,7 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
             Icon(CupertinoIcons.exclamationmark_triangle, size: 48, color: Colors.orange.withValues(alpha: 0.7)),
             const SizedBox(height: 16),
             Text(
-              'Could not load subscriptions',
+              'Could not load meal plans',
               style: TextStyle(
                 color: isDark ? Colors.white : AppTheme.textPrimaryLight,
                 fontWeight: FontWeight.w600,
@@ -162,7 +162,7 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
             Icon(CupertinoIcons.creditcard, size: 64, color: Colors.grey.withValues(alpha: 0.5)),
             const SizedBox(height: 16),
             Text(
-              'No active subscriptions found.',
+              'No active meal plans found.',
               style: TextStyle(color: isDark ? Colors.white54 : Colors.grey),
             ),
           ],
@@ -437,7 +437,7 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
           planName = 'One Day Lunch';
         } else if (orderType == 'special_dish') {
           planName = _safeString(payment['plan_name'] ?? payment['entity_name'], 'Buuttii Specials');
-          if (planName.isEmpty || planName == 'Subscription' || planName == 'null') {
+          if (planName.isEmpty || planName == 'Subscription' || planName == 'Meal Plan' || planName == 'null') {
             planName = 'Buuttii Specials';
           }
         } else if (orderType == 'bulk') {
@@ -451,7 +451,7 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
         } else if (orderType == 'referral_applied') {
           planName = _safeString(payment['plan_name'], 'Referral Applied');
         } else {
-          planName = _safeString(payment['plan_name'] ?? payment['entity_name'], 'Subscription');
+          planName = _safeString(payment['plan_name'] ?? payment['entity_name'], 'Meal Plan');
         }
         final entityName = _safeString(payment['entity_name'], '');
         final entityType = _safeString(payment['entity_type'] ?? payment['entityType'], '');

@@ -89,7 +89,7 @@ class _ReferEarnScreenState extends State<ReferEarnScreen> {
   }
 
   void _shareReferral(String code, int mealsReward) {
-    final text = 'Hey! Subscribe to Buuttii using my referral code: $code '
+    final text = 'Hey! Buy a meal plan on Buuttii using my referral code: $code '
         'and get delicious, healthy meals delivered to you. I will earn $mealsReward extra meals once you purchase your first plan! '
         'Sign up now: https://play.google.com/store/apps/details?id=com.buuttii.app';
     // ignore: deprecated_member_use
@@ -130,7 +130,7 @@ class _ReferEarnScreenState extends State<ReferEarnScreen> {
                 ],
               ),
               content: Text(
-                '$mealsToClaim extra meals have been successfully added to $profileName\'s subscription. Enjoy your extra meals!',
+                '$mealsToClaim extra meals have been successfully added to $profileName\'s meal plan. Enjoy your extra meals!',
               ),
               actions: [
                 TextButton(
@@ -345,7 +345,7 @@ class _ReferEarnScreenState extends State<ReferEarnScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Invite your friends to Buuttii. When they subscribe, you get $mealsReward extra meals added to your active plans!',
+            'Invite your friends to Buuttii. When they buy a plan, you get $mealsReward extra meals added to your active plans!',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.9),
@@ -540,7 +540,7 @@ class _ReferEarnScreenState extends State<ReferEarnScreen> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: const Text(
-                            'Meals can only be added to profiles with an active subscription plan.',
+                            'Meals can only be added to profiles with an active meal plan.',
                           ),
                           behavior: SnackBarBehavior.floating,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -595,7 +595,7 @@ class _ReferEarnScreenState extends State<ReferEarnScreen> {
                               const SizedBox(height: 2),
                               Text(
                                 isActive 
-                                    ? (candidate.planStatus == 'active' ? 'Active Subscription' : 'Upcoming Subscription')
+                                    ? (candidate.planStatus == 'active' ? 'Active Meal Plan' : 'Upcoming Meal Plan')
                                     : 'No Active Plan',
                                 style: TextStyle(
                                   fontSize: 12,
@@ -750,8 +750,8 @@ class _ReferEarnScreenState extends State<ReferEarnScreen> {
           const SizedBox(height: 16),
           _buildStepRow(
             '2',
-            'Friend Subscribes',
-            'Your friend enters your code during registration and purchases a regular plan subscription.',
+            'Friend Buys a Plan',
+            'Your friend enters your code during registration and purchases a meal plan.',
             isDark,
           ),
           const SizedBox(height: 16),

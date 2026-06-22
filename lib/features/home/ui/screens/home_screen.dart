@@ -722,7 +722,7 @@ class UpcomingPlanCard extends StatelessWidget {
                       itemBuilder: (context, index) {
                         final row = upcomingRows[index];
                         final message = _formatUpcomingMessage(context, row);
-                        final planName = row['plan_name']?.toString() ?? 'Subscription Plan';
+                        final planName = row['plan_name']?.toString() ?? 'Meal Plan';
                         
                         return Container(
                           margin: const EdgeInsets.only(bottom: 12),
@@ -898,10 +898,10 @@ class TodayMealCard extends StatelessWidget {
     final String label;
     if (hasUpcoming) {
       bg = const Color(0xFFD97706);
-      label = 'Upcoming plan';
+      label = 'Upcoming Meal Plan';
     } else {
       bg = const Color(0xFF64748B);
-      label = 'Not subscribed';
+      label = 'No Active Meal Plan';
     }
 
     return Container(
@@ -1153,7 +1153,7 @@ class AlertsBanner extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(
       children: alerts.map<Widget>((alert) {
-        final message = alert['message']?.toString() ?? 'Subscription expiring soon';
+        final message = alert['message']?.toString() ?? 'Meal Plan expiring soon';
         final remainingDays = alert['remaining_days'];
 
         return Container(

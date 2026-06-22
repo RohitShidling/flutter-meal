@@ -664,7 +664,7 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
 
                           if (subs.isEmpty)
                             Text(
-                              'No active or upcoming paid subscriptions found. Complete a subscription payment first, then you can resize the meal pack.',
+                              'No active or upcoming paid meal plans found. Buy a meal plan first, then you can resize the meal pack.',
                               style: TextStyle(
                                 fontWeight: FontWeight.w700,
                                 color: isDark ? Colors.white54 : Colors.grey.shade700,
@@ -712,7 +712,7 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
                                               crossAxisAlignment: CrossAxisAlignment.start,
                                               children: [
                                                 Text(
-                                                  'Subscriber Profile',
+                                                  'Recipient Profile',
                                                   style: TextStyle(
                                                     fontSize: 11,
                                                     fontWeight: FontWeight.w800,
@@ -774,7 +774,7 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
                                                 Text(
                                                   _trim((subs[_selectedSubIndex.clamp(0, subs.length - 1)] as Map)['plan_name']).isNotEmpty
                                                       ? _trim((subs[_selectedSubIndex.clamp(0, subs.length - 1)] as Map)['plan_name'])
-                                                      : 'Active Subscription',
+                                                      : 'Active Meal Plan',
                                                   style: TextStyle(
                                                     fontSize: 14, 
                                                     fontWeight: FontWeight.w700,
@@ -928,7 +928,7 @@ class _MealSizeUpgradeScreenState extends State<MealSizeUpgradeScreen> {
                                 ),
                                 child: Text(
                                   !_eligible
-                                      ? 'This profile does not have a completed subscription payment yet. Pay for a plan first, then resize options will appear here.'
+                                      ? 'This profile does not have an active meal plan yet. Buy a meal plan first, then resize options will appear here.'
                                       : 'No resizing path is published from your current size yet. Contact support if you need to change your pack.',
                                   style: TextStyle(fontWeight: FontWeight.w700, color: isDark ? Colors.white70 : AppTheme.textPrimaryLight),
                                 ),

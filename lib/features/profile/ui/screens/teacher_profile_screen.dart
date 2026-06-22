@@ -86,7 +86,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
         .map((m) => m.displayName)
         .firstOrNull;
     final label = sizeName?.isNotEmpty == true ? sizeName! : 'your current size';
-    return 'You cannot change meal size because you are actively subscribed with $label. Use Resize meal pack in Settings.';
+    return 'You cannot change meal size because you have an active meal plan with $label. Use Resize meal pack in Settings.';
   }
 
   bool get _blocksMealSizeChange {
@@ -274,7 +274,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
       if (_blocksMealSizeChange && _selectedMealSize!.id != existing.mealSizeId) {
         ErrorHandler.showError(
           context,
-          'Meal size cannot be changed while a subscription is active or upcoming. Use Resize meal pack in Settings.',
+          'Meal size cannot be changed while a meal plan is active or upcoming. Use Resize meal pack in Settings.',
         );
         return;
       }
@@ -914,7 +914,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
                 ErrorHandler.showSuccess(this.context, 'Teacher profile deleted successfully');
                 // Provider update will show empty form
               } else {
-                ErrorHandler.showError(this.context, 'Cannot delete — you have an active subscription on this profile. Please wait for it to expire.');
+                ErrorHandler.showError(this.context, 'Cannot delete — you have an active meal plan on this profile. Please wait for it to expire.');
               }
             },
             child: const Text('Delete'),

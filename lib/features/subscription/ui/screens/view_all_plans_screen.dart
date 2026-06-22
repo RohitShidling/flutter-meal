@@ -330,7 +330,7 @@ class _PlanCatalogTile extends StatelessWidget {
               ],
               const SizedBox(height: 10),
               Text(
-                'To subscribe, choose a child, teacher, or professional profile in Profile management.',
+                'To buy a plan, choose a child, teacher, or professional profile in Profile management.',
                 style: TextStyle(
                   fontSize: 12,
                   height: 1.4,

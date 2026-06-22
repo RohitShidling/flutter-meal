@@ -132,6 +132,16 @@ class AuthRepository {
     }
   }
 
+  Future<void> deleteAccount() async {
+    try {
+      await _dioClient.dio.delete(ApiEndpoints.deleteAccount);
+    } on DioException catch (e) {
+      throw _handleError(e);
+    } finally {
+      await _secureStorage.clearTokens();
+    }
+  }
+
   Future<bool> isAuthenticated() async {
     final token = await _secureStorage.getAccessToken();
     return token != null;

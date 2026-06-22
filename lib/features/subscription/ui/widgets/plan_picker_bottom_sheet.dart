@@ -179,7 +179,7 @@ class _PlanPickerSheetState extends State<_PlanPickerSheet> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Select Subscription Plan',
+                            'Select Meal Plan',
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.w900,

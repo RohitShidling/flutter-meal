@@ -136,7 +136,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _buildNavigationTile(
               context,
               CupertinoIcons.creditcard_fill, 
-              'Subscriptions & Payments', 
+              'Meal Plans & Payments', 
               isDark,
               () {
                 Navigator.push(
@@ -264,6 +264,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 50),
             
             _buildLogoutButton(context, authProvider),
+            const SizedBox(height: 12),
+            _buildDeleteAccountButton(context, authProvider),
           ],
         ),
         bottomNavigationBar: BuuttiiFooterNav(
@@ -434,7 +436,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   final aboutDescription = contactInfo?.aboutDescription.trim();
                   return aboutDescription != null && aboutDescription.isNotEmpty
                       ? aboutDescription
-                      : 'This app helps you manage meal subscriptions, menus, and skips in one place.';
+                      : 'This app helps you manage meal plans, menus, and skips in one place.';
                 })(),
                 style: TextStyle(
                   fontSize: 14,
@@ -489,7 +491,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 final appName = contactInfo?.appName.trim();
                 final brand = appName != null && appName.isNotEmpty ? appName : 'This App';
                 return 'Copyright (c) ${DateTime.now().year} $brand.\n\n'
-                    'This mobile application and its content are proprietary to $brand and intended for authorized meal subscription use only.\n\n'
+                    'This mobile application and its content are proprietary to $brand and intended for authorized meal plan use only.\n\n'
                     'Unauthorized copying, redistribution, reverse engineering, or commercial reuse of app content, branding, or data is prohibited.\n\n'
                     'Use of this app is subject to $brand policies and applicable local laws.';
               })(),
@@ -547,6 +549,72 @@ class _SettingsScreenState extends State<SettingsScreen> {
         elevation: 0,
       ),
       child: const Text('Logout Account'),
+    );
+  }
+
+  Widget _buildDeleteAccountButton(BuildContext context, AuthProvider authProvider) {
+    return ElevatedButton(
+      onPressed: () {
+        showCupertinoDialog(
+          context: context,
+          builder: (dialogContext) => CupertinoAlertDialog(
+            title: const Text('Delete Account'),
+            content: const Text('Are you sure you want to permanently delete your account? This action cannot be undone.'),
+            actions: [
+              CupertinoDialogAction(
+                child: const Text('Cancel'),
+                onPressed: () => Navigator.pop(dialogContext),
+              ),
+              CupertinoDialogAction(
+                isDestructiveAction: true,
+                onPressed: () async {
+                  Navigator.of(dialogContext).pop();
+                  
+                  // Show loading spinner
+                  showCupertinoDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (loadingContext) => const Center(
+                      child: CupertinoActivityIndicator(radius: 14),
+                    ),
+                  );
+
+                  try {
+                    await authProvider.deleteAccount();
+                    
+                    OfflineCacheBootstrap.clearMemory(context);
+                    await CacheStore.clearAll();
+                    OfflineCacheBootstrap.resetSession();
+                    
+                    if (!context.mounted) return;
+                    Navigator.of(context).pop(); // Dismiss loading spinner
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Your account has been deleted successfully.'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+
+                    Navigator.of(context).popUntil((route) => route.isFirst);
+                  } catch (e) {
+                    if (!context.mounted) return;
+                    Navigator.of(context).pop(); // Dismiss loading spinner
+                    ErrorHandler.showError(context, e.toString());
+                  }
+                },
+                child: const Text('Delete Account'),
+              ),
+            ],
+          ),
+        );
+      },
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.red.withValues(alpha: 0.1),
+        foregroundColor: Colors.red,
+        elevation: 0,
+      ),
+      child: const Text('Delete Account'),
     );
   }
 

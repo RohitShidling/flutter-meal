@@ -424,7 +424,7 @@ class _ChildrenManagementScreenState extends State<ChildrenManagementScreen> {
               if (success) {
                 if (mounted) ErrorHandler.showSuccess(context, 'Child deleted successfully');
               } else {
-                if (mounted) ErrorHandler.showError(context, 'Failed to delete — child may have active subscriptions');
+                if (mounted) ErrorHandler.showError(context, 'Failed to delete — child may have active meal plans');
               }
             },
             child: const Text('Delete'),
@@ -475,7 +475,7 @@ class _ChildFormState extends State<_ChildForm> {
         .map((m) => m.displayName)
         .firstOrNull;
     final label = sizeName?.isNotEmpty == true ? sizeName! : (widget.child?.mealSizeName ?? 'your current size');
-    return 'You cannot change meal size because you are actively subscribed with $label. Use Resize meal pack in Settings.';
+    return 'You cannot change meal size because you have an active meal plan with $label. Use Resize meal pack in Settings.';
   }
 
   bool get _blocksMealSizeChange {
@@ -669,7 +669,7 @@ class _ChildFormState extends State<_ChildForm> {
     if (widget.child != null && _blocksMealSizeChange) {
       final before = widget.child!;
       if (_selectedMealSize != null && _selectedMealSize!.id != before.mealSizeId) {
-        final msg = 'Meal size cannot be changed while a subscription is active or upcoming. Use Resize meal pack in Settings.';
+        final msg = 'Meal size cannot be changed while a meal plan is active or upcoming. Use Resize meal pack in Settings.';
         setState(() => _formError = msg);
         ErrorHandler.showError(context, msg);
         return false;
@@ -694,7 +694,7 @@ class _ChildFormState extends State<_ChildForm> {
           if (_blocksMealSizeChange && _selectedMealSize?.id != before.mealSizeId) {
             ErrorHandler.showError(
               context,
-              'Meal size cannot be changed while a subscription is active or upcoming. Use Resize meal pack in Settings.',
+              'Meal size cannot be changed while a meal plan is active or upcoming. Use Resize meal pack in Settings.',
             );
           } else if (_selectedState != null &&
               school.state.trim().toLowerCase() != _selectedState!.name.trim().toLowerCase()) {
