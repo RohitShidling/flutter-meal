@@ -39,6 +39,10 @@ class BulkOrderProvider with ChangeNotifier {
           );
         }
       }
+      final bulkCartJson = await CacheStore.getJson('bulk_cart_draft');
+      if (bulkCartJson is Map<String, dynamic>) {
+        _applyCartPayload(bulkCartJson);
+      }
       notifyListeners();
     } catch (_) {}
   }
@@ -67,6 +71,8 @@ class BulkOrderProvider with ChangeNotifier {
   final Map<String, int> _varietyQty = {};
   final Map<String, BulkMenuOption> _varietyMealCatalog = {};
   final Map<String, String> _mealCategoryNames = {};
+  // AUDIT-024: Stores the persistent category ID for each meal to enable stable cart restore.
+  final Map<String, String> _mealCategoryIds = {};
   BulkDeliveryAddress? _deliveryAddress;
   BulkDeliveryAddress? get deliveryAddress => _deliveryAddress;
   List<BulkDeliveryAddress> _savedAddresses = [];
@@ -168,6 +174,7 @@ class BulkOrderProvider with ChangeNotifier {
     _varietyQty.clear();
     _varietyMealCatalog.clear();
     _mealCategoryNames.clear();
+    _mealCategoryIds.clear();
     notifyListeners();
     _scheduleCartSync();
   }
@@ -436,13 +443,17 @@ class BulkOrderProvider with ChangeNotifier {
   List<MapEntry<String, int>> get varietyCartLines =>
       _varietyQty.entries.where((e) => e.value > 0).toList();
 
-  void setVarietyQty(String mealId, int qty, {String? categoryName}) {
+  void setVarietyQty(String mealId, int qty, {String? categoryName, String? categoryId}) {
     if (qty <= 0) {
       _varietyQty.remove(mealId);
     } else {
       _varietyQty[mealId] = qty;
       if (categoryName != null && categoryName.isNotEmpty) {
         _mealCategoryNames[mealId] = categoryName;
+      }
+      // AUDIT-024: Persist the stable category ID alongside the name.
+      if (categoryId != null && categoryId.isNotEmpty) {
+        _mealCategoryIds[mealId] = categoryId;
       }
     }
     notifyListeners();
@@ -472,6 +483,9 @@ class BulkOrderProvider with ChangeNotifier {
               (e) => {
                 'bulkMealId': e.key,
                 'quantity': e.value,
+                // AUDIT-024: Include both categoryId (stable) and categoryName (fallback).
+                if (_mealCategoryIds.containsKey(e.key))
+                  'categoryId': _mealCategoryIds[e.key],
                 'categoryName': _mealCategoryNames[e.key],
               },
             )
@@ -500,6 +514,9 @@ class BulkOrderProvider with ChangeNotifier {
         _varietyQty[mealId] = qty;
         final cat = row['categoryName']?.toString();
         if (cat != null && cat.isNotEmpty) _mealCategoryNames[mealId] = cat;
+        // AUDIT-024: Restore the stable categoryId from the saved payload.
+        final catId = row['categoryId']?.toString();
+        if (catId != null && catId.isNotEmpty) _mealCategoryIds[mealId] = catId;
       }
     }
     final addr = payload['deliveryAddress'];
@@ -521,6 +538,14 @@ class BulkOrderProvider with ChangeNotifier {
   }
 
   Future<void> syncCartToServer() async {
+    try {
+      if (!hasBulkCartItems) {
+        await CacheStore.remove('bulk_cart_draft');
+      } else {
+        await CacheStore.setJson('bulk_cart_draft', _cartPayload(), ttl: const Duration(days: 30));
+      }
+    } catch (_) {}
+
     if (!hasBulkCartItems) {
       try {
         await _repository.deleteCartDraft();
@@ -535,22 +560,28 @@ class BulkOrderProvider with ChangeNotifier {
   Future<void> loadCartFromServer() async {
     try {
       final payload = await _repository.getCartDraft();
-      if (payload == null || payload.isEmpty) return;
+      if (payload == null || payload.isEmpty) {
+        clearBulkCart();
+        await CacheStore.remove('bulk_cart_draft');
+        return;
+      }
       _applyCartPayload(payload);
+      await CacheStore.setJson('bulk_cart_draft', _cartPayload(), ttl: const Duration(days: 30));
 
       // Load variety meal details if there are variety lines in the cart
       if (_varietyQty.isNotEmpty) {
         await loadVarietyCategories();
-        final uniqueCategoryNames = _mealCategoryNames.values
-            .where((name) => name.isNotEmpty)
+
+        // AUDIT-024: Prefer ID-based category matching (stable); fall back to name-based
+        // matching only for old cart drafts that pre-date this fix (no categoryId stored).
+        final uniqueCategoryIds = _mealCategoryIds.values
+            .where((id) => id.isNotEmpty)
             .toSet();
 
         bool loadedAny = false;
-        if (uniqueCategoryNames.isNotEmpty) {
-          for (final catName in uniqueCategoryNames) {
-            final matches = _varietyCategories.where(
-              (c) => c.name.trim().toLowerCase() == catName.trim().toLowerCase(),
-            );
+        if (uniqueCategoryIds.isNotEmpty) {
+          for (final catId in uniqueCategoryIds) {
+            final matches = _varietyCategories.where((c) => c.id == catId);
             if (matches.isNotEmpty) {
               final matchedCat = matches.first;
               await loadMealsForCategory(matchedCat.id, categoryName: matchedCat.name);
@@ -559,8 +590,26 @@ class BulkOrderProvider with ChangeNotifier {
           }
         }
 
-        // If we couldn't load meals via categoryName matching,
-        // fallback to loading meals for all active categories to ensure catalog is populated.
+        // Fallback: name matching for legacy drafts without categoryId.
+        if (!loadedAny) {
+          final uniqueCategoryNames = _mealCategoryNames.values
+              .where((name) => name.isNotEmpty)
+              .toSet();
+          if (uniqueCategoryNames.isNotEmpty) {
+            for (final catName in uniqueCategoryNames) {
+              final matches = _varietyCategories.where(
+                (c) => c.name.trim().toLowerCase() == catName.trim().toLowerCase(),
+              );
+              if (matches.isNotEmpty) {
+                final matchedCat = matches.first;
+                await loadMealsForCategory(matchedCat.id, categoryName: matchedCat.name);
+                loadedAny = true;
+              }
+            }
+          }
+        }
+
+        // Last-resort fallback: load all active categories so catalog is fully populated.
         if (!loadedAny) {
           for (final cat in _varietyCategories) {
             await loadMealsForCategory(cat.id, categoryName: cat.name);
@@ -883,6 +932,7 @@ class BulkOrderProvider with ChangeNotifier {
     _varietyQty.clear();
     _varietyMealCatalog.clear();
     _mealCategoryNames.clear();
+    _mealCategoryIds.clear();
     _deliveryAddress = null;
     _savedAddresses = [];
     _standardQty = null;

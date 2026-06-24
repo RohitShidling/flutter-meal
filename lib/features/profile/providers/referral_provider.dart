@@ -32,7 +32,8 @@ class ReferralProvider with ChangeNotifier {
         _rewards = cached
             .map((e) => ReferralRewardModel.fromJson(Map<String, dynamic>.from(e as Map)))
             .toList();
-        notifyListeners();
+        // AUDIT-038 fix: defer notifyListeners to post-frame to avoid build-phase crash
+        WidgetsBinding.instance.addPostFrameCallback((_) => notifyListeners());
       }
     } catch (_) {}
   }
@@ -143,30 +144,15 @@ class ReferralProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      int remainingToClaim = totalMealsToClaim;
-      final activeRewards = _rewards.where((r) => r.mealsRemaining > 0).toList();
-
-      for (final reward in activeRewards) {
-        if (remainingToClaim <= 0) break;
-        final toClaimFromThisReward = reward.mealsRemaining < remainingToClaim
-            ? reward.mealsRemaining
-            : remainingToClaim;
-
-        final success = await _repository.allocateReferralMeals(
-          rewardId: reward.id,
-          entityType: entityType,
-          entityId: entityId,
-          mealsToClaim: toClaimFromThisReward,
-        );
-
-        if (!success) {
-          throw Exception('Failed to claim meals for reward ID ${reward.id}');
-        }
-        remainingToClaim -= toClaimFromThisReward;
+      final success = await _repository.allocateMultipleReferralMeals(
+        entityType: entityType,
+        entityId: entityId,
+        totalMealsToClaim: totalMealsToClaim,
+      );
+      if (success) {
+        await fetchRewards();
       }
-
-      await fetchRewards();
-      return true;
+      return success;
     } catch (e) {
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
       await fetchRewards();

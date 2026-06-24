@@ -16,7 +16,8 @@ class ThemeProvider with ChangeNotifier {
   Future<void> _loadTheme() async {
     final storedTheme = await _secureStorage.getTheme();
     _isDarkMode = storedTheme == 'dark';
-    notifyListeners();
+    // AUDIT-050 fix: defer notifyListeners to post-frame to avoid build-phase crash
+    WidgetsBinding.instance.addPostFrameCallback((_) => notifyListeners());
   }
 
   Future<void> toggleTheme(bool isOn) async {

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:meal_app/core/models/referral_model.dart';
 import 'package:meal_app/core/network/api_endpoints.dart';
@@ -16,8 +17,10 @@ class ReferralRepository {
         return list.map((r) => ReferralRewardModel.fromJson(r)).toList();
       }
       return [];
-    } catch (e) {
-      return [];
+    } catch (e, stack) {
+      // AUDIT-039 fix: log error instead of silently swallowing it
+      debugPrint('[ReferralRepository] Error fetching referral rewards: $e\n$stack');
+      rethrow;
     }
   }
 
@@ -49,6 +52,27 @@ class ReferralRepository {
           'entityType': entityType,
           'entityId': entityId,
           if (mealsToClaim != null) 'mealsToClaim': mealsToClaim,
+        },
+      );
+      return response.statusCode == 200 && response.data['success'] == true;
+    } on DioException catch (e) {
+      final msg = e.response?.data?['message'] ?? 'Failed to allocate extra meals';
+      throw Exception(msg);
+    }
+  }
+
+  Future<bool> allocateMultipleReferralMeals({
+    required String entityType,
+    required String entityId,
+    required int totalMealsToClaim,
+  }) async {
+    try {
+      final response = await _dioClient.dio.post(
+        ApiEndpoints.allocateReferralMultiple,
+        data: {
+          'entityType': entityType,
+          'entityId': entityId,
+          'totalMealsToClaim': totalMealsToClaim,
         },
       );
       return response.statusCode == 200 && response.data['success'] == true;

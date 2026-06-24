@@ -94,16 +94,18 @@ class AnnouncementProvider with ChangeNotifier {
         final readIds = prefs.getStringList(key);
         if (readIds != null) {
           _readAnnouncementIds = readIds.toSet();
-          notifyListeners();
+          // AUDIT-034 fix: defer notifyListeners to post-frame to avoid build-phase crash
+          WidgetsBinding.instance.addPostFrameCallback((_) => notifyListeners());
           return;
         }
       }
-      
+
       // Fallback to legacy/generic key if any
       final readIds = prefs.getStringList('read_announcement_ids');
       if (readIds != null) {
         _readAnnouncementIds = readIds.toSet();
-        notifyListeners();
+        // AUDIT-034 fix: defer notifyListeners to post-frame to avoid build-phase crash
+        WidgetsBinding.instance.addPostFrameCallback((_) => notifyListeners());
       }
     } catch (_) {}
   }
@@ -115,7 +117,8 @@ class AnnouncementProvider with ChangeNotifier {
         final loaded = cached.map((a) => AnnouncementModel.fromJson(Map<String, dynamic>.from(a))).toList();
         _sortAnnouncements(loaded);
         _announcements = loaded;
-        notifyListeners();
+        // AUDIT-034 fix: defer notifyListeners to post-frame to avoid build-phase crash
+        WidgetsBinding.instance.addPostFrameCallback((_) => notifyListeners());
       }
     } catch (_) {}
   }

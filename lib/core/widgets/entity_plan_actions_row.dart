@@ -48,7 +48,7 @@ class EntityPlanActionsRow extends StatelessWidget {
     if (currentId == null || currentId <= 0) return false;
 
     final sizes = context.read<LookupProvider>().mealSizes;
-    if (sizes.isEmpty) return true;
+    if (sizes.isEmpty) return false;
     if (sizes.length <= 1) return false;
 
     final sorts = sizes.map((s) => s.sortOrder).toSet();

@@ -174,7 +174,7 @@ class OfflineQueue {
     final items = await _load();
     var processed = 0;
     var deadLettered = 0;
-    final remaining = <Map<String, dynamic>>[];
+    final remaining = List<Map<String, dynamic>>.from(items);
 
     for (final item in items) {
       final method = (item['method'] ?? '').toString().toUpperCase();
@@ -185,46 +185,52 @@ class OfflineQueue {
 
       if (method.isEmpty || path.isEmpty) {
         // Drop corrupt entries silently.
+        remaining.remove(item);
+        await _save(remaining);
         processed += 1;
         continue;
       }
 
       try {
         await executor(method, path, data);
+        remaining.remove(item);
+        await _save(remaining);
         processed += 1;
       } on OfflineRequestException catch (e) {
         if (e.isPermanent || retryCount >= maxRetries) {
           // Permanent 4xx OR exhausted retries → dead-letter; do NOT re-queue.
           // Processing continues to allow later items to succeed (no head-of-line block).
           await _addToDeadLetter(item, e.statusCode, e.message);
+          remaining.remove(item);
+          await _save(remaining);
           deadLettered += 1;
         } else {
           // Transient 5xx — increment retry count, re-queue, stop processing (order preserved).
-          remaining.add({...item, 'retryCount': retryCount + 1});
-          // Keep all subsequent items as-is.
-          final idx = items.indexOf(item);
-          for (var j = idx + 1; j < items.length; j++) {
-            remaining.add(items[j]);
+          final idx = remaining.indexOf(item);
+          if (idx != -1) {
+            remaining[idx] = {...item, 'retryCount': retryCount + 1};
           }
+          await _save(remaining);
           break;
         }
       } catch (e) {
         // Unknown / network error — treat as transient.
         if (retryCount >= maxRetries) {
           await _addToDeadLetter(item, 0, e.toString());
+          remaining.remove(item);
+          await _save(remaining);
           deadLettered += 1;
         } else {
-          remaining.add({...item, 'retryCount': retryCount + 1});
-          final idx = items.indexOf(item);
-          for (var j = idx + 1; j < items.length; j++) {
-            remaining.add(items[j]);
+          final idx = remaining.indexOf(item);
+          if (idx != -1) {
+            remaining[idx] = {...item, 'retryCount': retryCount + 1};
           }
+          await _save(remaining);
           break;
         }
       }
     }
 
-    await _save(remaining);
     return OfflineQueueResult(processed: processed, deadLettered: deadLettered);
   }
 }

@@ -15,18 +15,18 @@ class MealSizeRecommendations {
       }
       final roman = text.toUpperCase();
       const romanMap = {
-        'I': 1,
-        'II': 2,
+        'XII': 12,
+        'XI': 11,
+        'VIII': 8,
+        'VII': 7,
         'III': 3,
         'IV': 4,
-        'V': 5,
-        'VI': 6,
-        'VII': 7,
-        'VIII': 8,
         'IX': 9,
         'X': 10,
-        'XI': 11,
-        'XII': 12,
+        'VI': 6,
+        'II': 2,
+        'V': 5,
+        'I': 1,
       };
       for (final entry in romanMap.entries) {
         if (roman.contains(entry.key)) return entry.value;

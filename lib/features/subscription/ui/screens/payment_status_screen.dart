@@ -148,7 +148,7 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
 
   Future<void> _abandonPendingIfNeeded() async {
     if (_abandonAttempted || !mounted) return;
-    if (_currentStatus == 'SUCCESS') return;
+    if (_currentStatus == 'SUCCESS' || _currentStatus == 'PENDING') return;
     _abandonAttempted = true;
     try {
       await context.read<PaymentProvider>().abandonPendingPayment(

@@ -2,6 +2,8 @@ class TeacherProfileModel {
   final String? id;
   final String name;
   final String schoolCollegeName;
+  // AUDIT-056: Stable school identifier — use this for surcharge lookups instead of name.
+  final String? schoolId;
   final String city;
   final String state;
   final String location;
@@ -18,6 +20,7 @@ class TeacherProfileModel {
     this.id,
     required this.name,
     required this.schoolCollegeName,
+    this.schoolId,
     required this.city,
     required this.state,
     required this.location,
@@ -42,6 +45,8 @@ class TeacherProfileModel {
       schoolCollegeName: json['school_college_name']?.toString() ??
           json['schoolCollegeName']?.toString() ??
           '',
+      // AUDIT-056: Capture stable school_id for ID-based surcharge lookup.
+      schoolId: json['school_id']?.toString() ?? json['schoolId']?.toString(),
       city: json['city']?.toString() ?? '',
       state: json['state']?.toString() ?? '',
       location: json['location']?.toString() ?? '',
@@ -67,6 +72,8 @@ class TeacherProfileModel {
       'id': id,
       'name': name,
       'school_college_name': schoolCollegeName,
+      'school_id': schoolId,
+      'schoolId': schoolId,
       'city': city,
       'state': state,
       'location': location,
