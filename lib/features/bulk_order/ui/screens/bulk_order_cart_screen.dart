@@ -11,6 +11,7 @@ import 'package:meal_app/features/bulk_order/ui/screens/bulk_order_variety_categ
 import 'package:meal_app/features/bulk_order/ui/widgets/bulk_order_checkout.dart';
 import 'package:meal_app/features/bulk_order/ui/widgets/bulk_order_payment_sheet.dart';
 import 'package:meal_app/features/bulk_order/ui/widgets/bulk_order_widgets.dart';
+import 'package:meal_app/core/widgets/responsive_layout.dart';
 
 /// Review bulk cart (standard + large variety) and pay with delivery details at checkout.
 class BulkOrderCartScreen extends StatefulWidget {
@@ -135,98 +136,227 @@ class _BulkOrderCartScreenState extends State<BulkOrderCartScreen> {
         ),
         body: !p.hasBulkCartItems
             ? SafeArea(child: _buildEmptyCart(isDark))
-            : Column(
-                children: [
-                  Expanded(
-                    child: ListView(
-                      padding: const EdgeInsets.all(16),
-                      children: [
-                        if (isStandard) ...[
-                          _sectionHeader(
-                            context,
-                            'Standard Bulk',
-                            CupertinoIcons.person_3_fill,
-                            AppTheme.primaryColor,
-                          ),
-                          const SizedBox(height: 10),
-                          _StandardCartCard(
-                            menuName: p.deliveryMenu?.items ?? 'Daily menu',
-                            imageUrl: p.deliveryMenu?.imageUrl,
-                            quantity: standardQty,
-                            pricePerMeal: (p.deliveryMenu?.pricePerMeal != null &&
-                                    p.deliveryMenu!.pricePerMeal! > 0)
-                                ? p.deliveryMenu!.pricePerMeal!
-                                : cfg.pricePerMealUnderThreshold,
-                            isDark: isDark,
-                            deliveryDate: p.standardDeliveryDate,
-                            onIncrement: () => p.setStandardDraft(standardQty + 1),
-                            onDecrement: () {
-                              if (standardQty > 1) p.setStandardDraft(standardQty - 1);
-                            },
-                            onRemove: () => p.setStandardDraft(0),
-                          ),
-                          const SizedBox(height: 20),
-                        ],
-                        if (isVariety) ...[
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _sectionHeader(
-                                  context,
-                                  'Large Event Bulk',
-                                  CupertinoIcons.square_stack_3d_up_fill,
-                                  Colors.deepOrange,
-                                ),
-                              ),
-                              TextButton.icon(
-                                onPressed: () => Navigator.push(
-                                  context,
-                                  CupertinoPageRoute(
-                                    builder: (_) => const BulkOrderVarietyCategoriesScreen(),
+            : ResponsiveContainer(
+                maxWidth: 1000.0,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isWide = constraints.maxWidth > 800;
+                    if (isWide) {
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 6,
+                            child: ListView(
+                              padding: const EdgeInsets.all(16),
+                              children: [
+                                if (isStandard) ...[
+                                  _sectionHeader(
+                                    context,
+                                    'Standard Bulk',
+                                    CupertinoIcons.person_3_fill,
+                                    AppTheme.primaryColor,
                                   ),
-                                ),
-                                icon: const Icon(CupertinoIcons.plus_circle, size: 16),
-                                label: const Text('Add more'),
-                              ),
-                            ],
+                                  const SizedBox(height: 10),
+                                  _StandardCartCard(
+                                    menuName: p.deliveryMenu?.items ?? 'Daily menu',
+                                    imageUrl: p.deliveryMenu?.imageUrl,
+                                    quantity: standardQty,
+                                    pricePerMeal: (p.deliveryMenu?.pricePerMeal != null &&
+                                            p.deliveryMenu!.pricePerMeal! > 0)
+                                        ? p.deliveryMenu!.pricePerMeal!
+                                        : cfg.pricePerMealUnderThreshold,
+                                    isDark: isDark,
+                                    deliveryDate: p.standardDeliveryDate,
+                                    onIncrement: () => p.setStandardDraft(standardQty + 1),
+                                    onDecrement: () {
+                                      if (standardQty > 1) p.setStandardDraft(standardQty - 1);
+                                    },
+                                    onRemove: () => p.setStandardDraft(0),
+                                  ),
+                                  const SizedBox(height: 20),
+                                ],
+                                if (isVariety) ...[
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: _sectionHeader(
+                                          context,
+                                          'Large Event Bulk',
+                                          CupertinoIcons.square_stack_3d_up_fill,
+                                          Colors.deepOrange,
+                                        ),
+                                      ),
+                                      TextButton.icon(
+                                        onPressed: () => Navigator.push(
+                                          context,
+                                          CupertinoPageRoute(
+                                            builder: (_) => const BulkOrderVarietyCategoriesScreen(),
+                                          ),
+                                        ),
+                                        icon: const Icon(CupertinoIcons.plus_circle, size: 16),
+                                        label: const Text('Add more'),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  ...varietyLines.map((e) {
+                                    final meal = p.mealById(e.key);
+                                    return Padding(
+                                      padding: const EdgeInsets.only(bottom: 10),
+                                      child: _VarietyCartCard(
+                                        mealName: meal?.items ?? e.key,
+                                        imageUrl: meal?.imageUrl,
+                                        categoryName: p.categoryNameForMeal(e.key),
+                                        quantity: e.value,
+                                        pricePerMeal: meal?.pricePerMeal,
+                                        isDark: isDark,
+                                        onIncrement: () => p.setVarietyQty(e.key, e.value + 1),
+                                        onDecrement: () {
+                                          if (e.value > 1) {
+                                            p.setVarietyQty(e.key, e.value - 1);
+                                          }
+                                        },
+                                        onRemove: () => p.setVarietyQty(e.key, 0),
+                                      ),
+                                    );
+                                  }),
+                                  const SizedBox(height: 8),
+                                  _totalPortionsInfo(p.varietyLineSum, cfg.tierThreshold, isDark),
+                                ],
+                              ],
+                            ),
                           ),
-                          const SizedBox(height: 10),
-                          ...varietyLines.map((e) {
-                            final meal = p.mealById(e.key);
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: _VarietyCartCard(
-                                mealName: meal?.items ?? e.key,
-                                imageUrl: meal?.imageUrl,
-                                categoryName: p.categoryNameForMeal(e.key),
-                                quantity: e.value,
-                                pricePerMeal: meal?.pricePerMeal,
-                                isDark: isDark,
-                                onIncrement: () => p.setVarietyQty(e.key, e.value + 1),
-                                onDecrement: () {
-                                  if (e.value > 1) {
-                                    p.setVarietyQty(e.key, e.value - 1);
-                                  }
-                                },
-                                onRemove: () => p.setVarietyQty(e.key, 0),
+                          const VerticalDivider(width: 1, thickness: 1),
+                          Expanded(
+                            flex: 5,
+                            child: SingleChildScrollView(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                children: [
+                                  _PriceSummary(provider: p, config: cfg, isDark: isDark),
+                                  const SizedBox(height: 20),
+                                  Container(
+                                    padding: const EdgeInsets.all(20),
+                                    decoration: BoxDecoration(
+                                      color: isDark ? AppTheme.surfaceDark : Colors.white,
+                                      borderRadius: BorderRadius.circular(24),
+                                      border: Border.all(
+                                        color: isDark ? AppTheme.borderDark : AppTheme.borderLight,
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    child: _BottomPayBar(
+                                      totalMeals: p.bulkCartTotalMeals,
+                                      isLoading: p.isLoading,
+                                      onPay: () => _startPay(p, cfg),
+                                      isDark: isDark,
+                                      isWide: true,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            );
-                          }),
-                          const SizedBox(height: 8),
-                          _totalPortionsInfo(p.varietyLineSum, cfg.tierThreshold, isDark),
+                            ),
+                          ),
                         ],
-                        const SizedBox(height: 16),
-                        _PriceSummary(provider: p, config: cfg, isDark: isDark),
-                      ],
-                    ),
-                  ),
-                  _BottomPayBar(
-                    totalMeals: p.bulkCartTotalMeals,
-                    isLoading: p.isLoading,
-                    onPay: () => _startPay(p, cfg),
-                    isDark: isDark,
-                  ),
-                ],
+                      );
+                    } else {
+                      return Column(
+                        children: [
+                          Expanded(
+                            child: ListView(
+                              padding: const EdgeInsets.all(16),
+                              children: [
+                                if (isStandard) ...[
+                                  _sectionHeader(
+                                    context,
+                                    'Standard Bulk',
+                                    CupertinoIcons.person_3_fill,
+                                    AppTheme.primaryColor,
+                                  ),
+                                  const SizedBox(height: 10),
+                                  _StandardCartCard(
+                                    menuName: p.deliveryMenu?.items ?? 'Daily menu',
+                                    imageUrl: p.deliveryMenu?.imageUrl,
+                                    quantity: standardQty,
+                                    pricePerMeal: (p.deliveryMenu?.pricePerMeal != null &&
+                                            p.deliveryMenu!.pricePerMeal! > 0)
+                                        ? p.deliveryMenu!.pricePerMeal!
+                                        : cfg.pricePerMealUnderThreshold,
+                                    isDark: isDark,
+                                    deliveryDate: p.standardDeliveryDate,
+                                    onIncrement: () => p.setStandardDraft(standardQty + 1),
+                                    onDecrement: () {
+                                      if (standardQty > 1) p.setStandardDraft(standardQty - 1);
+                                    },
+                                    onRemove: () => p.setStandardDraft(0),
+                                  ),
+                                  const SizedBox(height: 20),
+                                ],
+                                if (isVariety) ...[
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: _sectionHeader(
+                                          context,
+                                          'Large Event Bulk',
+                                          CupertinoIcons.square_stack_3d_up_fill,
+                                          Colors.deepOrange,
+                                        ),
+                                      ),
+                                      TextButton.icon(
+                                        onPressed: () => Navigator.push(
+                                          context,
+                                          CupertinoPageRoute(
+                                            builder: (_) => const BulkOrderVarietyCategoriesScreen(),
+                                          ),
+                                        ),
+                                        icon: const Icon(CupertinoIcons.plus_circle, size: 16),
+                                        label: const Text('Add more'),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  ...varietyLines.map((e) {
+                                    final meal = p.mealById(e.key);
+                                    return Padding(
+                                      padding: const EdgeInsets.only(bottom: 10),
+                                      child: _VarietyCartCard(
+                                        mealName: meal?.items ?? e.key,
+                                        imageUrl: meal?.imageUrl,
+                                        categoryName: p.categoryNameForMeal(e.key),
+                                        quantity: e.value,
+                                        pricePerMeal: meal?.pricePerMeal,
+                                        isDark: isDark,
+                                        onIncrement: () => p.setVarietyQty(e.key, e.value + 1),
+                                        onDecrement: () {
+                                          if (e.value > 1) {
+                                            p.setVarietyQty(e.key, e.value - 1);
+                                          }
+                                        },
+                                        onRemove: () => p.setVarietyQty(e.key, 0),
+                                      ),
+                                    );
+                                  }),
+                                  const SizedBox(height: 8),
+                                  _totalPortionsInfo(p.varietyLineSum, cfg.tierThreshold, isDark),
+                                ],
+                                const SizedBox(height: 16),
+                                _PriceSummary(provider: p, config: cfg, isDark: isDark),
+                              ],
+                            ),
+                          ),
+                          _BottomPayBar(
+                            totalMeals: p.bulkCartTotalMeals,
+                            isLoading: p.isLoading,
+                            onPay: () => _startPay(p, cfg),
+                            isDark: isDark,
+                          ),
+                        ],
+                      );
+                    }
+                  },
+                ),
               ),
       ),
     );
@@ -829,15 +959,44 @@ class _BottomPayBar extends StatelessWidget {
     required this.isLoading,
     required this.onPay,
     required this.isDark,
+    this.isWide = false,
   });
 
   final int totalMeals;
   final bool isLoading;
   final VoidCallback onPay;
   final bool isDark;
+  final bool isWide;
 
   @override
   Widget build(BuildContext context) {
+    final button = SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: FilledButton(
+        onPressed: isLoading ? null : onPay,
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(double.infinity, 56),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+        child: isLoading
+            ? const SizedBox(
+                height: 22,
+                width: 22,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              )
+            : Text(
+                'Proceed to Pay ($totalMeals meals)',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+              ),
+      ),
+    );
+
+    if (isWide) {
+      return button;
+    }
+
     return Material(
       elevation: 12,
       color: isDark ? AppTheme.surfaceDark : Colors.white,
@@ -845,28 +1004,7 @@ class _BottomPayBar extends StatelessWidget {
         top: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-          child: SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: FilledButton(
-              onPressed: isLoading ? null : onPay,
-              style: FilledButton.styleFrom(
-                minimumSize: const Size(double.infinity, 56),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              ),
-              child: isLoading
-                  ? const SizedBox(
-                      height: 22,
-                      width: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
-                  : Text(
-                      'Proceed to Pay ($totalMeals meals)',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-                    ),
-            ),
-          ),
+          child: button,
         ),
       ),
     );

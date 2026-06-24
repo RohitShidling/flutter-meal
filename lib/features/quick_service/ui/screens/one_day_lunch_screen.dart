@@ -11,6 +11,7 @@ import 'package:meal_app/features/bulk_order/ui/widgets/bulk_order_address_secti
 import 'package:meal_app/features/quick_service/ui/widgets/quick_service_checkout.dart';
 import 'package:meal_app/features/bulk_order/data/models/bulk_delivery_address.dart';
 import 'package:meal_app/core/utils/time_utils.dart';
+import 'package:meal_app/core/widgets/responsive_layout.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -198,17 +199,19 @@ class _OneDayLunchScreenState extends State<OneDayLunchScreen> {
               }
             }
 
-            return _OneDayLunchBody(
-              cfg: data.cfg!,
-              todayMenu: data.menu,
-              tomorrowMenu: tomorrowMenu,
-              isDark: isDark,
-              deliveryType: _deliveryType,
-              quantity: _quantity,
-              isLoading: data.isLoading,
-              onDeliveryTypeChanged: (v) => setState(() => _deliveryType = v),
-              onQuantityChanged: (v) => setState(() => _quantity = v),
-              onPay: _pay,
+            return ResponsiveContainer(
+              child: _OneDayLunchBody(
+                cfg: data.cfg!,
+                todayMenu: data.menu,
+                tomorrowMenu: tomorrowMenu,
+                isDark: isDark,
+                deliveryType: _deliveryType,
+                quantity: _quantity,
+                isLoading: data.isLoading,
+                onDeliveryTypeChanged: (v) => setState(() => _deliveryType = v),
+                onQuantityChanged: (v) => setState(() => _quantity = v),
+                onPay: _pay,
+              ),
             );
           },
         ),

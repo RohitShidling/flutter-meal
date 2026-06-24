@@ -105,74 +105,44 @@ class _ViewAllPlansScreenState extends State<ViewAllPlansScreen> {
       ),
       body: SafeArea(
         top: false,
-        child: Column(
-          children: [
-            if (segments.length >= 2)
-              Container(
-                color: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-                child: MealSizeSegmentedControl(
-                  options: segments.map((s) => s.label).toList(),
-                  selectedIndex: _selectedSizeIndex.clamp(0, segments.length - 1),
-                  onChanged: (i) => _onSegmentChanged(i, segments),
-                ),
-              ),
-            Expanded(
-              child: plans.isEmpty
-                  ? (subProvider.isLoading
-                      ? const Center(child: CupertinoActivityIndicator())
-                      : SingleChildScrollView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 48, 20, 32),
-                            child: Center(
-                              child: Text(
-                                'Plans are unavailable right now. Pull down to retry.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: isDark ? Colors.white70 : AppTheme.textSecondaryLight,
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1200),
+            child: Column(
+              children: [
+                if (segments.length >= 2)
+                  Container(
+                    color: isDark ? AppTheme.surfaceDark : const Color(0xFFFAF8F5),
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                    child: MealSizeSegmentedControl(
+                      options: segments.map((s) => s.label).toList(),
+                      selectedIndex: _selectedSizeIndex.clamp(0, segments.length - 1),
+                      onChanged: (i) => _onSegmentChanged(i, segments),
+                    ),
+                  ),
+                Expanded(
+                  child: plans.isEmpty
+                      ? (subProvider.isLoading
+                          ? const Center(child: CupertinoActivityIndicator())
+                          : SingleChildScrollView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(20, 48, 20, 32),
+                                child: Center(
+                                  child: Text(
+                                    'Plans are unavailable right now. Pull down to retry.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: isDark ? Colors.white70 : AppTheme.textSecondaryLight,
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ),
-                        ))
-                  : segments.isEmpty
-                      ? RefreshIndicator(
-                          onRefresh: () async {
-                            await Future.wait([
-                              context.read<SubscriptionProvider>().fetchSubscriptions(force: true, silent: false),
-                              context.read<LookupProvider>().fetchInitialData(force: true),
-                            ]);
-                          },
-                          child: SingleChildScrollView(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: plans.map((p) => Padding(
-                                  padding: const EdgeInsets.only(bottom: 12),
-                                  child: _PlanCatalogTile(plan: p, isDark: isDark),
-                                )).toList(),
-                            ),
-                          ),
-                        )
-                      : PageView.builder(
-                          controller: _pageController,
-                          onPageChanged: (index) {
-                            setState(() {
-                              _selectedSizeIndex = index;
-                            });
-                          },
-                          itemCount: segments.length,
-                          itemBuilder: (context, pageIndex) {
-                            final seg = segments[pageIndex];
-                            final sectionPlans = plans
-                                .where((p) => p.mealSizeId == seg.id)
-                                .toList()
-                              ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
-
-                            return RefreshIndicator(
+                            ))
+                      : segments.isEmpty
+                          ? RefreshIndicator(
                               onRefresh: () async {
                                 await Future.wait([
                                   context.read<SubscriptionProvider>().fetchSubscriptions(force: true, silent: false),
@@ -182,36 +152,110 @@ class _ViewAllPlansScreenState extends State<ViewAllPlansScreen> {
                               child: SingleChildScrollView(
                                 physics: const AlwaysScrollableScrollPhysics(),
                                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: sectionPlans.isEmpty
-                                      ? [
-                                          const SizedBox(height: 48),
-                                          Center(
-                                            child: Text(
-                                              'No plans available for this size.',
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.w600,
-                                                color: isDark ? Colors.white70 : AppTheme.textSecondaryLight,
-                                              ),
-                                            ),
-                                          ),
-                                        ]
-                                      : sectionPlans.map(
-                                          (p) => Padding(
-                                            padding: const EdgeInsets.only(bottom: 12),
-                                            child: _PlanCatalogTile(plan: p, isDark: isDark),
-                                          ),
-                                        ).toList(),
-                                ),
+                                child: _buildPlansGrid(context, plans, isDark),
                               ),
-                            );
-                          },
-                        ),
+                            )
+                          : PageView.builder(
+                              controller: _pageController,
+                              onPageChanged: (index) {
+                                setState(() {
+                                  _selectedSizeIndex = index;
+                                });
+                              },
+                              itemCount: segments.length,
+                              itemBuilder: (context, pageIndex) {
+                                final seg = segments[pageIndex];
+                                final sectionPlans = plans
+                                    .where((p) => p.mealSizeId == seg.id)
+                                    .toList()
+                                  ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+
+                                return RefreshIndicator(
+                                  onRefresh: () async {
+                                    await Future.wait([
+                                      context.read<SubscriptionProvider>().fetchSubscriptions(force: true, silent: false),
+                                      context.read<LookupProvider>().fetchInitialData(force: true),
+                                    ]);
+                                  },
+                                  child: SingleChildScrollView(
+                                    physics: const AlwaysScrollableScrollPhysics(),
+                                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+                                    child: sectionPlans.isEmpty
+                                        ? Column(
+                                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                                            children: [
+                                              const SizedBox(height: 48),
+                                              Center(
+                                                child: Text(
+                                                  'No plans available for this size.',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w600,
+                                                    color: isDark ? Colors.white70 : AppTheme.textSecondaryLight,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          )
+                                        : _buildPlansGrid(context, sectionPlans, isDark),
+                                  ),
+                                );
+                              },
+                            ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _buildPlansGrid(BuildContext context, List<SubscriptionModel> planList, bool isDark) {
+    final width = MediaQuery.sizeOf(context).width;
+    final int cols = width > 1150 ? 3 : (width > 750 ? 2 : 1);
+
+    if (cols == 1) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: planList.map((p) => Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: _PlanCatalogTile(plan: p, isDark: isDark),
+        )).toList(),
+      );
+    }
+
+    final List<List<SubscriptionModel>> rows = [];
+    for (var i = 0; i < planList.length; i += cols) {
+      final List<SubscriptionModel> row = [];
+      for (var j = 0; j < cols; j++) {
+        if (i + j < planList.length) {
+          row.add(planList[i + j]);
+        }
+      }
+      rows.add(row);
+    }
+
+    return Column(
+      children: rows.map((rowItems) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ...rowItems.map((p) => Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    child: _PlanCatalogTile(plan: p, isDark: isDark),
+                  ),
+                )),
+                if (rowItems.length < cols)
+                  ...List.generate(cols - rowItems.length, (_) => const Expanded(child: SizedBox.shrink())),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 }

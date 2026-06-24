@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:async';
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:meal_app/features/auth/providers/auth_provider.dart';
@@ -27,6 +28,9 @@ import 'package:meal_app/features/subscription/ui/screens/subscription_managemen
 import 'package:meal_app/features/home/ui/widgets/bottom_footer_nav.dart';
 import 'package:meal_app/features/profile/providers/referral_provider.dart';
 import 'package:meal_app/core/navigation/app_routes.dart';
+import 'package:meal_app/core/widgets/responsive_layout.dart';
+import 'package:in_app_update/in_app_update.dart';
+
 
 import 'package:meal_app/core/services/network_status_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -219,6 +223,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final lookupProvider = context.watch<LookupProvider>();
     final showAbout = lookupProvider.contactUsInfo?.aboutActive != false;
+    final isWide = ResponsiveHelper.isWide(context);
+    final statusData = context.watch<MealProvider>().subscriptionStatusData;
+    final hasPlans = statusData == null ||
+        statusData['has_active_subscription'] == true ||
+        statusData['has_upcoming_subscription'] == true;
+
+    final quickProvider = context.watch<QuickServiceProvider>();
+    final oneDayActive = quickProvider.oneDayConfig?['is_active'] == true;
+    final specialActive = quickProvider.specialConfig?['is_active'] == true;
+    final showQuickOrder = oneDayActive || specialActive;
+
+    final mealProvider = context.watch<MealProvider>();
+    final hasAlerts = mealProvider.alerts.isNotEmpty;
+    final showRightColumn = showQuickOrder || hasAlerts;
     
     final pageBg = Theme.of(context).scaffoldBackgroundColor;
     final navBarColor = isDark ? AppTheme.surfaceDark : pageBg;
@@ -239,72 +257,132 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           Navigator.of(context).pushNamed(AppRoutes.settings);
         },
       ),
-      body: Stack(
-        children: [
-          RefreshIndicator(
-            onRefresh: () async {
-              if (!mounted) return;
-              await Future.wait([
-                context.read<HomepageProvider>().fetchHomepageEntries(force: true, silent: true),
-                context.read<MenuProvider>().fetchTodayMenu(force: true, silent: true),
-                context.read<CartProvider>().fetchCart(force: true, silent: true),
-                context.read<AuthProvider>().refreshMeProfile(
-                  silent: true,
-                  forceNetwork: NetworkStatusService.instance.isOnline,
-                ),
-                context.read<AnnouncementProvider>().fetchAnnouncements(location: 'home', force: true),
-                context.read<QuickServiceProvider>().loadCartFromServer(),
-                context.read<BulkOrderProvider>().loadCartFromServer(),
-                context.read<QuickServiceProvider>().loadOneDayConfig(force: true),
-                context.read<QuickServiceProvider>().loadSpecialConfig(force: true),
-                context.read<LookupProvider>().fetchContactUsInfo(),
-                context.read<LookupProvider>().fetchInitialData(force: true),
-              ]);
-              if (!mounted) return;
-              await _refreshMealDataBundle(force: true);
-              if (!mounted) return;
-              await _maybePromptFourMealsLeftDialog();
-            },
-            child: CustomScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                SliverPadding(
-                  padding: EdgeInsets.fromLTRB(
-                    20,
-                    MediaQuery.paddingOf(context).top,
-                    20,
-                    10,
-                  ),
-                  sliver: SliverList(
-                    delegate: SliverChildListDelegate([
-                      HomeWelcomeHeader(
-                        onCartNavigated: () => _refreshMealDataBundle(force: true),
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1200),
+          child: Stack(
+            children: [
+              RefreshIndicator(
+                onRefresh: () async {
+                  if (!mounted) return;
+                  await Future.wait([
+                    context.read<HomepageProvider>().fetchHomepageEntries(force: true, silent: true),
+                    context.read<MenuProvider>().fetchTodayMenu(force: true, silent: true),
+                    context.read<CartProvider>().fetchCart(force: true, silent: true),
+                    context.read<AuthProvider>().refreshMeProfile(
+                      silent: true,
+                      forceNetwork: NetworkStatusService.instance.isOnline,
+                    ),
+                    context.read<AnnouncementProvider>().fetchAnnouncements(location: 'home', force: true),
+                    context.read<QuickServiceProvider>().loadCartFromServer(),
+                    context.read<BulkOrderProvider>().loadCartFromServer(),
+                    context.read<QuickServiceProvider>().loadOneDayConfig(force: true),
+                    context.read<QuickServiceProvider>().loadSpecialConfig(force: true),
+                    context.read<LookupProvider>().fetchContactUsInfo(),
+                    context.read<LookupProvider>().fetchInitialData(force: true),
+                  ]);
+                  if (!mounted) return;
+                  await _refreshMealDataBundle(force: true);
+                  if (!mounted) return;
+                  await _maybePromptFourMealsLeftDialog();
+                },
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    SliverPadding(
+                      padding: EdgeInsets.fromLTRB(
+                        20,
+                        MediaQuery.paddingOf(context).top,
+                        20,
+                        10,
                       ),
-                      const SizedBox(height: 6),
-                      const UpcomingPlanCard(),
-                      const TodayMealCard(),
-                      const QuickOrderSection(),
-                      const AlertsBanner(),
-                      const FeatureQuickLinks(),
-                      if (showAbout) ...[
-                        const SizedBox(height: 18),
-                        const AboutBuuttiiCard(),
-                      ],
-                      const SizedBox(height: 30),
-                    ]),
-                  ),
+                      sliver: SliverList(
+                        delegate: SliverChildListDelegate([
+                          HomeWelcomeHeader(
+                            onCartNavigated: () => _refreshMealDataBundle(force: true),
+                          ),
+                          const SizedBox(height: 6),
+                          const AppUpdateStatusCard(),
+                          const SizedBox(height: 6),
+                          if (isWide) ...[
+                            if (hasPlans)
+                              if (showRightColumn)
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      flex: 6,
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          UpcomingPlanCard(key: const ValueKey('upcoming_plan_landscape')),
+                                          TodayMealCard(key: const ValueKey('today_meal_landscape')),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 20),
+                                    Expanded(
+                                      flex: 5,
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          QuickOrderSection(key: const ValueKey('quick_order_landscape'), forceVertical: true),
+                                          AlertsBanner(key: const ValueKey('alerts_banner_landscape')),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              else
+                                ResponsiveContainer(
+                                  maxWidth: 650,
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      UpcomingPlanCard(key: const ValueKey('upcoming_plan_landscape_nocol')),
+                                      TodayMealCard(key: const ValueKey('today_meal_landscape_nocol')),
+                                    ],
+                                  ),
+                                )
+                            else
+                              ResponsiveContainer(
+                                maxWidth: 650,
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    QuickOrderSection(key: const ValueKey('quick_order_wide_noplans')),
+                                    AlertsBanner(key: const ValueKey('alerts_banner_wide_noplans')),
+                                  ],
+                                ),
+                              ),
+                          ] else ...[
+                            UpcomingPlanCard(key: const ValueKey('upcoming_plan_portrait')),
+                            TodayMealCard(key: const ValueKey('today_meal_portrait')),
+                            QuickOrderSection(key: const ValueKey('quick_order_portrait')),
+                            AlertsBanner(key: const ValueKey('alerts_banner_portrait')),
+                          ],
+                          const SizedBox(height: 12),
+                          const FeatureQuickLinks(),
+                          const SizedBox(height: 12),
+                          if (showAbout) const AboutBuuttiiCard(key: ValueKey('about_buuttii_footer')),
+                          const SizedBox(height: 30),
+                        ]),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: MediaQuery.paddingOf(context).top,
+                child: ColoredBox(color: pageBg),
+              ),
+            ],
           ),
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: MediaQuery.paddingOf(context).top,
-            child: ColoredBox(color: pageBg),
-          ),
-        ],
+        ),
       ),
       ),
     );
@@ -1393,16 +1471,7 @@ class FeatureQuickLinks extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    // Partition into rows of 2
-    final List<List<Widget>> chunks = [];
-    for (var i = 0; i < visibleCards.length; i += 2) {
-      if (i + 1 < visibleCards.length) {
-        chunks.add([visibleCards[i], visibleCards[i + 1]]);
-      } else {
-        chunks.add([visibleCards[i]]);
-      }
-    }
-
+    // Partition into rows based on dynamic parent width using Wrap
     return Padding(
       padding: const EdgeInsets.only(bottom: 24),
       child: Column(
@@ -1417,25 +1486,26 @@ class FeatureQuickLinks extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          Column(
-            children: chunks.map((chunk) {
-              final isLast = chunk == chunks.last;
-              return Padding(
-                padding: EdgeInsets.only(bottom: isLast ? 0 : 12),
-                child: IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(child: chunk[0]),
-                      if (chunk.length > 1) ...[
-                        const SizedBox(width: 12),
-                        Expanded(child: chunk[1]),
-                      ],
-                    ],
-                  ),
-                ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final parentWidth = constraints.maxWidth;
+              final int columnsCount = parentWidth > 900 ? 4 : (parentWidth > 600 ? 3 : 2);
+              final double spacing = 12.0;
+              final double totalSpacing = (columnsCount - 1) * spacing;
+              final double cardWidth = (parentWidth - totalSpacing) / columnsCount;
+
+              return Wrap(
+                spacing: spacing,
+                runSpacing: spacing,
+                alignment: WrapAlignment.center,
+                children: visibleCards.map((card) {
+                  return SizedBox(
+                    width: cardWidth,
+                    child: card,
+                  );
+                }).toList(),
               );
-            }).toList(),
+            },
           ),
         ],
       ),
@@ -1513,4 +1583,205 @@ class AboutBuuttiiCard extends StatelessWidget {
     );
   }
 }
+
+class AppUpdateStatusCard extends StatelessWidget {
+  const AppUpdateStatusCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return ValueListenableBuilder<InstallStatus?>(
+      valueListenable: AppUpdateService.installStatusNotifier,
+      builder: (context, status, child) {
+        if (status == null ||
+            status == InstallStatus.unknown ||
+            status == InstallStatus.installed ||
+            status == InstallStatus.canceled) {
+          return const SizedBox.shrink();
+        }
+
+        final Color cardBg;
+        final Color borderCol;
+        final Widget leadingIcon;
+        final String titleText;
+        final String bodyText;
+        Widget? actionWidget;
+
+        if (status == InstallStatus.downloading || status == InstallStatus.pending) {
+          cardBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFEFF6FF);
+          borderCol = isDark ? const Color(0xFF334155) : const Color(0xFFBFDBFE);
+          leadingIcon = const SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.5,
+              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+            ),
+          );
+          titleText = 'Downloading App Update';
+          bodyText = 'A new version of the app is downloading in the background. You can continue using the app.';
+        } else if (status == InstallStatus.downloaded) {
+          cardBg = isDark ? const Color(0xFF2E2008) : const Color(0xFFFFF5E6);
+          borderCol = isDark ? const Color(0xFF5C4010) : const Color(0xFFFFDFA6);
+          leadingIcon = const Icon(CupertinoIcons.arrow_down_to_line_alt, color: Colors.orange, size: 22);
+          titleText = 'Update Ready to Install';
+          bodyText = 'The update has been downloaded. Restart the app to apply changes.';
+          actionWidget = Padding(
+            padding: const EdgeInsets.only(top: 8.0),
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                try {
+                  await InAppUpdate.completeFlexibleUpdate();
+                } catch (e) {
+                  debugPrint('[AppUpdate] Failed to complete flexible update: $e');
+                }
+              },
+              icon: const Icon(CupertinoIcons.refresh_thin, size: 16),
+              label: const Text('RESTART NOW', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          );
+        } else if (status == InstallStatus.failed) {
+          cardBg = isDark ? const Color(0xFF2D1F1F) : const Color(0xFFFEF2F2);
+          borderCol = isDark ? const Color(0xFF5A2C2C) : const Color(0xFFFCA5A5);
+          leadingIcon = const Icon(CupertinoIcons.xmark_circle_fill, color: Colors.red, size: 22);
+          titleText = 'Update Failed';
+          bodyText = 'The update download failed. We will retry later.';
+          actionWidget = TextButton(
+            onPressed: () => AppUpdateService.checkForUpdate(context),
+            child: const Text('Retry', style: TextStyle(fontWeight: FontWeight.w800)),
+          );
+        } else {
+          return const SizedBox.shrink();
+        }
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: borderCol, width: 1.5),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 2.0),
+                  child: leadingIcon,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        titleText,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      if (status == InstallStatus.downloading || status == InstallStatus.pending) ...[
+                        _DownloadingProgressWidget(isDark: isDark),
+                      ] else ...[
+                        Text(
+                          bodyText,
+                          style: TextStyle(
+                            fontSize: 12,
+                            height: 1.35,
+                            color: isDark ? Colors.white70 : AppTheme.textSecondaryLight,
+                          ),
+                        ),
+                      ],
+                      if (actionWidget != null) actionWidget,
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ).animate().fadeIn().slideY(begin: -0.05, end: 0),
+        );
+      },
+    );
+  }
+}
+
+class _DownloadingProgressWidget extends StatefulWidget {
+  const _DownloadingProgressWidget({required this.isDark});
+  final bool isDark;
+
+  @override
+  State<_DownloadingProgressWidget> createState() => _DownloadingProgressWidgetState();
+}
+
+class _DownloadingProgressWidgetState extends State<_DownloadingProgressWidget> {
+  double _progress = 0.05;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(milliseconds: 1000), (timer) {
+      if (!mounted) return;
+      setState(() {
+        if (_progress < 0.65) {
+          _progress += 0.05;
+        } else if (_progress < 0.88) {
+          _progress += 0.02;
+        } else if (_progress < 0.98) {
+          _progress += 0.005;
+        }
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final percent = (_progress * 100).toStringAsFixed(0);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Downloading update: $percent%',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: widget.isDark ? Colors.white70 : AppTheme.textSecondaryLight,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: _progress,
+            backgroundColor: widget.isDark ? Colors.white10 : Colors.black12,
+            valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+            minHeight: 6,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 

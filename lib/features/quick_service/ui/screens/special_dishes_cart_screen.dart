@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:meal_app/core/theme/app_theme.dart';
 import 'package:meal_app/features/quick_service/providers/quick_service_provider.dart';
 import 'package:meal_app/features/quick_service/ui/widgets/quick_service_checkout.dart';
+import 'package:meal_app/core/widgets/responsive_layout.dart';
 
 /// Review specials cart and pay with delivery details at checkout.
 class SpecialDishesCartScreen extends StatefulWidget {
@@ -91,141 +92,227 @@ class _SpecialDishesCartScreenState extends State<SpecialDishesCartScreen> {
             ? const Center(child: CircularProgressIndicator())
             : !hasItems
                 ? SafeArea(child: _buildEmptyCart(isDark))
-                : Column(
-                    children: [
-                      Expanded(
-                        child: ListView(
-                          padding: const EdgeInsets.all(16),
-                          children: [
-                            ...cartItems.map((e) {
-                              final id = e.key;
-                              final qty = e.value;
-                              final item = p.itemCache[id] ?? {};
-                              final name = item['name']?.toString() ?? 'Special Dish';
-                              final imageUrl = item['image_url']?.toString() ?? '';
-                              final price = double.tryParse(item['price']?.toString() ?? '') ?? 0.0;
-                              final subtotal = price * qty;
-
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: isDark ? AppTheme.surfaceDark : Colors.white,
-                                    borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(
-                                      color: isDark ? AppTheme.borderDark : AppTheme.borderLight,
-                                      width: 1.5,
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.04),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 2),
+                : ResponsiveContainer(
+                    maxWidth: 1000.0,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isWide = constraints.maxWidth > 800;
+                        if (isWide) {
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                flex: 6,
+                                child: ListView.builder(
+                                  padding: const EdgeInsets.all(16),
+                                  itemCount: cartItems.length,
+                                  itemBuilder: (context, i) {
+                                    final id = cartItems[i].key;
+                                    final qty = cartItems[i].value;
+                                    final item = p.itemCache[id] ?? {};
+                                    return _buildCartItemCard(context, id, qty, item, p, isDark);
+                                  },
+                                ),
+                              ),
+                              const VerticalDivider(width: 1, thickness: 1),
+                              Expanded(
+                                flex: 5,
+                                child: SingleChildScrollView(
+                                  padding: const EdgeInsets.all(20),
+                                  child: Column(
+                                    children: [
+                                      _PriceSummary(provider: p, isDark: isDark),
+                                      const SizedBox(height: 20),
+                                      Container(
+                                        padding: const EdgeInsets.all(20),
+                                        decoration: BoxDecoration(
+                                          color: isDark ? AppTheme.surfaceDark : Colors.white,
+                                          borderRadius: BorderRadius.circular(20),
+                                          border: Border.all(
+                                            color: isDark ? AppTheme.borderDark : AppTheme.borderLight,
+                                            width: 1.5,
+                                          ),
+                                        ),
+                                        child: Column(
+                                          children: [
+                                            const Text(
+                                              'Ready to Checkout?',
+                                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                                            ),
+                                            const SizedBox(height: 12),
+                                            SizedBox(
+                                              width: double.infinity,
+                                              height: 56,
+                                              child: FilledButton(
+                                                onPressed: p.isLoading ? null : () => _startPay(context, p),
+                                                style: FilledButton.styleFrom(
+                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                                ),
+                                                child: p.isLoading
+                                                    ? const SizedBox(
+                                                        height: 22,
+                                                        width: 22,
+                                                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                                      )
+                                                    : Text(
+                                                        'Proceed to Pay (${p.cartItemCount} items)',
+                                                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                                                      ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ],
                                   ),
-                                  child: Row(
-                                    children: [
-                                      ClipRRect(
-                                        borderRadius: const BorderRadius.horizontal(left: Radius.circular(14)),
-                                        child: SizedBox(
-                                          width: 90,
-                                          height: 90,
-                                          child: imageUrl.isNotEmpty
-                                              ? CachedNetworkImage(
-                                                  imageUrl: imageUrl,
-                                                  fit: BoxFit.cover,
-                                                  placeholder: (_, __) => Container(
-                                                    color: AppTheme.primaryColor.withValues(alpha: 0.08),
-                                                    child: const Center(child: CupertinoActivityIndicator()),
-                                                  ),
-                                                  errorWidget: (_, __, ___) => _placeholderIcon(),
-                                                )
-                                              : _placeholderIcon(),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        child: Padding(
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                name,
-                                                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
-                                                maxLines: 2,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                'Rs ${price.toStringAsFixed(0)} each',
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                  color: AppTheme.primaryColor,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Row(
-                                                children: [
-                                                  _qtyButton(
-                                                    CupertinoIcons.minus,
-                                                    () => p.setCartQty(id, qty - 1),
-                                                    qty <= 1,
-                                                  ),
-                                                  Padding(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                                                    child: Text(
-                                                      '$qty',
-                                                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
-                                                    ),
-                                                  ),
-                                                  _qtyButton(
-                                                    CupertinoIcons.plus,
-                                                    () => p.setCartQty(id, qty + 1),
-                                                    false,
-                                                  ),
-                                                  const Spacer(),
-                                                  Text(
-                                                    'Rs ${subtotal.toStringAsFixed(0)}',
-                                                    style: const TextStyle(
-                                                      fontSize: 16,
-                                                      fontWeight: FontWeight.w900,
-                                                      color: AppTheme.primaryColor,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                      IconButton(
-                                        onPressed: () => p.setCartQty(id, 0),
-                                        icon: Icon(
-                                          CupertinoIcons.xmark_circle_fill,
-                                          color: Colors.red.withValues(alpha: 0.6),
-                                          size: 20,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              }),
-                              const SizedBox(height: 16),
-                              _PriceSummary(provider: p, isDark: isDark),
+                                ),
+                              ),
                             ],
+                          );
+                        } else {
+                          return Column(
+                            children: [
+                              Expanded(
+                                child: ListView(
+                                  padding: const EdgeInsets.all(16),
+                                  children: [
+                                    ...cartItems.map((e) {
+                                      final id = e.key;
+                                      final qty = e.value;
+                                      final item = p.itemCache[id] ?? {};
+                                      return _buildCartItemCard(context, id, qty, item, p, isDark);
+                                    }),
+                                    const SizedBox(height: 16),
+                                    _PriceSummary(provider: p, isDark: isDark),
+                                  ],
+                                ),
+                              ),
+                              _BottomPayBar(
+                                totalItems: p.cartItemCount,
+                                isLoading: p.isLoading,
+                                onPay: () => _startPay(context, p),
+                                isDark: isDark,
+                              ),
+                            ],
+                          );
+                        }
+                      },
+                    ),
+                  ),
+      ),
+    );
+  }
+
+  Widget _buildCartItemCard(BuildContext context, String id, int qty, Map<dynamic, dynamic> item, QuickServiceProvider p, bool isDark) {
+    final name = item['name']?.toString() ?? 'Special Dish';
+    final imageUrl = item['image_url']?.toString() ?? '';
+    final price = double.tryParse(item['price']?.toString() ?? '') ?? 0.0;
+    final subtotal = price * qty;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.surfaceDark : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isDark ? AppTheme.borderDark : AppTheme.borderLight,
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: const BorderRadius.horizontal(left: Radius.circular(14)),
+              child: SizedBox(
+                width: 90,
+                height: 90,
+                child: imageUrl.isNotEmpty
+                    ? CachedNetworkImage(
+                        imageUrl: imageUrl,
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) => Container(
+                          color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                          child: const Center(child: CupertinoActivityIndicator()),
+                        ),
+                        errorWidget: (_, __, ___) => _placeholderIcon(),
+                      )
+                    : _placeholderIcon(),
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Rs ${price.toStringAsFixed(0)} each',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.primaryColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        _qtyButton(
+                          CupertinoIcons.minus,
+                          () => p.setCartQty(id, qty - 1),
+                          qty <= 1,
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Text(
+                            '$qty',
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
                           ),
                         ),
-                        _BottomPayBar(
-                          totalItems: p.cartItemCount,
-                          isLoading: p.isLoading,
-                          onPay: () => _startPay(context, p),
-                          isDark: isDark,
+                        _qtyButton(
+                          CupertinoIcons.plus,
+                          () => p.setCartQty(id, qty + 1),
+                          false,
+                        ),
+                        const Spacer(),
+                        Text(
+                          'Rs ${subtotal.toStringAsFixed(0)}',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: AppTheme.primaryColor,
+                          ),
                         ),
                       ],
                     ),
+                  ],
+                ),
+              ),
+            ),
+            IconButton(
+              onPressed: () => p.setCartQty(id, 0),
+              icon: Icon(
+                CupertinoIcons.xmark_circle_fill,
+                color: Colors.red.withValues(alpha: 0.6),
+                size: 20,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

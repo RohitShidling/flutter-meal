@@ -8,6 +8,8 @@ class BulkOrderConfig {
   final bool allowMultipleVarietyMeals;
   final int minQuantityPerVarietyMeal;
   final bool isActive;
+  final bool isStandardActive;
+  final bool isVarietyActive;
   final String earliestDeliveryDate;
   final List<BulkVarietyPrice> varietyPrices;
   final String? hubIntroText;
@@ -28,6 +30,8 @@ class BulkOrderConfig {
     required this.allowMultipleVarietyMeals,
     required this.minQuantityPerVarietyMeal,
     required this.isActive,
+    required this.isStandardActive,
+    required this.isVarietyActive,
     required this.earliestDeliveryDate,
     required this.varietyPrices,
     this.hubIntroText,
@@ -56,6 +60,8 @@ class BulkOrderConfig {
       minQuantityPerVarietyMeal:
           int.tryParse('${json['min_quantity_per_variety_meal'] ?? 1}') ?? 1,
       isActive: json['is_active'] != false,
+      isStandardActive: json['is_standard_active'] != false,
+      isVarietyActive: json['is_variety_active'] != false,
       earliestDeliveryDate: '${json['earliest_delivery_date'] ?? ''}',
       hubIntroText: json['hub_intro_text'] as String?,
       standardTierTitle: json['standard_tier_title'] as String?,
@@ -82,6 +88,8 @@ class BulkOrderConfig {
         'allow_multiple_variety_meals': allowMultipleVarietyMeals,
         'min_quantity_per_variety_meal': minQuantityPerVarietyMeal,
         'is_active': isActive,
+        'is_standard_active': isStandardActive,
+        'is_variety_active': isVarietyActive,
         'earliest_delivery_date': earliestDeliveryDate,
         'hub_intro_text': hubIntroText,
         'standard_tier_title': standardTierTitle,

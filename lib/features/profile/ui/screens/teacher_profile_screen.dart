@@ -24,6 +24,7 @@ import 'package:meal_app/core/widgets/meal_size_blocked_banner.dart';
 
 import 'package:meal_app/core/widgets/unsaved_form_guard.dart';
 import 'package:meal_app/features/subscription/ui/widgets/plan_picker_bottom_sheet.dart';
+import 'package:meal_app/core/widgets/responsive_layout.dart';
 
 class TeacherProfileScreen extends StatefulWidget {
   final bool renew;
@@ -375,17 +376,18 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
             children: [
             Expanded(
               child: CartOverlayBody(
-                child: (profileProvider.isLoading || _isInitializing)
-                      ? const Center(child: CircularProgressIndicator())
-                      : (profile != null && !_isEditing)
-                          ? _buildProfileCard(context, profile)
-                          : UnsavedFormGuard(
-                              isDirty: _isDirty,
-                              onDiscard: () {
-                                setState(() {
-                                  _isEditing = false;
-                                });
-                              },
+                child: ResponsiveContainer(
+                  child: (profileProvider.isLoading || _isInitializing)
+                        ? const Center(child: CircularProgressIndicator())
+                        : (profile != null && !_isEditing)
+                            ? _buildProfileCard(context, profile)
+                            : UnsavedFormGuard(
+                                isDirty: _isDirty,
+                                onDiscard: () {
+                                  setState(() {
+                                    _isEditing = false;
+                                  });
+                                },
                               child: SingleChildScrollView(
                                 padding: const EdgeInsets.all(24),
                                 child: Form(
@@ -671,6 +673,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
           ),
         ),
       ),
+    ),
             ],
           ),
         ),

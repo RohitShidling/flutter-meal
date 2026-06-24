@@ -127,22 +127,31 @@ class DioClient {
             return handler.next(e);
           }
 
-          // Token might be expired, try to refresh
-          final newAccessToken = await _refreshToken();
-          if (newAccessToken != null) {
-            // Update the original request with the new token
-            e.requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
-            try {
-              // Retry the request
-              final response = await _dio.fetch(e.requestOptions);
-              return handler.resolve(response);
-            } catch (retryError) {
-              return handler.next(e);
+          try {
+            // Token might be expired, try to refresh
+            final newAccessToken = await _refreshToken();
+            if (newAccessToken != null) {
+              // Update the original request with the new token
+              e.requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
+              try {
+                // Retry the request
+                final response = await _dio.fetch(e.requestOptions);
+                return handler.resolve(response);
+              } catch (retryError) {
+                return handler.next(e);
+              }
+            } else {
+              _sessionRecoveryFailed = true;
+              await _secureStorage.clearTokens();
+              await _expireSession('Your session has expired. Please log in again.');
             }
-          } else {
-            _sessionRecoveryFailed = true;
-            await _secureStorage.clearTokens();
-            await _expireSession('Your session has expired. Please log in again.');
+          } catch (refreshError) {
+            // If the refresh failed due to a network error, do NOT expire the session.
+            // Just fail the original request with the refresh/network error.
+            if (refreshError is DioException) {
+              return handler.next(refreshError);
+            }
+            return handler.next(e);
           }
         }
         return handler.next(e);
@@ -156,7 +165,9 @@ class DioClient {
     return e.type == DioExceptionType.connectionError ||
         e.type == DioExceptionType.connectionTimeout ||
         e.type == DioExceptionType.sendTimeout ||
-        e.type == DioExceptionType.receiveTimeout;
+        e.type == DioExceptionType.receiveTimeout ||
+        e.error is SocketException ||
+        e.message?.contains('SocketException') == true;
   }
 
   Future<Response<dynamic>?> _retryRequest(RequestOptions requestOptions) async {
@@ -229,6 +240,11 @@ class DioClient {
         _sessionRecoveryFailed = false;
         return accessToken;
       }
+    } on DioException catch (dioErr) {
+      if (_isTransientNetworkError(dioErr)) {
+        rethrow;
+      }
+      return null;
     } catch (e) {
       return null;
     }

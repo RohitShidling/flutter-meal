@@ -417,12 +417,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             20 + kBottomNavigationBarHeight + bottomPadding,
                           ),
                     child: Column(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
                             // Heading/Subtitle section inside the card
                             if (isRegisterMode) ...[
                               Text(
@@ -632,43 +628,40 @@ class _LoginScreenState extends State<LoginScreen> {
                                       ),
                               ),
                             ),
-                          ],
-                        ),
+                            // Spacing before footer
+                            const SizedBox(height: 24),
 
-                        // Spacing before footer
-                        const SizedBox(height: 32),
-
-                        // Mode Switch footer
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              isRegisterMode ? 'Already have an account? ' : 'New to Buuttii? ',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: isDark ? AppTheme.textSecondaryDark : const Color(0xFF6B7280),
-                              ),
-                            ),
-                            GestureDetector(
-                              onTap: () => _setMode(
-                                isRegisterMode ? AuthMode.login : AuthMode.register,
-                              ),
-                              child: Text(
-                                isRegisterMode ? 'Login' : 'Register',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: isDark ? AppTheme.primaryColor : const Color(0xFFFF7A00),
-                                  fontWeight: FontWeight.w800,
+                            // Mode Switch footer
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  isRegisterMode ? 'Already have an account? ' : 'New to Buuttii? ',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDark ? AppTheme.textSecondaryDark : const Color(0xFF6B7280),
+                                  ),
                                 ),
-                              ),
+                                GestureDetector(
+                                  onTap: () => _setMode(
+                                    isRegisterMode ? AuthMode.login : AuthMode.register,
+                                  ),
+                                  child: Text(
+                                    isRegisterMode ? 'Login' : 'Register',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: isDark ? AppTheme.primaryColor : const Color(0xFFFF7A00),
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                      ],
+                      ),
                     ),
-                  ),
-                ),
                 // Extra bottom spacer when inputs are focused to allow instant, unclamped scrolling
                 if (_phoneFocusNode.hasFocus || _usernameFocusNode.hasFocus || _referralFocusNode.hasFocus)
                   const SizedBox(height: 320),

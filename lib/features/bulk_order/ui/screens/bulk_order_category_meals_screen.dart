@@ -9,6 +9,7 @@ import 'package:meal_app/features/bulk_order/providers/bulk_order_provider.dart'
 import 'package:meal_app/features/bulk_order/ui/screens/bulk_order_cart_screen.dart';
 import 'package:meal_app/features/bulk_order/ui/widgets/bulk_order_widgets.dart';
 import 'package:meal_app/features/bulk_order/ui/widgets/bulk_variety_meal_card.dart';
+import 'package:meal_app/core/widgets/responsive_layout.dart';
 
 class BulkOrderCategoryMealsScreen extends StatefulWidget {
   const BulkOrderCategoryMealsScreen({
@@ -132,11 +133,13 @@ class _BulkOrderCategoryMealsScreenState extends State<BulkOrderCategoryMealsScr
             Expanded(
               child: p.isLoading && p.categoryMeals.isEmpty
                   ? const Center(child: CircularProgressIndicator())
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
+                  : ResponsiveContainer(
+                      maxWidth: 1000.0,
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
                           Text(
                             'Add portions for meals in this category. Minimum order rules are checked when you pay.',
                             style: TextStyle(
@@ -162,31 +165,77 @@ class _BulkOrderCategoryMealsScreenState extends State<BulkOrderCategoryMealsScr
                           else if (p.categoryMeals.isEmpty)
                             Text('No meals in this category.', style: TextStyle(color: Colors.orange.shade700))
                           else
-                            ...p.categoryMeals.map((m) {
-                              final q = p.varietyQtyFor(m.id);
-                              final config = cfg;
-                              final perMealMin = _multiMode(config) ? _minForMeal(p, m.id) : 1;
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: BulkVarietyMealCard(
-                                  key: _cardKey(m.id),
-                                  meal: m,
-                                  cfg: config,
-                                  cartQuantity: q,
-                                  isDark: isDark,
-                                  menuImage: bulkMenuImage(m.imageUrl),
-                                  perMealMin: perMealMin,
-                                  orderMinTotal: cfg.tierThreshold,
-                                  singleMealOnly: !_multiMode(config),
-                                  onBeforeEdit: () => _commitAll(exceptMealId: m.id),
-                                  onAddToCart: (n) => _setQty(m.id, n, config, p),
-                                ),
-                              );
-                            }),
+                            Builder(
+                              builder: (context) {
+                                final crossAxisCount = ResponsiveHelper.getGridCrossAxisCount(
+                                  context,
+                                  mobileCount: 1,
+                                  tabletCount: 2,
+                                  desktopCount: 3,
+                                );
+                                if (crossAxisCount == 1) {
+                                  return Column(
+                                    children: p.categoryMeals.map((m) {
+                                      final q = p.varietyQtyFor(m.id);
+                                      final config = cfg;
+                                      final perMealMin = _multiMode(config) ? _minForMeal(p, m.id) : 1;
+                                      return Padding(
+                                        padding: const EdgeInsets.only(bottom: 12),
+                                        child: BulkVarietyMealCard(
+                                          key: _cardKey(m.id),
+                                          meal: m,
+                                          cfg: config,
+                                          cartQuantity: q,
+                                          isDark: isDark,
+                                          menuImage: bulkMenuImage(m.imageUrl),
+                                          perMealMin: perMealMin,
+                                          orderMinTotal: cfg.tierThreshold,
+                                          singleMealOnly: !_multiMode(config),
+                                          onBeforeEdit: () => _commitAll(exceptMealId: m.id),
+                                          onAddToCart: (n) => _setQty(m.id, n, config, p),
+                                        ),
+                                      );
+                                    }).toList(),
+                                  );
+                                } else {
+                                  return GridView.builder(
+                                    shrinkWrap: true,
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: crossAxisCount,
+                                      crossAxisSpacing: 16,
+                                      mainAxisSpacing: 16,
+                                      childAspectRatio: crossAxisCount == 2 ? 0.82 : 0.65,
+                                    ),
+                                    itemCount: p.categoryMeals.length,
+                                    itemBuilder: (context, index) {
+                                      final m = p.categoryMeals[index];
+                                      final q = p.varietyQtyFor(m.id);
+                                      final config = cfg;
+                                      final perMealMin = _multiMode(config) ? _minForMeal(p, m.id) : 1;
+                                      return BulkVarietyMealCard(
+                                        key: _cardKey(m.id),
+                                        meal: m,
+                                        cfg: config,
+                                        cartQuantity: q,
+                                        isDark: isDark,
+                                        menuImage: bulkMenuImage(m.imageUrl, height: 120),
+                                        perMealMin: perMealMin,
+                                        orderMinTotal: cfg.tierThreshold,
+                                        singleMealOnly: !_multiMode(config),
+                                        onBeforeEdit: () => _commitAll(exceptMealId: m.id),
+                                        onAddToCart: (n) => _setQty(m.id, n, config, p),
+                                      );
+                                    },
+                                  );
+                                }
+                              },
+                            ),
                           // Extra bottom padding for FAB
                           if (sum > 0) const SizedBox(height: 72),
                         ],
                       ),
+                    ),
                     ),
             ),
           ],

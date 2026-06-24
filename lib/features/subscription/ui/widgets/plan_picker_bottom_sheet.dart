@@ -27,17 +27,41 @@ class PlanPickerBottomSheet {
     await context.read<SubscriptionProvider>().fetchSubscriptions(force: true, silent: true);
     if (!context.mounted) return;
 
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => _PlanPickerSheet(
-        entityType: entityType,
-        entityId: entityId,
-        entityName: entityName,
-        mealSizeId: mealSizeId,
-      ),
-    );
+    final width = MediaQuery.sizeOf(context).width;
+    final isWide = width >= 650.0; // Responsive breakpoint matching Mobile
+
+    if (isWide) {
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          clipBehavior: Clip.antiAlias,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600, maxHeight: 750),
+            child: _PlanPickerSheet(
+              entityType: entityType,
+              entityId: entityId,
+              entityName: entityName,
+              mealSizeId: mealSizeId,
+              isDialog: true,
+            ),
+          ),
+        ),
+      );
+    } else {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (ctx) => _PlanPickerSheet(
+          entityType: entityType,
+          entityId: entityId,
+          entityName: entityName,
+          mealSizeId: mealSizeId,
+          isDialog: false,
+        ),
+      );
+    }
   }
 }
 
@@ -46,12 +70,14 @@ class _PlanPickerSheet extends StatefulWidget {
   final String entityId;
   final String entityName;
   final int mealSizeId;
+  final bool isDialog;
 
   const _PlanPickerSheet({
     required this.entityType,
     required this.entityId,
     required this.entityName,
     required this.mealSizeId,
+    required this.isDialog,
   });
 
   @override
@@ -146,6 +172,21 @@ class _PlanPickerSheetState extends State<_PlanPickerSheet> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.isDialog) {
+      return _buildContent(context, null);
+    }
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.72,
+      minChildSize: 0.4,
+      maxChildSize: 0.92,
+      builder: (ctx, scrollController) {
+        return _buildContent(context, scrollController);
+      },
+    );
+  }
+
+  Widget _buildContent(BuildContext context, ScrollController? scrollController) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final subProvider = context.watch<SubscriptionProvider>();
     final all = subProvider.subscriptions;
@@ -154,135 +195,132 @@ class _PlanPickerSheetState extends State<_PlanPickerSheet> {
     final trial = forSize.where((p) => p.trialDays > 0).toList();
     final loading = forSize.isEmpty && subProvider.isLoading;
 
-    return DraggableScrollableSheet(
-      initialChildSize: 0.72,
-      minChildSize: 0.4,
-      maxChildSize: 0.92,
-      builder: (ctx, scrollController) {
-        return Container(
-          decoration: BoxDecoration(
-            color: Theme.of(context).scaffoldBackgroundColor,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            children: [
-              const SizedBox(height: 10),
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.white24 : Colors.grey.shade400,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        borderRadius: widget.isDialog
+            ? BorderRadius.circular(24)
+            : const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 10),
+          if (!widget.isDialog)
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white24 : Colors.grey.shade400,
+                borderRadius: BorderRadius.circular(2),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+            ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Select Meal Plan',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
                         children: [
-                          Text(
-                            'Select Meal Plan',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w900,
-                              color: isDark ? Colors.white : AppTheme.textPrimaryLight,
-                              letterSpacing: -0.5,
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              widget.entityName,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                color: AppTheme.primaryColor,
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 4,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  widget.entityName,
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w800,
-                                    color: AppTheme.primaryColor,
-                                  ),
-                                ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: isDark ? Colors.white12 : Colors.grey.shade200,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              _mealSizeLabel(),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                color: isDark ? Colors.white70 : AppTheme.textPrimaryLight,
                               ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: isDark ? Colors.white12 : Colors.grey.shade200,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  _mealSizeLabel(),
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w800,
-                                    color: isDark ? Colors.white70 : AppTheme.textPrimaryLight,
-                                  ),
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(CupertinoIcons.xmark_circle_fill),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              if (_adding)
-                const LinearProgressIndicator(minHeight: 2, color: AppTheme.primaryColor),
-              Expanded(
-                child: loading
-                    ? Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: PlanCatalogSkeleton(isDark: isDark),
-                      )
-                    : forSize.isEmpty
-                        ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(24),
-                              child: Text(
-                                'No plans are published for this meal size yet.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: isDark ? Colors.white70 : AppTheme.textSecondaryLight,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          )
-                        : ListView(
-                            controller: scrollController,
-                            padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-                            children: [
-                              if (regular.isNotEmpty) ...[
-                                _sectionTitle('Regular plans', isDark),
-                                const SizedBox(height: 10),
-                                ...regular.map((p) => _planCard(context, p, isDark)),
-                                const SizedBox(height: 20),
-                              ],
-                              if (trial.isNotEmpty) ...[
-                                _sectionTitle('Trial plans', isDark),
-                                const SizedBox(height: 10),
-                                ...trial.map((p) => _planCard(context, p, isDark, isTrial: true)),
-                              ],
-                            ],
-                          ),
-              ),
-            ],
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(CupertinoIcons.xmark_circle_fill),
+                ),
+              ],
+            ),
           ),
-        );
-      },
+          if (_adding)
+            const LinearProgressIndicator(minHeight: 2, color: AppTheme.primaryColor),
+          Expanded(
+            child: loading
+                ? Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: PlanCatalogSkeleton(isDark: isDark),
+                  )
+                : forSize.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            'No plans are published for this meal size yet.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: isDark ? Colors.white70 : AppTheme.textSecondaryLight,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      )
+                    : ListView(
+                        controller: scrollController,
+                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+                        children: [
+                          if (regular.isNotEmpty) ...[
+                            _sectionTitle('Regular plans', isDark),
+                            const SizedBox(height: 10),
+                            ...regular.map((p) => _planCard(context, p, isDark)),
+                            const SizedBox(height: 20),
+                          ],
+                          if (trial.isNotEmpty) ...[
+                            _sectionTitle('Trial plans', isDark),
+                            const SizedBox(height: 10),
+                            ...trial.map((p) => _planCard(context, p, isDark, isTrial: true)),
+                          ],
+                        ],
+                      ),
+          ),
+        ],
+      ),
     );
   }
 

@@ -250,33 +250,106 @@ class WeeklyMealCardSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        color: Theme.of(context).brightness == Brightness.dark
-            ? AppTheme.surfaceDark
-            : Colors.white,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SkeletonBone(height: imageHeight, borderRadius: const BorderRadius.vertical(top: Radius.circular(16))),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SkeletonBone(width: 72, height: 12, borderRadius: BorderRadius.circular(6)),
-                const SizedBox(height: 8),
-                SkeletonBone(width: double.infinity, height: 16, borderRadius: BorderRadius.circular(6)),
-                const SizedBox(height: 10),
-                SkeletonBone(width: MediaQuery.sizeOf(context).width * 0.5, height: 28, borderRadius: BorderRadius.circular(12)),
-              ],
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final width = MediaQuery.sizeOf(context).width;
+    final bool useVerticalLayout = width > 750;
+
+    if (useVerticalLayout) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.surfaceDark : Colors.white,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.grey.withValues(alpha: 0.1), width: 1.5),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SkeletonBone(
+              height: 180,
+              width: double.infinity,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
             ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      SkeletonBone(width: 50, height: 13, borderRadius: BorderRadius.circular(4)),
+                      const Spacer(),
+                      SkeletonBone(width: 80, height: 11, borderRadius: BorderRadius.circular(4)),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  SkeletonBone(width: double.infinity, height: 18, borderRadius: BorderRadius.circular(6)),
+                  const SizedBox(height: 6),
+                  SkeletonBone(width: width * 0.4, height: 18, borderRadius: BorderRadius.circular(6)),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      SkeletonBone(width: 70, height: 26, borderRadius: BorderRadius.circular(14)),
+                      const SizedBox(width: 8),
+                      SkeletonBone(width: 60, height: 26, borderRadius: BorderRadius.circular(14)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.surfaceDark : Colors.white,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.grey.withValues(alpha: 0.1), width: 1.5),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SkeletonBone(
+                width: 112,
+                height: 112,
+                borderRadius: BorderRadius.all(Radius.circular(20)),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        SkeletonBone(width: 50, height: 13, borderRadius: BorderRadius.circular(4)),
+                        const Spacer(),
+                        SkeletonBone(width: 80, height: 11, borderRadius: BorderRadius.circular(4)),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    SkeletonBone(width: double.infinity, height: 18, borderRadius: BorderRadius.circular(6)),
+                    const SizedBox(height: 6),
+                    SkeletonBone(width: width * 0.3, height: 18, borderRadius: BorderRadius.circular(6)),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        SkeletonBone(width: 70, height: 26, borderRadius: BorderRadius.circular(14)),
+                        const SizedBox(width: 8),
+                        SkeletonBone(width: 60, height: 26, borderRadius: BorderRadius.circular(14)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-    );
+        ),
+      );
+    }
   }
 }
 

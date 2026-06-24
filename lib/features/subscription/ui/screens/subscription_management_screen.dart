@@ -13,6 +13,7 @@ import 'package:meal_app/core/utils/meal_date.dart';
 import 'package:meal_app/core/services/connectivity_service.dart';
 import 'package:meal_app/core/services/app_route_tracker.dart';
 import 'package:meal_app/features/profile/ui/screens/contact_us_screen.dart';
+import 'package:meal_app/core/widgets/responsive_layout.dart';
 
 class SubscriptionManagementScreen extends StatefulWidget {
   const SubscriptionManagementScreen({super.key});
@@ -185,9 +186,10 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
 
     return RefreshIndicator(
       onRefresh: () => provider.fetchActiveSubscriptions(force: true),
-      child: ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-      itemCount: sortedSubs.length,
+      child: ResponsiveContainer(
+        child: ListView.builder(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+          itemCount: sortedSubs.length,
       itemBuilder: (context, index) {
         final sub = sortedSubs[index];
         
@@ -339,6 +341,7 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
         );
       },
     ),
+      ),
     );
   }
 
@@ -383,9 +386,10 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
 
     return RefreshIndicator(
       onRefresh: () => provider.fetchPaymentHistory(),
-      child: ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-      itemCount: provider.paymentHistory.length + 1,
+      child: ResponsiveContainer(
+        child: ListView.builder(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+          itemCount: provider.paymentHistory.length + 1,
       itemBuilder: (context, index) {
         if (index == provider.paymentHistory.length) {
           // End-of-list footer
@@ -675,6 +679,7 @@ class _SubscriptionManagementScreenState extends State<SubscriptionManagementScr
           ),
         );
       },
+      ),
       ),
     );
   }

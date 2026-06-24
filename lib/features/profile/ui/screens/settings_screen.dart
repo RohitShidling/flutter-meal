@@ -25,6 +25,7 @@ import 'package:meal_app/features/announcements/ui/screens/announcements_screen.
 import 'package:meal_app/features/profile/ui/screens/refer_earn_screen.dart';
 import 'package:meal_app/features/profile/providers/referral_provider.dart';
 import 'package:meal_app/core/storage/cache_store.dart';
+import 'package:meal_app/core/widgets/responsive_layout.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -100,9 +101,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
           ),
         ),
-        body: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
+        body: ResponsiveContainer(
+          child: ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
             _buildSectionHeader('Profile Details', isDark),
             _buildNavigationTile(
               context,
@@ -268,6 +270,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _buildDeleteAccountButton(context, authProvider),
           ],
         ),
+      ),
         bottomNavigationBar: BuuttiiFooterNav(
           currentIndex: 3,
           onHomeTap: () => Navigator.of(context).popUntil((route) => route.isFirst),

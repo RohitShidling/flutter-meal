@@ -13,7 +13,7 @@ String getFullImageUrl(String? url) {
   return '${ApiEndpoints.baseUrl}/$url';
 }
 
-Widget bulkMenuImage(String? imageUrl) {
+Widget bulkMenuImage(String? imageUrl, {double height = 180}) {
   if (imageUrl == null || imageUrl.isEmpty) return const SizedBox.shrink();
   return ClipRRect(
     borderRadius: BorderRadius.circular(12),
@@ -22,15 +22,15 @@ Widget bulkMenuImage(String? imageUrl) {
       child: CachedNetworkImage(
         imageUrl: getFullImageUrl(imageUrl),
         width: double.infinity,
-        height: 180,
+        height: height,
         fit: BoxFit.contain,
-        placeholder: (_, __) => const SizedBox(
-          height: 180,
+        placeholder: (_, __) => SizedBox(
+          height: height,
           width: double.infinity,
-          child: Center(child: CupertinoActivityIndicator()),
+          child: const Center(child: CupertinoActivityIndicator()),
         ),
         errorWidget: (_, __, ___) => SizedBox(
-          height: 180,
+          height: height,
           width: double.infinity,
           child: Center(
             child: Icon(CupertinoIcons.photo, size: 32, color: Colors.grey.withValues(alpha: 0.4)),

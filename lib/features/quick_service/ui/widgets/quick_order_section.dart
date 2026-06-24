@@ -8,7 +8,9 @@ import 'package:meal_app/features/quick_service/ui/screens/one_day_lunch_screen.
 import 'package:meal_app/features/quick_service/ui/screens/special_dishes_screen.dart';
 
 class QuickOrderSection extends StatefulWidget {
-  const QuickOrderSection({super.key});
+  const QuickOrderSection({super.key, this.forceVertical = false});
+
+  final bool forceVertical;
 
   @override
   State<QuickOrderSection> createState() => _QuickOrderSectionState();
@@ -88,6 +90,8 @@ class _QuickOrderSectionState extends State<QuickOrderSection> {
       );
     }
 
+    final isVertical = widget.forceVertical || (MediaQuery.sizeOf(context).width < 360);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
       child: Column(
@@ -124,20 +128,34 @@ class _QuickOrderSectionState extends State<QuickOrderSection> {
             ],
           ),
           const SizedBox(height: 12),
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+          if (isVertical)
+            Column(
               children: [
-                if (activeCards.length == 1)
-                  Expanded(child: activeCards[0])
-                else ...[
-                  Expanded(child: activeCards[0]),
-                  const SizedBox(width: 12),
-                  Expanded(child: activeCards[1]),
+                if (activeCards.isNotEmpty)
+                  activeCards.length == 1
+                      ? SizedBox(height: 220, child: activeCards[0])
+                      : activeCards[0],
+                if (activeCards.length > 1) ...[
+                  const SizedBox(height: 12),
+                  activeCards[1],
                 ],
               ],
+            )
+          else
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (activeCards.length == 1)
+                    Expanded(child: activeCards[0])
+                  else ...[
+                    Expanded(child: activeCards[0]),
+                    const SizedBox(width: 12),
+                    Expanded(child: activeCards[1]),
+                  ],
+                ],
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -194,40 +212,45 @@ class _OneDayLunchCard extends StatelessWidget {
             padding: const EdgeInsets.all(14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF3E8FF),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: purpleColor.withValues(alpha: 0.3)),
-                      ),
-                      child: Icon(CupertinoIcons.bag, size: 16, color: purpleColor),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'One Day Lunch',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                          color: titleColor,
+                    Row(
+                      children: [
+                        Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF3E8FF),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: purpleColor.withValues(alpha: 0.3)),
+                          ),
+                          child: Icon(CupertinoIcons.bag, size: 16, color: purpleColor),
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'One Day Lunch',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: titleColor,
+                            ),
+                          ),
+                        ),
+                        Icon(CupertinoIcons.chevron_right, size: 14, color: Colors.grey.shade500),
+                      ],
                     ),
-                    Icon(CupertinoIcons.chevron_right, size: 14, color: Colors.grey.shade500),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Choose today or tomorrow, size, time, and address.',
+                      style: TextStyle(fontSize: 13, height: 1.35, color: subtitleColor),
+                    ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Choose today or tomorrow, size, time, and address.',
-                  style: TextStyle(fontSize: 13, height: 1.35, color: subtitleColor),
-                ),
-                const Spacer(),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 10),
@@ -295,40 +318,45 @@ class _SpecialsCard extends StatelessWidget {
             padding: const EdgeInsets.all(14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: lightOrange,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: orangeColor.withValues(alpha: 0.3)),
-                      ),
-                      child: Icon(CupertinoIcons.star_fill, size: 16, color: orangeColor),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Buuttii Specials',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                          color: titleColor,
+                    Row(
+                      children: [
+                        Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            color: lightOrange,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: orangeColor.withValues(alpha: 0.3)),
+                          ),
+                          child: Icon(CupertinoIcons.star_fill, size: 16, color: orangeColor),
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Buuttii Specials',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: titleColor,
+                            ),
+                          ),
+                        ),
+                        Icon(CupertinoIcons.chevron_right, size: 14, color: Colors.grey.shade500),
+                      ],
                     ),
-                    Icon(CupertinoIcons.chevron_right, size: 14, color: Colors.grey.shade500),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Special dishes with categories, prices & quantities.',
+                      style: TextStyle(fontSize: 13, height: 1.35, color: subtitleColor),
+                    ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Special dishes with categories, prices & quantities.',
-                  style: TextStyle(fontSize: 13, height: 1.35, color: subtitleColor),
-                ),
-                const Spacer(),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 10),

@@ -24,6 +24,7 @@ import 'package:meal_app/core/widgets/cart_overlay_body.dart';
 import 'package:meal_app/core/services/app_route_tracker.dart';
 import 'package:meal_app/features/subscription/ui/widgets/plan_picker_bottom_sheet.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:meal_app/core/widgets/responsive_layout.dart';
 
 class ChildrenManagementScreen extends StatefulWidget {
   final String? renewChildId;
@@ -136,9 +137,10 @@ class _ChildrenManagementScreenState extends State<ChildrenManagementScreen> {
                   },
                   child: childrenProvider.isLoading && children.isEmpty
                       ? const Center(child: CircularProgressIndicator())
-                      : ListView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.all(20),
+                      : ResponsiveContainer(
+                          child: ListView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.all(20),
                           children: [
                             if (children.isEmpty)
                               _buildEmptyState()
@@ -168,6 +170,7 @@ class _ChildrenManagementScreenState extends State<ChildrenManagementScreen> {
                             const SizedBox(height: 40),
                           ],
                         ),
+                      ),
                 ),
               ),
             ),
@@ -397,12 +400,30 @@ class _ChildrenManagementScreenState extends State<ChildrenManagementScreen> {
   }
 
   void _showChildForm(BuildContext context, {ChildModel? child}) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _ChildForm(child: child),
-    );
+    final width = MediaQuery.sizeOf(context).width;
+    final isWide = width >= ResponsiveHelper.mobileBreakPoint;
+
+    if (isWide) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          clipBehavior: Clip.antiAlias,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: _ChildForm(child: child),
+          ),
+        ),
+      );
+    } else {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => _ChildForm(child: child),
+      );
+    }
   }
 
   void _confirmDelete(ChildModel child) {
@@ -759,26 +780,33 @@ class _ChildFormState extends State<_ChildForm> {
   @override
   Widget build(BuildContext context) {
     final lookup = context.watch<LookupProvider>();
+    final width = MediaQuery.sizeOf(context).width;
+    final isWide = width >= ResponsiveHelper.mobileBreakPoint;
 
     final formBody = Container(
-      height: MediaQuery.of(context).size.height * 0.85,
+      height: isWide ? null : MediaQuery.of(context).size.height * 0.85,
       decoration: BoxDecoration(
         color: Theme.of(context).scaffoldBackgroundColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+        borderRadius: isWide 
+            ? BorderRadius.circular(24)
+            : const BorderRadius.vertical(top: Radius.circular(30)),
       ),
       padding: EdgeInsets.only(
         left: 24, 
         right: 24, 
         top: 24, 
-        bottom: MediaQuery.of(context).viewInsets.bottom + MediaQuery.of(context).padding.bottom + 24
+        bottom: isWide 
+            ? 24 
+            : MediaQuery.of(context).viewInsets.bottom + MediaQuery.of(context).padding.bottom + 24
       ),
       child: _isLoading 
         ? const Center(child: CircularProgressIndicator())
-        : Form(
-            key: _formKey,
-            autovalidateMode: _autovalidateMode,
-        child: SingleChildScrollView(
-          child: Column(
+          : Form(
+              key: _formKey,
+              autovalidateMode: _autovalidateMode,
+              child: ResponsiveContainer(
+                child: SingleChildScrollView(
+                  child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
@@ -1191,6 +1219,7 @@ class _ChildFormState extends State<_ChildForm> {
           ),
         ),
       ),
+    ),
     );
 
     return UnsavedFormGuard(

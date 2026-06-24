@@ -109,6 +109,7 @@ class BulkVarietyMealCardState extends State<BulkVarietyMealCard> {
     final multi = widget.cfg.allowMultipleVarietyMeals && !widget.singleMealOnly;
 
     return AppleCard(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),

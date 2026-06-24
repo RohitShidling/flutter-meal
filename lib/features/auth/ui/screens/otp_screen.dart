@@ -144,10 +144,14 @@ class _OtpScreenState extends State<OtpScreen> {
           onTap: () => _otpFocusNode.requestFocus(),
           child: SafeArea(
             bottom: false,
-            child: Form(
-              key: _formKey,
-              child: Column(
-                children: [
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 450),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    children: [
                   Padding(
                     padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
                     child: Row(
@@ -220,29 +224,33 @@ class _OtpScreenState extends State<OtpScreen> {
                               ),
                             ),
                           ],
-                          const SizedBox(height: 40),
-                          Opacity(
-                            opacity: 0,
-                            child: TextFormField(
-                              controller: _otpController,
-                              focusNode: _otpFocusNode,
-                              autofocus: true,
-                              keyboardType: TextInputType.number,
-                              textInputAction: TextInputAction.done,
-                              autocorrect: false,
-                              enableSuggestions: true,
-                              onFieldSubmitted: (_) => _submit(),
-                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                              maxLength: 6,
-                              enableInteractiveSelection: true,
-                              showCursor: true,
-                              style: const TextStyle(color: Colors.transparent),
-                              decoration: const InputDecoration(
-                                border: InputBorder.none,
-                                enabledBorder: InputBorder.none,
-                                focusedBorder: InputBorder.none,
-                                contentPadding: EdgeInsets.zero,
-                                counterText: '',
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            height: 0,
+                            width: 0,
+                            child: Opacity(
+                              opacity: 0,
+                              child: TextFormField(
+                                controller: _otpController,
+                                focusNode: _otpFocusNode,
+                                autofocus: true,
+                                keyboardType: TextInputType.number,
+                                textInputAction: TextInputAction.done,
+                                autocorrect: false,
+                                enableSuggestions: true,
+                                onFieldSubmitted: (_) => _submit(),
+                                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                maxLength: 6,
+                                enableInteractiveSelection: true,
+                                showCursor: true,
+                                style: const TextStyle(color: Colors.transparent),
+                                decoration: const InputDecoration(
+                                  border: InputBorder.none,
+                                  enabledBorder: InputBorder.none,
+                                  focusedBorder: InputBorder.none,
+                                  contentPadding: EdgeInsets.zero,
+                                  counterText: '',
+                                ),
                               ),
                             ),
                           ),
@@ -361,6 +369,8 @@ class _OtpScreenState extends State<OtpScreen> {
               ),
             ),
           ),
+        ),
+      ),
         ),
       ),
     );

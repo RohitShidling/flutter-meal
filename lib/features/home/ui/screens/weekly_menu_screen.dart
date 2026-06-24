@@ -18,6 +18,7 @@ import 'package:meal_app/core/widgets/image_preview_dialog.dart';
 import 'package:meal_app/features/home/providers/menu_provider.dart';
 import 'package:meal_app/features/home/ui/widgets/bottom_footer_nav.dart';
 
+
 class WeeklyMenuScreen extends StatefulWidget {
   const WeeklyMenuScreen({super.key});
 
@@ -120,17 +121,43 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
 
   Widget _buildBody(BuildContext context, MenuProvider menuProvider, bool isDark) {
     if (menuProvider.isLoading && menuProvider.weeklyMenu.isEmpty) {
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
-        children: List.generate(
-          5,
-          (_) => const Padding(
-            padding: EdgeInsets.only(bottom: 14),
-            child: WeeklyMealCardSkeleton(),
-          ),
-        ),
-      );
+      final width = MediaQuery.sizeOf(context).width;
+      final int cols = width > 1150 ? 3 : (width > 750 ? 2 : 1);
+
+      if (cols == 1) {
+        return ListView.builder(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
+          itemCount: 5,
+          itemBuilder: (context, index) {
+            return const Padding(
+              padding: EdgeInsets.only(bottom: 14),
+              child: WeeklyMealCardSkeleton(),
+            );
+          },
+        );
+      } else {
+        final totalSkeletons = cols * 2;
+        final rowsCount = (totalSkeletons / cols).ceil();
+        return ListView.builder(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
+          itemCount: rowsCount,
+          itemBuilder: (context, rowIndex) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: List.generate(cols, (_) => const Expanded(
+                    child: WeeklyMealCardSkeleton(),
+                  )),
+                ),
+              ),
+            );
+          },
+        );
+      }
     }
 
     if (menuProvider.error != null && menuProvider.weeklyMenu.isEmpty) {
@@ -227,14 +254,57 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
       );
     }
 
-    return ListView.builder(
+    final width = MediaQuery.sizeOf(context).width;
+    final int cols = width > 1150 ? 3 : (width > 750 ? 2 : 1);
+
+    if (cols == 1) {
+      return ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
+        itemCount: menuProvider.weeklyMenu.length,
+        itemBuilder: (context, index) {
+          final menu = menuProvider.weeklyMenu[index];
+          return _buildWeeklyMealCard(context, menu, index, isDark, menuProvider.isLoading);
+        },
+      );
+    }
+
+    final menuItems = menuProvider.weeklyMenu;
+    final List<List<dynamic>> rows = [];
+    for (var i = 0; i < menuItems.length; i += cols) {
+      final List<dynamic> row = [];
+      for (var j = 0; j < cols; j++) {
+        if (i + j < menuItems.length) {
+          row.add(menuItems[i + j]);
+        }
+      }
+      rows.add(row);
+    }
+
+    return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
-      itemCount: menuProvider.weeklyMenu.length,
-      itemBuilder: (context, index) {
-        final menu = menuProvider.weeklyMenu[index];
-        return _buildWeeklyMealCard(context, menu, index, isDark, menuProvider.isLoading);
-      },
+      children: rows.map((rowItems) {
+        final rowIndex = rows.indexOf(rowItems);
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 14),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ...rowItems.map((menu) {
+                  final index = rowIndex * cols + rowItems.indexOf(menu);
+                  return Expanded(
+                    child: _buildWeeklyMealCard(context, menu, index, isDark, menuProvider.isLoading),
+                  );
+                }),
+                if (rowItems.length < cols)
+                  ...List.generate(cols - rowItems.length, (_) => const Expanded(child: SizedBox.shrink())),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -252,6 +322,139 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
         dayLabel = DateFormat('EEE').format(parsed);
         formattedDate = DateFormat('dd MMM yyyy').format(parsed);
       }
+    }
+
+    final width = MediaQuery.sizeOf(context).width;
+    final bool useVerticalLayout = width > 750;
+
+    if (useVerticalLayout) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.surfaceDark : Colors.white,
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.12 : 0.04),
+              blurRadius: 24,
+              offset: const Offset(0, 10),
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.08 : 0.02),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            GestureDetector(
+              onTap: imageUrl != null && imageUrl.isNotEmpty
+                  ? () => ImagePreviewDialog.show(context, imageUrl, title: '$dayLabel — $items')
+                  : null,
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+                child: Container(
+                  width: double.infinity,
+                  height: 180,
+                  color: isDark ? const Color(0xFF2A241E) : const Color(0xFFF4EFE4),
+                  child: imageUrl != null && imageUrl.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: imageUrl,
+                          fit: BoxFit.cover,
+                          placeholder: (_, __) => const SkeletonBone(
+                            height: 180,
+                            width: double.infinity,
+                            borderRadius: BorderRadius.zero,
+                          ),
+                          errorWidget: (_, __, ___) => const SkeletonBone(
+                            height: 180,
+                            width: double.infinity,
+                            borderRadius: BorderRadius.zero,
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        dayLabel.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? Colors.white : Colors.black87,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (formattedDate.isNotEmpty)
+                        Text(
+                          formattedDate.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: isDark ? Colors.white60 : Colors.black.withValues(alpha: 0.45),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    items,
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      height: 1.15,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 14),
+                  if (nutritionPoints.isNotEmpty)
+                    SizedBox(
+                      height: 32,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: nutritionPoints.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 8),
+                        itemBuilder: (_, i) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF2E2420) : const Color(0xFFF2ECE0),
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(
+                                color: isDark ? const Color(0xFF42342C) : const Color(0xFFE6DBC5),
+                                width: 1,
+                              ),
+                            ),
+                            child: Text(
+                              nutritionPoints[i],
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: isDark ? Colors.white : Colors.black87,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    )
+                ],
+              ),
+            ),
+          ],
+        ),
+      ).animate().fadeIn(delay: (index * 60).ms).slideY(begin: 0.03, end: 0);
     }
 
     return Container(
@@ -284,7 +487,6 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(20),
                 child: ColoredBox(
-                  // Keep the image panel warm in light mode and muted in dark mode.
                   color: isDark ? const Color(0xFF2A241E) : const Color(0xFFF4EFE4),
                   child: imageUrl != null && imageUrl.isNotEmpty
                       ? CachedNetworkImage(
@@ -316,12 +518,12 @@ class _WeeklyMenuScreenState extends State<WeeklyMenuScreen> {
                     children: [
                       Text(
                         dayLabel.toUpperCase(),
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: isDark ? Colors.white : Colors.black87,
-                            letterSpacing: 0.3,
-                          ),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? Colors.white : Colors.black87,
+                          letterSpacing: 0.3,
+                        ),
                       ),
                       const Spacer(),
                       if (formattedDate.isNotEmpty)

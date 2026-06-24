@@ -225,40 +225,107 @@ class _CartScreenState extends State<CartScreen> {
           ? const Center(child: CircularProgressIndicator())
           : items.isEmpty
               ? _buildEmptyCart(isDark)
-              : Column(
-                  children: [
-                    Expanded(
-                      child: RefreshIndicator(
-                        onRefresh: () => cartProvider.fetchCart(force: true),
-                        child: ListView.builder(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.all(20),
-                          itemCount: items.length,
-                          itemBuilder: (context, index) {
-                            return _buildCartItem(
-                                  context,
-                                  items[index],
-                                  index,
-                                  isDark,
-                                  cartProvider,
-                                  _planForItem(items[index], subscriptionPlans),
-                                )
-                                .animate().fadeIn(delay: (index * 100).ms).slideX(begin: 0.1, end: 0);
-                          },
-                        ),
-                      ),
-                    ),
-                    Builder(
-                      builder: (context) {
-                        final displayError = _localError ?? cartProvider.error;
-                        if (displayError != null && displayError.isNotEmpty) {
-                          return _buildErrorBanner(displayError, isDark);
-                        }
-                        return const SizedBox.shrink();
-                      }
-                    ),
-                    _buildCheckoutBar(context, cartProvider, isDark),
-                  ],
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isWide = constraints.maxWidth > 800;
+                    if (isWide) {
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 6,
+                            child: RefreshIndicator(
+                              onRefresh: () => cartProvider.fetchCart(force: true),
+                              child: ListView.builder(
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                padding: const EdgeInsets.all(20),
+                                itemCount: items.length,
+                                itemBuilder: (context, index) {
+                                  return _buildCartItem(
+                                        context,
+                                        items[index],
+                                        index,
+                                        isDark,
+                                        cartProvider,
+                                        _planForItem(items[index], subscriptionPlans),
+                                      )
+                                      .animate().fadeIn(delay: (index * 100).ms).slideX(begin: 0.1, end: 0);
+                                },
+                              ),
+                            ),
+                          ),
+                          const VerticalDivider(width: 1, thickness: 1),
+                          Expanded(
+                            flex: 5,
+                            child: SingleChildScrollView(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                children: [
+                                  Builder(
+                                    builder: (context) {
+                                      final displayError = _localError ?? cartProvider.error;
+                                      if (displayError != null && displayError.isNotEmpty) {
+                                        return _buildErrorBanner(displayError, isDark);
+                                      }
+                                      return const SizedBox.shrink();
+                                    }
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.all(20),
+                                    decoration: BoxDecoration(
+                                      color: isDark ? AppTheme.surfaceDark : Colors.white,
+                                      borderRadius: BorderRadius.circular(24),
+                                      border: Border.all(
+                                        color: isDark ? AppTheme.borderDark : AppTheme.borderLight,
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    child: _buildCheckoutBarContent(context, cartProvider, isDark),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    } else {
+                      return Column(
+                        children: [
+                          Expanded(
+                            child: RefreshIndicator(
+                              onRefresh: () => cartProvider.fetchCart(force: true),
+                              child: ListView.builder(
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                padding: const EdgeInsets.all(20),
+                                itemCount: items.length,
+                                itemBuilder: (context, index) {
+                                  return _buildCartItem(
+                                        context,
+                                        items[index],
+                                        index,
+                                        isDark,
+                                        cartProvider,
+                                        _planForItem(items[index], subscriptionPlans),
+                                      )
+                                      .animate().fadeIn(delay: (index * 100).ms).slideX(begin: 0.1, end: 0);
+                                },
+                              ),
+                            ),
+                          ),
+                          Builder(
+                            builder: (context) {
+                              final displayError = _localError ?? cartProvider.error;
+                              if (displayError != null && displayError.isNotEmpty) {
+                                return _buildErrorBanner(displayError, isDark);
+                              }
+                              return const SizedBox.shrink();
+                            }
+                          ),
+                          _buildCheckoutBar(context, cartProvider, isDark),
+                        ],
+                      );
+                    }
+                  },
                 ),
       ),
     );
@@ -512,10 +579,6 @@ class _CartScreenState extends State<CartScreen> {
 
   Widget _buildCheckoutBar(BuildContext context, CartProvider cartProvider, bool isDark) {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final pay = context.watch<PaymentProvider>();
-
-
-
     return Container(
       padding: EdgeInsets.fromLTRB(24, 20, 24, bottomPadding > 0 ? bottomPadding + 10 : 20),
       decoration: BoxDecoration(
@@ -528,110 +591,115 @@ class _CartScreenState extends State<CartScreen> {
           ),
         ),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Payment Summary',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  color: isDark ? Colors.white : AppTheme.textPrimaryLight,
-                ),
-              ),
-              InkWell(
-                onTap: () => _showBillDetailsBottomSheet(context, cartProvider, isDark),
-                borderRadius: BorderRadius.circular(8),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'View Details',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.primaryColor,
-                        ),
-                      ),
-                      const SizedBox(width: 2),
-                      Icon(
-                        CupertinoIcons.chevron_right,
-                        size: 14,
-                        color: AppTheme.primaryColor,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          WalletCheckoutSection(
-            useWallet: _useWallet,
-            onUseWalletChanged: _onUseWalletChanged,
-            walletBalance: pay.walletBalance,
-            walletApplied: _walletApplied,
-            gatewayAmount: _gatewayAmount,
-            totalAmount: cartProvider.totalAmount,
-            loadingPreview: _loadingWalletPreview,
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  '${cartProvider.itemCount} ${cartProvider.itemCount == 1 ? 'item' : 'items'}',
-                  style: TextStyle(fontSize: 14, color: isDark ? Colors.white54 : AppTheme.textSecondaryLight),
-                ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  if (_useWallet && (_walletApplied ?? 0) > 0) ...[
-                    Text(
-                      'Order total ₹${cartProvider.totalAmount.toStringAsFixed(0)}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        decoration: TextDecoration.lineThrough,
-                        color: isDark ? Colors.white38 : AppTheme.textSecondaryLight,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                  ],
-                  Text(
-                    _useWallet && (_walletApplied ?? 0) > 0 ? 'You pay now' : 'Total amount',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
-                  ),
-                  Text(
-                    '₹${_amountDueNow(cartProvider).toStringAsFixed(0)}',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: isDark ? Colors.white : AppTheme.textPrimaryLight),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: cartProvider.isLoading ? null : () => _handleCheckout(cartProvider),
-              style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))),
-              child: Text(
-                _amountDueNow(cartProvider) <= 0.009 && _useWallet
-                    ? 'Complete with wallet'
-                    : 'Pay ₹${_amountDueNow(cartProvider).toStringAsFixed(0)}',
-                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+      child: _buildCheckoutBarContent(context, cartProvider, isDark),
+    );
+  }
+
+  Widget _buildCheckoutBarContent(BuildContext context, CartProvider cartProvider, bool isDark) {
+    final pay = context.watch<PaymentProvider>();
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Payment Summary',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: isDark ? Colors.white : AppTheme.textPrimaryLight,
               ),
             ),
+            InkWell(
+              onTap: () => _showBillDetailsBottomSheet(context, cartProvider, isDark),
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'View Details',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                    Icon(
+                      CupertinoIcons.chevron_right,
+                      size: 14,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        WalletCheckoutSection(
+          useWallet: _useWallet,
+          onUseWalletChanged: _onUseWalletChanged,
+          walletBalance: pay.walletBalance,
+          walletApplied: _walletApplied,
+          gatewayAmount: _gatewayAmount,
+          totalAmount: cartProvider.totalAmount,
+          loadingPreview: _loadingWalletPreview,
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Text(
+                '${cartProvider.itemCount} ${cartProvider.itemCount == 1 ? 'item' : 'items'}',
+                style: TextStyle(fontSize: 14, color: isDark ? Colors.white54 : AppTheme.textSecondaryLight),
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if (_useWallet && (_walletApplied ?? 0) > 0) ...[
+                  Text(
+                    'Order total ₹${cartProvider.totalAmount.toStringAsFixed(0)}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      decoration: TextDecoration.lineThrough,
+                      color: isDark ? Colors.white38 : AppTheme.textSecondaryLight,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                ],
+                Text(
+                  _useWallet && (_walletApplied ?? 0) > 0 ? 'You pay now' : 'Total amount',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
+                ),
+                Text(
+                  '₹${_amountDueNow(cartProvider).toStringAsFixed(0)}',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: isDark ? Colors.white : AppTheme.textPrimaryLight),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: cartProvider.isLoading ? null : () => _handleCheckout(cartProvider),
+            style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))),
+            child: Text(
+              _amountDueNow(cartProvider) <= 0.009 && _useWallet
+                  ? 'Complete with wallet'
+                  : 'Pay ₹${_amountDueNow(cartProvider).toStringAsFixed(0)}',
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+            ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
