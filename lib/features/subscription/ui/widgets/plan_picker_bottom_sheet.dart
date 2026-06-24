@@ -120,7 +120,12 @@ class _PlanPickerSheetState extends State<_PlanPickerSheet> {
       final profileProvider = context.read<ProfileProvider>();
       final teacher = profileProvider.teacherProfiles.where((p) => p.id == widget.entityId).firstOrNull;
       if (teacher != null) {
-        final school = lookup.schools.where((s) => s.name == teacher.schoolCollegeName).firstOrNull;
+        // AUDIT-056: Prefer stable school_id lookup; fall back to name-match for
+        // legacy profiles that pre-date the school_id field.
+        final school = (teacher.schoolId != null && teacher.schoolId!.isNotEmpty)
+            ? lookup.schools.where((s) => s.id == teacher.schoolId).firstOrNull ??
+              lookup.schools.where((s) => s.name == teacher.schoolCollegeName).firstOrNull
+            : lookup.schools.where((s) => s.name == teacher.schoolCollegeName).firstOrNull;
         return school?.extraAmount ?? 0.0;
       }
     } else if (widget.entityType == 'professional') {

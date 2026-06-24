@@ -139,8 +139,9 @@ class AppUpdateService {
       debugPrint('[AppUpdate] Download install status updated: $status');
       installStatusNotifier.value = status;
       if (status == InstallStatus.downloaded) {
-        if (!context.mounted) return;
-        _showRestartSnackBar(context);
+        if (context.mounted) {
+          _showRestartSnackBar(context);
+        }
         _installSubscription?.cancel();
         _installSubscription = null;
       }

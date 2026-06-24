@@ -11,6 +11,19 @@ class ChildrenProvider with ChangeNotifier {
 
   ChildrenProvider(this._repository) {
     _loadFromCache();
+    NetworkStatusService.instance.addQueueReplayedListener(_onQueueReplayed);
+  }
+
+  @override
+  void dispose() {
+    NetworkStatusService.instance.removeQueueReplayedListener(_onQueueReplayed);
+    super.dispose();
+  }
+
+  void _onQueueReplayed() {
+    _lastFetchedAt = null;
+    CacheStore.remove('children_list');
+    fetchChildren(force: true, silent: true);
   }
 
   List<ChildModel> _children = [];

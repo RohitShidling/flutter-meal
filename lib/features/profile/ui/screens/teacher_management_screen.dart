@@ -448,6 +448,7 @@ class _TeacherFormState extends State<_TeacherForm> {
   late TextEditingController _cityController;
   late TextEditingController _stateController;
   late TextEditingController _timeController;
+  late TextEditingController _timeDisplayController;
   late String _initialSnapshot;
 
   SchoolModel? _selectedSchool;
@@ -511,6 +512,7 @@ class _TeacherFormState extends State<_TeacherForm> {
     _stateController = TextEditingController(text: widget.profile?.state);
     final backendTime = TimeUtils.tryParseToBackend(widget.profile?.mealTime);
     _timeController = TextEditingController(text: backendTime ?? '');
+    _timeDisplayController = TextEditingController(text: TimeUtils.formatToDisplay(_timeController.text));
     _initialSnapshot = '';
 
     if (widget.profile != null) {
@@ -575,6 +577,7 @@ class _TeacherFormState extends State<_TeacherForm> {
     _cityController.dispose();
     _stateController.dispose();
     _timeController.dispose();
+    _timeDisplayController.dispose();
     super.dispose();
   }
 
@@ -615,6 +618,7 @@ class _TeacherFormState extends State<_TeacherForm> {
       }
       setState(() {
         _timeController.text = TimeUtils.toBackendFormat(picked);
+        _timeDisplayController.text = TimeUtils.formatToDisplay(_timeController.text);
       });
     }
   }
@@ -986,7 +990,7 @@ class _TeacherFormState extends State<_TeacherForm> {
                     onTap: () => _selectTime(),
                     child: IgnorePointer(
                       child: TextFormField(
-                        controller: TextEditingController(text: TimeUtils.formatToDisplay(_timeController.text)),
+                        controller: _timeDisplayController,
                         decoration: InputDecoration(
                           labelText: 'Meal Time',
                           hintText: DeliveryTimeWindow.hint(lookup.deliveryTimeSettings) ?? 'Select delivery time',

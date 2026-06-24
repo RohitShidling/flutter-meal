@@ -128,6 +128,8 @@ class BulkMenuOption {
   final String? imageUrl;
   final double? pricePerMeal;
   final int minOrderQuantity;
+  // AUDIT-024: Persistent category ID used for stable cart restore (avoids brittle name matching).
+  final String? categoryId;
 
   BulkMenuOption({
     required this.id,
@@ -136,10 +138,12 @@ class BulkMenuOption {
     this.imageUrl,
     this.pricePerMeal,
     this.minOrderQuantity = 1,
+    this.categoryId,
   });
 
   factory BulkMenuOption.fromJson(Map<String, dynamic> json) {
     final price = json['price_per_meal'] ?? json['bulk_order_price'];
+    final catId = json['category_id'];
     return BulkMenuOption(
       id: '${json['id']}',
       menuDate: '${json['menu_date'] ?? ''}',
@@ -148,6 +152,8 @@ class BulkMenuOption {
       pricePerMeal: price == null ? null : double.tryParse('$price'),
       minOrderQuantity:
           int.tryParse('${json['min_order_quantity'] ?? 1}') ?? 1,
+      // Parse category_id if the API returns it (variety catalog endpoint).
+      categoryId: catId != null ? '$catId' : null,
     );
   }
 
@@ -158,5 +164,6 @@ class BulkMenuOption {
         'image_url': imageUrl,
         'price_per_meal': pricePerMeal,
         'min_order_quantity': minOrderQuantity,
+        if (categoryId != null) 'category_id': categoryId,
       };
 }

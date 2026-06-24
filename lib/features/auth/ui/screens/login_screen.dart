@@ -845,7 +845,9 @@ class _LoginScreenState extends State<LoginScreen> {
               textInputAction: TextInputAction.done,
               maxLength: 10,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              onFieldSubmitted: (_) => _submitLogin(),
+              onFieldSubmitted: (_) => context.read<AuthProvider>().authMode == AuthMode.register
+                  ? _submitRegister()
+                  : _submitLogin(),
               validator: (value) {
                 if (value == null || value.isEmpty) {
                   return 'Please enter your WhatsApp number';

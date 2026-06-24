@@ -68,7 +68,10 @@ class DioClient {
     if (kReleaseMode && _pinnedCertFingerprints.isNotEmpty) {
       _dio.httpClientAdapter = IOHttpClientAdapter(
         createHttpClient: () {
-          final client = HttpClient();
+          // Empty trusted roots context forces cert verification failures,
+          // ensuring badCertificateCallback runs for all SSL connections.
+          final context = SecurityContext(withTrustedRoots: false);
+          final client = HttpClient(context: context);
           client.badCertificateCallback =
               (X509Certificate cert, String host, int port) {
             // Compute the SHA-256 fingerprint of the presented certificate.

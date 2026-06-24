@@ -408,6 +408,7 @@ class _ProfessionalFormState extends State<_ProfessionalForm> {
   late TextEditingController _nameController;
   late TextEditingController _phoneController;
   late TextEditingController _timeController;
+  late TextEditingController _timeDisplayController;
   late String _initialSnapshot;
 
   CorporateLocationModel? _selectedCorporateLocation;
@@ -467,6 +468,7 @@ class _ProfessionalFormState extends State<_ProfessionalForm> {
     _phoneController = TextEditingController(text: widget.profile?.phoneNumber);
     final backendTime = TimeUtils.tryParseToBackend(widget.profile?.lunchTime);
     _timeController = TextEditingController(text: backendTime ?? '');
+    _timeDisplayController = TextEditingController(text: TimeUtils.formatToDisplay(_timeController.text));
     _initialSnapshot = '';
 
     if (widget.profile != null) {
@@ -528,6 +530,7 @@ class _ProfessionalFormState extends State<_ProfessionalForm> {
     _nameController.dispose();
     _phoneController.dispose();
     _timeController.dispose();
+    _timeDisplayController.dispose();
     super.dispose();
   }
 
@@ -568,6 +571,7 @@ class _ProfessionalFormState extends State<_ProfessionalForm> {
       }
       setState(() {
         _timeController.text = TimeUtils.toBackendFormat(picked);
+        _timeDisplayController.text = TimeUtils.formatToDisplay(_timeController.text);
       });
     }
   }
@@ -930,7 +934,7 @@ class _ProfessionalFormState extends State<_ProfessionalForm> {
                     onTap: () => _selectTime(),
                     child: IgnorePointer(
                       child: TextFormField(
-                        controller: TextEditingController(text: TimeUtils.formatToDisplay(_timeController.text)),
+                        controller: _timeDisplayController,
                         decoration: InputDecoration(
                           labelText: 'Lunch Time',
                           hintText: DeliveryTimeWindow.hint(lookup.deliveryTimeSettings) ?? 'Select lunch delivery time',

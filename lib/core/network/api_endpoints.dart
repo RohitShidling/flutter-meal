@@ -160,4 +160,5 @@ class ApiEndpoints {
   static const String referralRewards = '/api/client/referrals/rewards';
   static const String applyReferralCode = '/api/client/referrals/apply-code';
   static const String allocateReferral = '/api/client/referrals/allocate';
+  static const String allocateReferralMultiple = '/api/client/referrals/allocate-multiple';
 }

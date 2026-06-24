@@ -43,7 +43,7 @@ class WalletPaymentFlow {
       'sdkError': sdkResult['error'],
     };
 
-    if (status != 'SUCCESS' && paymentRepository != null) {
+    if (status != 'SUCCESS' && status != 'PENDING' && paymentRepository != null) {
       await abandonPendingPayment(paymentRepository, paymentData);
     }
 

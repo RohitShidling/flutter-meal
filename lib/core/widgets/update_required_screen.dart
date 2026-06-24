@@ -20,19 +20,24 @@ class _UpdateRequiredScreenState extends State<UpdateRequiredScreen> {
     setState(() => _isLaunching = true);
 
     try {
-      final packageInfo = await PackageInfo.fromPlatform();
-      final packageName = packageInfo.packageName;
-      
-      final marketUri = Uri.parse('market://details?id=$packageName');
-      final webUri = Uri.parse('https://play.google.com/store/apps/details?id=$packageName');
-
-      if (Platform.isAndroid && await canLaunchUrl(marketUri)) {
-        await launchUrl(marketUri);
+      if (Platform.isIOS) {
+        final iOSStoreUri = Uri.parse('https://apps.apple.com/us/app/buuttii/id6780753777');
+        await launchUrl(iOSStoreUri, mode: LaunchMode.externalApplication);
       } else {
-        await launchUrl(webUri, mode: LaunchMode.externalApplication);
+        final packageInfo = await PackageInfo.fromPlatform();
+        final packageName = packageInfo.packageName;
+        
+        final marketUri = Uri.parse('market://details?id=$packageName');
+        final webUri = Uri.parse('https://play.google.com/store/apps/details?id=$packageName');
+
+        if (Platform.isAndroid && await canLaunchUrl(marketUri)) {
+          await launchUrl(marketUri);
+        } else {
+          await launchUrl(webUri, mode: LaunchMode.externalApplication);
+        }
       }
     } catch (e) {
-      debugPrint('[ForceUpdate] Failed to open Play Store: $e');
+      debugPrint('[ForceUpdate] Failed to open store: $e');
     } finally {
       if (mounted) setState(() => _isLaunching = false);
     }
