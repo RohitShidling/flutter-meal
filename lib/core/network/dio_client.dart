@@ -7,6 +7,7 @@ import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:meal_app/core/network/api_endpoints.dart';
 import 'package:meal_app/core/providers/session_provider.dart';
 import 'package:meal_app/core/services/network_status_service.dart';
@@ -31,20 +32,16 @@ class DioClient {
     return _appVersionCode!;
   }
 
-  /// SHA-256 fingerprints of the production API server certificate(s).
-  /// Add backup fingerprints here to ensure service continuity during
-  /// routine certificate rotations. Format: uppercase hex with colons.
-  /// Example: 'A1:B2:C3:D4:E5:F6:...'
-  ///
-  /// To obtain your certificate fingerprint, run:
-  /// ```sh
-  /// openssl s_client -connect <your-api-host>:443 < /dev/null 2>/dev/null \
-  ///   | openssl x509 -fingerprint -sha256 -noout
-  /// ```
-  static const List<String> _pinnedCertFingerprints = [
-    // TODO: Replace with your production API certificate SHA-256 fingerprint(s).
-    // 'AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99',
-  ];
+  /// SHA-256 fingerprints of the production API server certificate(s) loaded dynamically from environment.
+  static List<String> get _pinnedCertFingerprints {
+    final raw = dotenv.env['SSL_PINNED_FINGERPRINTS'];
+    if (raw == null || raw.trim().isEmpty) return [];
+    return raw
+        .split(',')
+        .map((s) => s.trim().toUpperCase())
+        .where((s) => s.isNotEmpty)
+        .toList();
+  }
 
   static void resetSessionGate() {
     _sessionRecoveryFailed = false;
