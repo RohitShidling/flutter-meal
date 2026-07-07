@@ -525,7 +525,10 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
     final DateTime? start = DateTime.tryParse(startStr);
     final DateTime? end = DateTime.tryParse(endStr);
 
-    final isFuture = start != null && start.isAfter(DateTime.now());
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final isFuture = start != null && start.isAfter(today);
+    final isCompleted = end != null && today.isAfter(end);
     final isActive = status == 'approved' || status == 'active';
 
     Color statusColor;
@@ -540,6 +543,10 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
         statusColor = const Color(0xFFF59E0B);
         statusIcon = CupertinoIcons.clock_fill;
         statusLabel = 'Upcoming';
+      } else if (isCompleted) {
+        statusColor = Colors.grey;
+        statusIcon = CupertinoIcons.checkmark_circle;
+        statusLabel = 'Completed';
       } else {
         statusColor = const Color(0xFF10B981);
         statusIcon = CupertinoIcons.checkmark_circle_fill;
