@@ -561,8 +561,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         showCupertinoDialog(
           context: context,
           builder: (dialogContext) => CupertinoAlertDialog(
-            title: const Text('Delete Account'),
-            content: const Text('Are you sure you want to permanently delete your account? This action cannot be undone.'),
+            title: const Text('Request Deletion'),
+            content: const Text('Are you sure you want to request account deletion? Your account will be deactivated immediately and permanently deleted after 7 days. Logging back in during this period will cancel the deletion request.'),
             actions: [
               CupertinoDialogAction(
                 child: const Text('Cancel'),
@@ -594,7 +594,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Your account has been deleted successfully.'),
+                        content: Text('Account deletion scheduled. Your account will be permanently deleted after 7 days.'),
                         backgroundColor: Colors.green,
                       ),
                     );
