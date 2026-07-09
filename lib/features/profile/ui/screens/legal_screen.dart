@@ -15,7 +15,7 @@ class LegalScreen extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return DefaultTabController(
-      length: 3,
+      length: 4,
       initialIndex: initialTabIndex,
       child: Scaffold(
         appBar: AppBar(
@@ -28,6 +28,8 @@ class LegalScreen extends StatelessWidget {
             onPressed: () => Navigator.pop(context),
           ),
           bottom: TabBar(
+            isScrollable: true,
+            tabAlignment: TabAlignment.center,
             indicatorColor: AppTheme.primaryColor,
             labelColor: AppTheme.primaryColor,
             unselectedLabelColor: isDark ? Colors.white54 : AppTheme.textSecondaryLight,
@@ -36,6 +38,7 @@ class LegalScreen extends StatelessWidget {
               Tab(text: 'Terms'),
               Tab(text: 'Privacy'),
               Tab(text: 'Refunds'),
+              Tab(text: 'Shipping/Delivery'),
             ],
           ),
         ),
@@ -46,6 +49,7 @@ class LegalScreen extends StatelessWidget {
               _buildTermsTab(context, isDark),
               _buildPrivacyTab(context, isDark),
               _buildRefundTab(context, isDark),
+              _buildShippingTab(context, isDark),
             ],
           ),
         ),
@@ -90,8 +94,8 @@ class LegalScreen extends StatelessWidget {
           isDark: isDark,
         ),
         _buildSectionCard(
-          title: 'Refund Processing Timelines',
-          content: 'In case of any refunds approved by Buuttii, it will take 1 business day for the refund to be processed to you.\n\nIn case of duplicate transactions or payment failures where the bank account/card is charged but the order is not confirmed on the platform, the duplicate/failed transaction amount is typically auto-refunded by the respective payment gateway or the issuing bank. If the amount is not credited back, users can contact us at contact@buuttii.com with payment proof.',
+          title: 'Refund Processing & Timelines',
+          content: 'Once a refund request is approved by Buuttii, the refund will be processed back to the original payment source method (such as credit/debit card, UPI, net banking, or wallet used to make the purchase).\n\nBuuttii initiates and processes the refund within 1 business day of approval. However, please note that the time taken for the amount to reflect in your bank account or card balance depends on your banking institution\'s processing cycles, typically taking 5 to 7 business days.\n\nIn case of duplicate transactions or payment failures where the bank account/card is charged but the order is not confirmed on the platform, the duplicate/failed transaction amount is typically auto-refunded by the respective payment gateway or the issuing bank. If the amount is not credited back, users can contact us at contact@buuttii.com with payment proof.',
           isDark: isDark,
         ),
         _buildSectionCard(
@@ -349,6 +353,57 @@ class LegalScreen extends StatelessWidget {
           fontSize: 10,
         ),
       ),
+    );
+  }
+
+  Widget _buildShippingTab(BuildContext context, bool isDark) {
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      children: [
+        _buildDocumentHeader(
+          title: 'Shipping & Delivery Policy',
+          lastUpdated: 'July 6, 2026',
+          version: 'v1.0',
+          isDark: isDark,
+        ),
+        const SizedBox(height: 24),
+        _buildSectionCard(
+          title: 'Overview',
+          content: 'Buuttii is a meal delivery service, not a product shipping company. We prepare fresh meals daily and deliver them directly to schools, educational institutions, and corporate workplaces in the Hubli-Dharwad region of Karnataka through our own trained delivery personnel.\n\nWe do not ship packaged goods via courier or postal services. All deliveries are made in-person by our delivery team on fixed daily routes.',
+          isDark: isDark,
+        ),
+        _buildSectionCard(
+          title: 'Delivery Areas',
+          content: 'Meal deliveries are currently available only within the Hubli-Dharwad region of Karnataka, India. We serve:\n• School campuses and educational institutions\n• Corporate offices and workplace complexes\n• Other institutions within our active delivery routes\n\nUsers must confirm delivery coverage for their specific address within the Buuttii mobile application before activating a subscription plan. Please note that for delivery locations that are relatively far from our central kitchen facility, additional delivery charges may apply, and delivery times may require a slightly wider window to guarantee fresh delivery. Any extra delivery fees will be clearly displayed during plan customization or checkout in the app.\n\nAs a reminder, Buuttii is a fresh daily hot lunch delivery service, and not a physical cargo or goods shipping provider.',
+          isDark: isDark,
+        ),
+        _buildSectionCard(
+          title: 'Schedules & Timings',
+          content: 'Meals are freshly prepared each morning and dispatched on fixed daily delivery routes. Delivery timing is aligned with school lunch hours and standard office break times.\n\nExact delivery time windows are displayed in the Buuttii app and are estimates. Slight variations may occur depending on route traffic or operational conditions.',
+          isDark: isDark,
+        ),
+        _buildSectionCard(
+          title: 'Packaging & Delivery Method',
+          content: 'All meals are delivered in high-grade, reusable stainless steel tiffin containers to ensure food stays warm, fresh, and hygienic — with no single-use plastic waste.\n\nOur delivery personnel will collect your previous day\'s empty tiffin container and hand over a fresh, filled one at each delivery. Users are responsible for keeping the tiffin clean and ready for pickup at the time of delivery.',
+          isDark: isDark,
+        ),
+        _buildSectionCard(
+          title: 'User Responsibility',
+          content: 'To ensure smooth daily delivery, users must:\n• Provide accurate and complete delivery details — institution name, building/floor, classroom or department, and a reachable contact number.\n• Ensure that the recipient (or a designated person) is available at the delivery point during the scheduled delivery window.\n• Have the previous day\'s cleaned stainless steel tiffin ready for collection at the time of the next delivery.\n\nDelivery failures caused by incorrect address details, unavailability of the recipient, or failure to return the tiffin do not qualify for a refund.',
+          isDark: isDark,
+        ),
+        _buildSectionCard(
+          title: 'Order Cutoff Time',
+          content: 'To place or modify an order for the next day\'s delivery, all requests must be submitted before the daily cutoff time as displayed in the Buuttii mobile application. Orders or modifications made after the cutoff time will be applied to the following delivery cycle.',
+          isDark: isDark,
+        ),
+        _buildSectionCard(
+          title: 'Delays & Disruptions',
+          content: 'Delivery may be delayed or temporarily suspended due to:\n• Extreme weather conditions or natural events\n• Traffic restrictions or road closures\n• Sudden school/office holidays or unexpected closures\n• Public strikes or force majeure events beyond our control\n\nIn such cases, affected subscribers will be notified as early as possible via the Buuttii app, WhatsApp, or SMS. Eligible credits or adjustments will be applied to your subscription in accordance with our Refund & Cancellation Policy.',
+          isDark: isDark,
+        ),
+        const SizedBox(height: 20),
+      ],
     );
   }
 
