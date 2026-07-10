@@ -531,6 +531,8 @@ class _MealSkipScreenState extends State<MealSkipScreen> {
     final isCompleted = end != null && today.isAfter(end);
     final isActive = status == 'approved' || status == 'active';
 
+    debugPrint('MEAL_SKIP_DEBUG: id=${skip['id']} start=$startStr->$start end=$endStr->$end today=$today isCompleted=$isCompleted status=$status');
+
     Color statusColor;
     IconData statusIcon;
     String statusLabel = status;

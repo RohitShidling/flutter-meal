@@ -680,7 +680,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final titles = [
       'Premium Nutrition',
       '6-Day Trial Plan',
-      'Flexible Subscriptions',
+      'One-Day Lunch Orders',
       'Authentic Indian Tiffins',
       'Zero Hassle Delivery'
     ];
@@ -688,7 +688,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final subtitles = [
       'Nutritious home-style meals crafted for everyday wellness.',
       'Try fresh daily meals for 6 days before committing.',
-      'Choose from convenient weekly or monthly meal plans.',
+      'Order fresh hot lunches whenever you need them.',
       'Authentic Indian tiffins prepared with quality ingredients.',
       'Delivered reliably to your workplace, school, or doorstep.'
     ];
