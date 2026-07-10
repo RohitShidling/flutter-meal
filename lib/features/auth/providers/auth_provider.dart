@@ -96,7 +96,17 @@ class AuthProvider with ChangeNotifier {
   Future<void> _checkAuthStatus() async {
     // Stay on [initial] until we know the session — so the splash can paint.
     // [loading] is reserved for user-triggered actions (OTP, etc.).
-    final isAuthenticated = await _authRepository.isAuthenticated();
+    // Timeout after 3 seconds to avoid a permanently stuck splash on iOS if
+    // the Keychain is slow to respond (e.g. right after device reboot).
+    bool isAuthenticated = false;
+    try {
+      isAuthenticated = await _authRepository
+          .isAuthenticated()
+          .timeout(const Duration(seconds: 3));
+    } catch (_) {
+      // Timeout or Keychain error — treat as unauthenticated and show login.
+      isAuthenticated = false;
+    }
     if (isAuthenticated) {
       _phoneNumber = await _authRepository.getPhoneNumber() ?? '';
       _username = await _authRepository.getUsername() ?? '';
